@@ -663,6 +663,45 @@ async function listApprovers() {
 // AUTHENTICATION
 // ============================================
 
+// Sign up with email and password
+async function signUp({ email, password, name }) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name: name || email.split('@')[0] },
+      },
+    });
+    if (error) throw error;
+
+    // Check if email confirmation is required
+    if (data.user && !data.session) {
+      return {
+        ok: true,
+        needsVerification: true,
+        message: 'Check your email for verification link',
+      };
+    }
+
+    window.__currentUserEmail = data.user?.email;
+
+    // Create or fetch user profile
+    if (data.user) {
+      await ensureUserProfile(data.user, name);
+    }
+
+    return { ok: true, user: data.user };
+  } catch (error) {
+    Logger.error(error, 'signUp');
+    return { ok: false, error: error.message };
+  }
+}
+
+// Sign in with email and password
 async function login({ email, password }) {
   await initSupabase();
   if (!supabase) throw new Error('Supabase not initialized');
@@ -680,6 +719,107 @@ async function login({ email, password }) {
   } catch (error) {
     Logger.error(error, 'login');
     return { ok: false, error: error.message };
+  }
+}
+
+// Sign in with magic link (passwordless)
+async function signInWithMagicLink({ email }) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin + window.location.pathname,
+      },
+    });
+    if (error) throw error;
+
+    return { ok: true, message: 'Check your email for the sign-in link' };
+  } catch (error) {
+    Logger.error(error, 'signInWithMagicLink');
+    return { ok: false, error: error.message };
+  }
+}
+
+// Get current session
+async function getSession() {
+  await initSupabase();
+  if (!supabase) return null;
+
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session;
+  } catch (error) {
+    Logger.error(error, 'getSession');
+    return null;
+  }
+}
+
+// Listen for auth state changes
+function onAuthStateChange(callback) {
+  if (!supabase) {
+    initSupabase().then(() => {
+      if (supabase) {
+        supabase.auth.onAuthStateChange((event, session) => {
+          window.__currentUserEmail = session?.user?.email || null;
+          callback(event, session);
+        });
+      }
+    });
+    return () => {};
+  }
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((event, session) => {
+    window.__currentUserEmail = session?.user?.email || null;
+    callback(event, session);
+  });
+
+  return () => subscription?.unsubscribe();
+}
+
+// Ensure user profile exists in user_profiles table
+async function ensureUserProfile(authUser, name) {
+  await initSupabase();
+  if (!supabase || !authUser) return null;
+
+  try {
+    // Check if profile exists
+    const { data: existing } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('auth_user_id', authUser.id)
+      .single();
+
+    if (existing) return existing;
+
+    // Create new profile
+    const { data: newProfile, error } = await supabase
+      .from('user_profiles')
+      .insert({
+        auth_user_id: authUser.id,
+        email: authUser.email,
+        name: name || authUser.user_metadata?.name || authUser.email.split('@')[0],
+        status: 'active',
+        features: ['calendar', 'kanban', 'approvals', 'ideas', 'linkedin', 'testing'],
+      })
+      .select()
+      .single();
+
+    if (error) {
+      Logger.error(error, 'ensureUserProfile');
+      return null;
+    }
+
+    return newProfile;
+  } catch (error) {
+    Logger.error(error, 'ensureUserProfile');
+    return null;
   }
 }
 
@@ -993,8 +1133,13 @@ function mapGuidelinesToDb(guidelines) {
         updateProfile,
         listApprovers,
         // Auth
+        signUp,
         login,
+        signInWithMagicLink,
         logout,
+        getSession,
+        onAuthStateChange,
+        ensureUserProfile,
         acceptInvite,
         changePassword,
         // Audit

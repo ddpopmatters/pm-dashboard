@@ -1,5 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { LoginScreen } from './components/auth/LoginScreen';
 import {
   ALL_PLATFORMS,
   ASSET_TYPES,
@@ -6904,13 +6905,22 @@ function ContentDashboard() {
     setAuthError('');
     try {
       let payload = null;
-      if (window.api && window.api.enabled && window.api.getCurrentUser) {
-        payload = await window.api.getCurrentUser();
-      } else {
+      if (window.api && window.api.enabled) {
+        // Check for Supabase session first
+        const session = await window.api.getSession?.();
+        if (session?.user) {
+          // Ensure user profile exists and fetch it
+          await window.api.ensureUserProfile?.(session.user);
+          payload = await window.api.getCurrentUser();
+        }
+      }
+      if (!payload) {
+        // Fallback to legacy API
         const res = await fetch('/api/user', { method: 'GET' });
         if (!res.ok) throw new Error(`AUTH_HTTP_${res.status}`);
         payload = await res.json();
       }
+      if (!payload) throw new Error('No user payload');
       const nextName =
         payload?.name && String(payload.name).trim().length
           ? String(payload.name).trim()
@@ -6932,7 +6942,7 @@ function ContentDashboard() {
       setCurrentUserHasPassword(false);
       setUserList([]);
       setAccessModalUser(null);
-      setAuthError('Unable to verify your session. Please sign in below.');
+      setAuthError('');
       setAuthStatus(inviteToken ? 'invite' : 'login');
       setProfileMenuOpen(false);
     }
@@ -8879,73 +8889,25 @@ function ContentDashboard() {
   }
 
   if (authStatus === 'login') {
-    return (
-      <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-4 py-16 text-ocean-900">
-        <div className="rounded-3xl border border-aqua-200 bg-white p-8 shadow-2xl">
-          <h1 className="heading-font text-3xl font-semibold text-ocean-600">Content Dashboard</h1>
-          <p className="mt-2 text-sm text-graystone-600">
-            Sign in with the email address you were invited with. You'll stay signed in on this
-            device.
-          </p>
-          {authError ? (
-            <div className="mt-3 rounded-2xl bg-amber-50 px-4 py-2 text-xs text-amber-800">
-              {authError}
-            </div>
-          ) : null}
-          <form className="mt-6 space-y-4" onSubmit={submitLogin}>
-            <div className="space-y-2">
-              <Label className="text-sm text-graystone-600" htmlFor="login-email">
-                Email
-              </Label>
-              <Input
-                id="login-email"
-                type="email"
-                autoComplete="email"
-                value={loginEmail}
-                onChange={(event) => setLoginEmail(event.target.value)}
-                className="w-full rounded-2xl border border-graystone-200 px-4 py-3 text-sm focus:border-ocean-500 focus:ring-2 focus:ring-aqua-200"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm text-graystone-600" htmlFor="login-password">
-                Password
-              </Label>
-              <Input
-                id="login-password"
-                type="password"
-                autoComplete="current-password"
-                value={loginPassword}
-                onChange={(event) => setLoginPassword(event.target.value)}
-                className="w-full rounded-2xl border border-graystone-200 px-4 py-3 text-sm focus:border-ocean-500 focus:ring-2 focus:ring-aqua-200"
-              />
-            </div>
-            {loginError ? (
-              <div className="text-xs text-rose-700">{loginError}</div>
-            ) : (
-              <div className="text-xs text-graystone-500">
-                Forgot your password? Ask an admin to resend your invitation.
-              </div>
-            )}
-            <Button type="submit" className="w-full">
-              Enter dashboard
-            </Button>
-          </form>
-          <button
-            type="button"
-            className="mt-4 text-xs text-ocean-600 underline"
-            onClick={() => {
-              setInviteToken('');
-              retryAuth();
-            }}
-          >
-            Having trouble? Retry session check
-          </button>
-        </div>
-        <p className="mt-6 text-center text-xs text-graystone-500">
-          Tip: approvals are filtered automatically so you only see what needs your sign-off.
-        </p>
-      </div>
-    );
+    const handleAuthChange = ({ user, profile }) => {
+      if (profile) {
+        const nextName =
+          profile?.name && String(profile.name).trim().length
+            ? String(profile.name).trim()
+            : String(profile?.email || user?.email || '');
+        setCurrentUser(nextName);
+        setCurrentUserEmail(String(profile?.email || user?.email || ''));
+        setCurrentUserAvatar(String(profile?.avatarUrl || profile?.avatar_url || ''));
+        setCurrentUserFeatures(ensureFeaturesList(profile?.features));
+        setCurrentUserIsAdmin(Boolean(profile?.isAdmin || profile?.is_admin));
+        setCurrentUserHasPassword(true);
+        setAuthStatus('ready');
+      } else {
+        // Re-fetch user data
+        hydrateCurrentUser();
+      }
+    };
+    return <LoginScreen onAuthChange={handleAuthChange} />;
   }
 
   if (authStatus === 'loading') {
