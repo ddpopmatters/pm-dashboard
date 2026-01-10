@@ -124,8 +124,8 @@ const fetchAccessIdentity = async (request: Request, env: Env) => {
     const res = await fetch(url, {
       method: 'GET',
       headers: {
-        'cf-access-client-id': env.ACCESS_CLIENT_ID,
-        'cf-access-client-secret': env.ACCESS_CLIENT_SECRET,
+        'cf-access-client-id': env.ACCESS_CLIENT_ID!,
+        'cf-access-client-secret': env.ACCESS_CLIENT_SECRET!,
         'cf-access-jwt-assertion': assertion,
       },
     });
