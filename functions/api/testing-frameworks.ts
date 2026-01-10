@@ -1,11 +1,6 @@
 import { authorizeRequest } from './_auth';
-
-const ok = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
-
-const uuid = () =>
-  crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36);
-const nowIso = () => new Date().toISOString();
+import { jsonResponse as ok, uuid, nowIso } from '../lib/response';
+import { sanitizeText, sanitizeMultilineText, sanitizeOptionalText } from '../lib/sanitize';
 
 export const onRequestGet = async ({ request, env }: { request: Request; env: any }) => {
   const auth = await authorizeRequest(request, env);
@@ -28,13 +23,13 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: a
   )
     .bind(
       id,
-      b.name.trim(),
-      b.hypothesis || '',
-      b.audience || '',
-      b.metric || '',
-      b.duration || '',
-      b.status || 'Planned',
-      b.notes || '',
+      sanitizeText(b.name),
+      sanitizeMultilineText(b.hypothesis),
+      sanitizeOptionalText(b.audience),
+      sanitizeOptionalText(b.metric),
+      sanitizeOptionalText(b.duration),
+      sanitizeOptionalText(b.status, 'Planned'),
+      sanitizeMultilineText(b.notes),
       createdAt,
     )
     .run();
@@ -57,13 +52,13 @@ export const onRequestPut = async ({ request, env }: { request: Request; env: an
     `UPDATE testing_frameworks SET name=?, hypothesis=?, audience=?, metric=?, duration=?, status=?, notes=? WHERE id=?`,
   )
     .bind(
-      b.name ?? existing.name,
-      b.hypothesis ?? existing.hypothesis,
-      b.audience ?? existing.audience,
-      b.metric ?? existing.metric,
-      b.duration ?? existing.duration,
-      b.status ?? existing.status,
-      b.notes ?? existing.notes,
+      b.name !== undefined ? sanitizeText(b.name) : existing.name,
+      b.hypothesis !== undefined ? sanitizeMultilineText(b.hypothesis) : existing.hypothesis,
+      b.audience !== undefined ? sanitizeOptionalText(b.audience) : existing.audience,
+      b.metric !== undefined ? sanitizeOptionalText(b.metric) : existing.metric,
+      b.duration !== undefined ? sanitizeOptionalText(b.duration) : existing.duration,
+      b.status !== undefined ? sanitizeOptionalText(b.status, 'Planned') : existing.status,
+      b.notes !== undefined ? sanitizeMultilineText(b.notes) : existing.notes,
       id,
     )
     .run();

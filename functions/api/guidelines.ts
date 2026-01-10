@@ -1,4 +1,5 @@
 import { authorizeRequest } from './_auth';
+import { jsonResponse as ok, str, parseJson } from '../lib/response';
 
 const DEFAULTS = {
   charLimits: {
@@ -18,30 +19,17 @@ const DEFAULTS = {
   teamsWebhookUrl: '',
 };
 
-const ok = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
-
 export const onRequestGet = async ({ request, env }: { request: Request; env: any }) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   if (!env.DB) return ok({ id: 'default', ...DEFAULTS });
   const row = await env.DB.prepare("SELECT * FROM guidelines WHERE id='default'").first();
   if (!row) return ok({ id: 'default', ...DEFAULTS });
-  const parse = (s: string | null) => {
-    try {
-      return s ? JSON.parse(s) : undefined;
-    } catch {
-      return undefined;
-    }
-  };
   return ok({
     id: row.id,
-    charLimits: parse(row.charLimits) ?? DEFAULTS.charLimits,
-    bannedWords: parse(row.bannedWords) ?? DEFAULTS.bannedWords,
-    requiredPhrases: parse(row.requiredPhrases) ?? DEFAULTS.requiredPhrases,
+    charLimits: parseJson(row.charLimits) ?? DEFAULTS.charLimits,
+    bannedWords: parseJson(row.bannedWords) ?? DEFAULTS.bannedWords,
+    requiredPhrases: parseJson(row.requiredPhrases) ?? DEFAULTS.requiredPhrases,
     languageGuide: row.languageGuide ?? DEFAULTS.languageGuide,
     hashtagTips: row.hashtagTips ?? DEFAULTS.hashtagTips,
     teamsWebhookUrl: row.teamsWebhookUrl ?? DEFAULTS.teamsWebhookUrl,
@@ -53,7 +41,6 @@ export const onRequestPut = async ({ request, env }: { request: Request; env: an
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const b = await request.json().catch(() => null);
   if (!b) return ok({ error: 'Invalid JSON' }, 400);
-  const s = (v: any) => JSON.stringify(v ?? null);
   const languageGuide = typeof b.languageGuide === 'string' ? b.languageGuide : '';
   const hashtagTips = typeof b.hashtagTips === 'string' ? b.hashtagTips : '';
   const teamsWebhookUrl = typeof b.teamsWebhookUrl === 'string' ? b.teamsWebhookUrl : '';
@@ -61,9 +48,9 @@ export const onRequestPut = async ({ request, env }: { request: Request; env: an
     "INSERT OR REPLACE INTO guidelines (id,charLimits,bannedWords,requiredPhrases,languageGuide,hashtagTips,teamsWebhookUrl) VALUES ('default',?,?,?,?,?,?)",
   )
     .bind(
-      s(b.charLimits),
-      s(b.bannedWords),
-      s(b.requiredPhrases),
+      str(b.charLimits),
+      str(b.bannedWords),
+      str(b.requiredPhrases),
       languageGuide,
       hashtagTips,
       teamsWebhookUrl,

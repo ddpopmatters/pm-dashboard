@@ -1,24 +1,16 @@
 import { authorizeRequest } from './_auth';
+import { jsonResponse as ok, uuid, nowIso, str, parseJson } from '../lib/response';
+import { sanitizeMultilineText, sanitizeOptionalText } from '../lib/sanitize';
 
-const ok = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
-
-const uuid = () =>
-  crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36);
-
-const nowIso = () => new Date().toISOString();
-
-const str = (v: any) => JSON.stringify(v ?? null);
-
-const parseJson = (s: string | null | undefined) => {
-  try {
-    return s ? JSON.parse(s) : undefined;
-  } catch {
-    return undefined;
+const sanitizePlatformCaptions = (captions: unknown): Record<string, string> => {
+  if (!captions || typeof captions !== 'object') return {};
+  const result: Record<string, string> = {};
+  for (const [platform, caption] of Object.entries(captions as Record<string, unknown>)) {
+    if (typeof caption === 'string') {
+      result[platform] = sanitizeMultilineText(caption);
+    }
   }
+  return result;
 };
 
 const inflate = (row: any) => {
@@ -96,24 +88,24 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: a
       entryId,
       b.date,
       str(b.platforms),
-      b.assetType || 'Design',
-      b.caption || '',
-      str(b.platformCaptions),
-      b.firstComment || '',
-      b.status || 'Pending',
+      sanitizeOptionalText(b.assetType, 'Design'),
+      sanitizeMultilineText(b.caption),
+      str(sanitizePlatformCaptions(b.platformCaptions)),
+      sanitizeMultilineText(b.firstComment),
+      sanitizeOptionalText(b.status, 'Pending'),
       str(b.approvers),
       authorName,
-      b.campaign || '',
-      b.contentPillar || '',
+      sanitizeOptionalText(b.campaign),
+      sanitizeOptionalText(b.contentPillar),
       b.previewUrl || '',
       str(b.checklist),
       str(b.analytics),
-      b.workflowStatus || 'Draft',
-      b.statusDetail || '',
+      sanitizeOptionalText(b.workflowStatus, 'Draft'),
+      sanitizeOptionalText(b.statusDetail),
       str(b.aiFlags),
       str(b.aiScore),
       b.testingFrameworkId || '',
-      b.testingFrameworkName || '',
+      sanitizeOptionalText(b.testingFrameworkName),
       createdAt,
       updatedAt,
     )
@@ -157,28 +149,32 @@ export const onRequestPut = async ({ request, env }: { request: Request; env: an
     .bind(
       b.date ?? existing.date,
       str(b.platforms ?? parseJson(existing.platforms)),
-      b.assetType ?? existing.assetType,
-      b.caption ?? existing.caption,
-      str(b.platformCaptions ?? parseJson(existing.platformCaptions)),
-      b.firstComment ?? existing.firstComment,
+      hasField('assetType') ? sanitizeOptionalText(b.assetType, 'Design') : existing.assetType,
+      hasField('caption') ? sanitizeMultilineText(b.caption) : existing.caption,
+      hasField('platformCaptions')
+        ? str(sanitizePlatformCaptions(b.platformCaptions))
+        : existing.platformCaptions,
+      hasField('firstComment') ? sanitizeMultilineText(b.firstComment) : existing.firstComment,
       status,
       str(b.approvers ?? parseJson(existing.approvers)),
       typeof b.author === 'string' && b.author.trim()
-        ? b.author.trim()
-        : (existing.author && typeof existing.author === 'string' && existing.author.trim()
-            ? existing.author.trim()
-            : existing.author) || 'Unknown',
-      b.campaign ?? existing.campaign,
-      b.contentPillar ?? existing.contentPillar,
+        ? sanitizeOptionalText(b.author, 'Unknown')
+        : existing.author || 'Unknown',
+      hasField('campaign') ? sanitizeOptionalText(b.campaign) : existing.campaign,
+      hasField('contentPillar') ? sanitizeOptionalText(b.contentPillar) : existing.contentPillar,
       b.previewUrl ?? existing.previewUrl,
       str(b.checklist ?? parseJson(existing.checklist)),
       str(b.analytics ?? parseJson(existing.analytics)),
-      b.workflowStatus ?? existing.workflowStatus,
-      b.statusDetail ?? existing.statusDetail,
+      hasField('workflowStatus')
+        ? sanitizeOptionalText(b.workflowStatus, 'Draft')
+        : existing.workflowStatus,
+      hasField('statusDetail') ? sanitizeOptionalText(b.statusDetail) : existing.statusDetail,
       str(b.aiFlags ?? parseJson(existing.aiFlags)),
       str(b.aiScore ?? parseJson(existing.aiScore)),
       b.testingFrameworkId ?? existing.testingFrameworkId,
-      b.testingFrameworkName ?? existing.testingFrameworkName,
+      hasField('testingFrameworkName')
+        ? sanitizeOptionalText(b.testingFrameworkName)
+        : existing.testingFrameworkName,
       updatedAt,
       approvedAt,
       id,

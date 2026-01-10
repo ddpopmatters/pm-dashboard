@@ -1,19 +1,11 @@
 import { authorizeRequest } from './_auth';
-
-const ok = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
-
-const uuid = () =>
-  crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36);
-const nowIso = () => new Date().toISOString();
-const str = (v: any) => JSON.stringify(v ?? null);
-const parseJson = (s: string | null | undefined) => {
-  try {
-    return s ? JSON.parse(s) : undefined;
-  } catch {
-    return undefined;
-  }
-};
+import { jsonResponse as ok, uuid, nowIso, str, parseJson } from '../lib/response';
+import {
+  sanitizeText,
+  sanitizeMultilineText,
+  sanitizeOptionalText,
+  sanitizeLinks,
+} from '../lib/sanitize';
 
 const inflate = (row: any) =>
   row && {
@@ -59,13 +51,13 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: a
   )
     .bind(
       id,
-      b.type || 'Other',
-      b.title,
-      b.notes || '',
-      str(b.links),
+      sanitizeOptionalText(b.type, 'Other'),
+      sanitizeText(b.title),
+      sanitizeMultilineText(b.notes),
+      str(sanitizeLinks(b.links)),
       str(b.attachments),
-      b.inspiration || '',
-      b.createdBy || 'Unknown',
+      sanitizeMultilineText(b.inspiration),
+      sanitizeOptionalText(b.createdBy, 'Unknown'),
       createdAt,
       b.targetDate || '',
       targetMonth,
@@ -93,13 +85,13 @@ export const onRequestPut = async ({ request, env }: { request: Request; env: an
     `UPDATE ideas SET type=?, title=?, notes=?, links=?, attachments=?, inspiration=?, createdBy=?, targetDate=?, targetMonth=? WHERE id=?`,
   )
     .bind(
-      b.type ?? existing.type,
-      b.title ?? existing.title,
-      b.notes ?? existing.notes,
-      str(b.links ?? parseJson(existing.links)),
+      b.type !== undefined ? sanitizeOptionalText(b.type, 'Other') : existing.type,
+      b.title !== undefined ? sanitizeText(b.title) : existing.title,
+      b.notes !== undefined ? sanitizeMultilineText(b.notes) : existing.notes,
+      b.links !== undefined ? str(sanitizeLinks(b.links)) : existing.links,
       str(b.attachments ?? parseJson(existing.attachments)),
-      b.inspiration ?? existing.inspiration,
-      b.createdBy ?? existing.createdBy,
+      b.inspiration !== undefined ? sanitizeMultilineText(b.inspiration) : existing.inspiration,
+      b.createdBy !== undefined ? sanitizeOptionalText(b.createdBy, 'Unknown') : existing.createdBy,
       b.targetDate ?? existing.targetDate,
       nextTargetMonth,
       id,

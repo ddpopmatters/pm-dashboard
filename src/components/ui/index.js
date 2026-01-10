@@ -8,3 +8,4 @@ export { Badge } from './Badge';
 export { Modal, ModalHeader, ModalContent, ModalFooter } from './Modal';
 export { Toggle } from './Toggle';
 export { Separator } from './Separator';
+export { Toast, ToastContainer } from './Toast';

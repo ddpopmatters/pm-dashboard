@@ -1,11 +1,5 @@
 import { authorizeRequest } from './_auth';
-
-const ok = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
-
-const uuid = () =>
-  crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36);
-const nowIso = () => new Date().toISOString();
+import { jsonResponse as ok, uuid, nowIso } from '../lib/response';
 
 export const onRequestGet = async ({ request, env }: { request: Request; env: any }) => {
   const auth = await authorizeRequest(request, env);

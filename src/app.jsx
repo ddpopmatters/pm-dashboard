@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { LoginScreen } from './components/auth/LoginScreen';
+import { CalendarView } from './features/calendar/CalendarView';
 import {
   ALL_PLATFORMS,
   ASSET_TYPES,
@@ -25,6 +26,20 @@ import {
   TESTING_STATUSES,
   WORKFLOW_STAGES,
 } from './constants';
+import {
+  cx,
+  uuid,
+  daysInMonth,
+  monthStartISO,
+  monthEndISO,
+  isoFromParts,
+  isOlderThanDays,
+  ensureArray,
+  normalizeEmail,
+  extractMentions,
+  storageAvailable,
+  STORAGE_KEYS,
+} from './lib/utils';
 
 const { useState, useMemo, useEffect, useCallback, useRef } = React;
 const DEFAULT_FEATURES = FEATURE_OPTIONS.map((option) => option.key);
@@ -64,29 +79,13 @@ const normalizeUserValue = (value) => {
 };
 const DEFAULT_USER_RECORDS = DEFAULT_USERS.map(normalizeUserValue);
 
-const normalizeEmail = (value) => {
-  if (!value) return '';
-  return String(value).trim().toLowerCase();
-};
-
-const STORAGE_KEY = 'pm-content-dashboard-v1';
-const USER_STORAGE_KEY = 'pm-content-dashboard-user';
-const NOTIFICATIONS_STORAGE_KEY = 'pm-content-dashboard-notifications';
-const IDEAS_STORAGE_KEY = 'pm-content-dashboard-ideas';
-const LINKEDIN_STORAGE_KEY = 'pm-content-dashboard-linkedin';
-const TESTING_STORAGE_KEY = 'pm-content-dashboard-testing';
-const storageAvailable =
-  typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-const cx = (...xs) => xs.filter(Boolean).join(' ');
-const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
-const monthStartISO = (d) => new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
-const monthEndISO = (d) =>
-  new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
-const uuid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
-const isOlderThanDays = (iso, days) => Date.now() - new Date(iso).getTime() > days * 864e5;
-const isoFromParts = (year, monthIndex, day) =>
-  `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-const ensureArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
+// Storage key aliases for backward compatibility
+const STORAGE_KEY = STORAGE_KEYS.ENTRIES;
+const USER_STORAGE_KEY = STORAGE_KEYS.USER;
+const NOTIFICATIONS_STORAGE_KEY = STORAGE_KEYS.NOTIFICATIONS;
+const IDEAS_STORAGE_KEY = STORAGE_KEYS.IDEAS;
+const LINKEDIN_STORAGE_KEY = STORAGE_KEYS.LINKEDIN;
+const TESTING_STORAGE_KEY = STORAGE_KEYS.TESTING;
 const determineWorkflowStatus = ({ approvers = [], assetType = 'No asset', previewUrl = '' }) => {
   const hasApprovers = Array.isArray(approvers) && approvers.length > 0;
   const needsVisual =
@@ -495,13 +494,6 @@ const mergePerformanceData = (entries, dataset) => {
   summary.updatedEntryCount = summary.updatedEntries.length;
   const resultEntries = mutated ? nextEntries : entries;
   return { nextEntries: resultEntries, summary };
-};
-
-const extractMentions = (text) => {
-  if (!text) return [];
-  const matches = text.match(/@([A-Z][\w.&'-]*(?:\s+[A-Z][\w.&'-]*){0,2})/g);
-  if (!matches) return [];
-  return Array.from(new Set(matches.map((token) => token.trim())));
 };
 
 const ensurePlatformCaptions = (value) => {
@@ -1903,19 +1895,6 @@ const MultiSelect = ({ placeholder, value, onChange, options }) => {
     </div>
   );
 };
-
-const PlatformFilter = ({ value, onChange }) => (
-  <MultiSelect
-    placeholder="All platforms"
-    value={value}
-    onChange={onChange}
-    options={ALL_PLATFORMS.map((platform) => ({
-      value: platform,
-      label: platform,
-      icon: <PlatformIcon platform={platform} />,
-    }))}
-  />
-);
 
 const ApproverMulti = ({ value, onChange, options = DEFAULT_APPROVERS }) => (
   <MultiSelect
@@ -4726,55 +4705,6 @@ function MonthGrid({ days, month, year, entries, onApprove, onDelete, onOpen }) 
   );
 }
 
-function AssetMixPie({ counts, total }) {
-  const palette = {
-    Video: '#2563eb',
-    Design: '#1d4ed8',
-    Carousel: '#60a5fa',
-  };
-  const entries = ['Video', 'Design', 'Carousel']
-    .map((type) => ({ type, value: counts[type] || 0 }))
-    .filter((item) => item.value > 0);
-  if (!entries.length || !total) return null;
-  let cumulative = 0;
-  const segments = entries.map(({ type, value }) => {
-    const start = (cumulative / total) * 100;
-    cumulative += value;
-    const end = (cumulative / total) * 100;
-    const color = palette[type] || '#2563eb';
-    return `${color} ${start}% ${end}%`;
-  });
-  const gradient = `conic-gradient(${segments.join(', ')})`;
-
-  cumulative = 0;
-  return (
-    <div className="flex items-center gap-4">
-      <div
-        className="h-16 w-16 rounded-full border border-aqua-200"
-        style={{ background: gradient }}
-      />
-      <div className="space-y-1 text-xs text-graystone-600">
-        {entries.map(({ type, value }) => {
-          const color = palette[type] || '#2563eb';
-          const percentage = Math.round((value / total) * 100);
-          return (
-            <div key={type} className="flex items-center gap-2">
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{ backgroundColor: color }}
-              />
-              <span className="font-medium text-graystone-700">{type}</span>
-              <span>
-                {value} ({percentage}% )
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 function MiniCalendar({ monthCursor, entries, onPreviewEntry }) {
@@ -5105,93 +5035,6 @@ function EntryPreviewModal({
         </div>
       </div>
     </Modal>
-  );
-}
-
-function AssetRatioCard({ summary, monthLabel, pendingAssetType, goals, onGoalsChange }) {
-  const baseCounts = summary?.counts || {};
-  const total = summary?.total || 0;
-  const counts = useMemo(() => {
-    if (pendingAssetType) {
-      return {
-        ...baseCounts,
-        [pendingAssetType]: (baseCounts[pendingAssetType] || 0) + 1,
-      };
-    }
-    return baseCounts;
-  }, [baseCounts, pendingAssetType]);
-  const adjustedTotal = total + (pendingAssetType ? 1 : 0);
-  const types = ['Video', 'Design', 'Carousel'];
-
-  const goalTotal =
-    Object.values(goals || {}).reduce((acc, value) => acc + Number(value || 0), 0) || 100;
-  const normalizedGoals = types.reduce((acc, type) => {
-    const raw = Number(goals?.[type] || 0);
-    acc[type] = goalTotal ? Math.round((raw / goalTotal) * 100) : 0;
-    return acc;
-  }, {});
-
-  const handleGoalChange = (type, value) => {
-    const next = Math.max(0, Math.min(100, Number(value) || 0));
-    onGoalsChange?.({
-      ...goals,
-      [type]: next,
-    });
-  };
-
-  return (
-    <Card className="shadow-md">
-      <CardHeader>
-        <CardTitle className="text-base text-ocean-900">Asset ratio</CardTitle>
-        <p className="text-xs text-graystone-500">{monthLabel}</p>
-      </CardHeader>
-      <CardContent>
-        {adjustedTotal === 0 ? (
-          <p className="text-sm text-graystone-500">No assets scheduled for this month yet.</p>
-        ) : (
-          <>
-            <div className="mb-4 flex justify-center">
-              <AssetMixPie counts={counts} total={adjustedTotal} />
-            </div>
-            <div className="space-y-2 text-xs">
-              {types.map((type) => {
-                const value = counts[type] || 0;
-                const percent = value === 0 ? 0 : Math.round((value / adjustedTotal) * 100);
-                const goalPercent = normalizedGoals[type] || 0;
-                return (
-                  <div key={type} className="flex items-center justify-between gap-3">
-                    <div>
-                      <span className="font-medium text-graystone-700">{type}</span>
-                      <span className="ml-1 text-graystone-400">| goal {goalPercent}%</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-graystone-600">
-                        {percent}% ({value})
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={goals?.[type] ?? 0}
-                        onChange={(event) => handleGoalChange(type, event.target.value)}
-                        className="dropdown-font w-16 rounded-full border border-black px-3 py-1 text-xs"
-                        aria-label={`Goal percentage for ${type}`}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-        {pendingAssetType ? (
-          <p className="mt-4 text-[11px] text-graystone-500">
-            Includes current draft tagged as{' '}
-            <span className="font-semibold">{pendingAssetType}</span>.
-          </p>
-        ) : null}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -9762,231 +9605,16 @@ function ContentDashboard() {
               case 'plan':
                 if (!canUseCalendar) return null;
                 return (
-                  <Card className="shadow-xl">
-                    <CardHeader>
-                      <div className="flex flex-col gap-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <CardTitle className="text-xl text-ocean-900">Calendar</CardTitle>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setMonthCursor(
-                                  new Date(
-                                    monthCursor.getFullYear(),
-                                    monthCursor.getMonth() - 1,
-                                    1,
-                                  ),
-                                )
-                              }
-                            >
-                              Prev
-                            </Button>
-                            <div className="inline-flex items-center gap-2 rounded-md border border-graystone-200 bg-white px-3 py-1 text-sm font-medium text-graystone-700 shadow-sm">
-                              <CalendarIcon className="h-4 w-4 text-graystone-500" />
-                              {monthLabel}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setMonthCursor(
-                                  new Date(
-                                    monthCursor.getFullYear(),
-                                    monthCursor.getMonth() + 1,
-                                    1,
-                                  ),
-                                )
-                              }
-                            >
-                              Next
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setPerformanceImportOpen(true)}
-                            >
-                              Import performance
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                          <div>
-                            <Label className="text-xs text-graystone-600">Asset type</Label>
-                            <select
-                              value={filterType}
-                              onChange={(event) => setFilterType(event.target.value)}
-                              className={cx(selectBaseClasses, 'mt-1 w-full')}
-                            >
-                              <option value="All">All</option>
-                              <option value="Video">Video</option>
-                              <option value="Design">Design</option>
-                              <option value="Carousel">Carousel</option>
-                            </select>
-                          </div>
-                          <div>
-                            <Label className="text-xs text-graystone-600">Status</Label>
-                            <select
-                              value={filterStatus}
-                              onChange={(event) => setFilterStatus(event.target.value)}
-                              className={cx(selectBaseClasses, 'mt-1 w-full')}
-                            >
-                              <option value="All">All</option>
-                              <option value="Pending">Pending</option>
-                              <option value="Approved">Approved</option>
-                            </select>
-                          </div>
-                          <div>
-                            <Label className="text-xs text-graystone-600">Workflow</Label>
-                            <select
-                              value={filterWorkflow}
-                              onChange={(event) => setFilterWorkflow(event.target.value)}
-                              className={cx(selectBaseClasses, 'mt-1 w-full')}
-                            >
-                              <option value="All">All</option>
-                              {KANBAN_STATUSES.map((status) => (
-                                <option key={status} value={status}>
-                                  {status}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <Label className="text-xs text-graystone-600">Platforms</Label>
-                            <div className="mt-1">
-                              <PlatformFilter
-                                value={filterPlatforms}
-                                onChange={setFilterPlatforms}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-                          <div>
-                            <Label className="text-xs text-graystone-600" htmlFor="plan-search">
-                              Search
-                            </Label>
-                            <Input
-                              id="plan-search"
-                              value={filterQuery}
-                              onChange={(event) => setFilterQuery(event.target.value)}
-                              placeholder="Search captions, campaigns, authors..."
-                              className="mt-1 w-full rounded-2xl border border-graystone-200 px-3 py-2 text-sm focus:border-ocean-500 focus:ring-2 focus:ring-aqua-200"
-                            />
-                          </div>
-                          <div className="flex items-end justify-between gap-3 rounded-2xl border border-graystone-200 bg-white px-4 py-3 text-xs text-graystone-600">
-                            <div>
-                              <div className="font-semibold text-graystone-700">
-                                Overdue approvals
-                              </div>
-                              <div>Show items past deadline.</div>
-                            </div>
-                            <Toggle
-                              id="overdue-approvals"
-                              checked={filterOverdue}
-                              onChange={setFilterOverdue}
-                              ariaLabel="Show overdue approvals only"
-                            />
-                          </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-graystone-200 bg-white px-4 py-3 text-xs text-graystone-600">
-                          <div>
-                            <div className="font-semibold text-graystone-700">
-                              Showing {monthEntries.length} of {monthEntryTotal} entries
-                            </div>
-                            <div>
-                              {activeFilterCount
-                                ? `${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active`
-                                : 'No filters applied.'}
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={resetFilters}
-                            disabled={!activeFilterCount}
-                          >
-                            Reset filters
-                          </Button>
-                        </div>
-
-                        <div className="grid grid-cols-1">
-                          <div className="rounded-2xl border border-aqua-200 bg-aqua-50 px-3 py-3">
-                            <div className="text-xs font-semibold uppercase tracking-wide text-ocean-600">
-                              Ideas for this month
-                            </div>
-                            {currentMonthIdeas.length === 0 ? (
-                              <p className="mt-2 text-xs text-graystone-500">
-                                No ideas tagged for this month yet.
-                              </p>
-                            ) : (
-                              <div className="mt-2 space-y-2">
-                                {currentMonthIdeas.map((idea) => (
-                                  <div
-                                    key={idea.id}
-                                    className="rounded-xl border border-aqua-200 bg-white px-3 py-2 text-xs text-graystone-700"
-                                  >
-                                    <div className="flex items-center justify-between gap-3">
-                                      <span className="font-semibold text-ocean-700">
-                                        {idea.title}
-                                      </span>
-                                      {idea.targetDate ? (
-                                        <span className="text-graystone-500">
-                                          {new Date(idea.targetDate).toLocaleDateString()}
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                    {idea.notes && (
-                                      <div className="mt-1 line-clamp-2 text-graystone-600">
-                                        {idea.notes}
-                                      </div>
-                                    )}
-                                    <div className="mt-1 flex items-center gap-2 text-[11px] uppercase tracking-wide text-graystone-400">
-                                      {idea.type}
-                                      {idea.links && idea.links.length > 0 && (
-                                        <a
-                                          href={idea.links[0]}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-ocean-600 hover:underline"
-                                        >
-                                          View link
-                                        </a>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(240px,0.8fr)]">
-                        <div>
-                          <MonthGrid
-                            days={days}
-                            month={monthCursor.getMonth()}
-                            year={monthCursor.getFullYear()}
-                            entries={monthEntries}
-                            onApprove={toggleApprove}
-                            onDelete={softDelete}
-                            onOpen={openEntry}
-                          />
-                        </div>
-                        <AssetRatioCard
-                          summary={assetTypeSummary}
-                          monthLabel={monthLabel}
-                          pendingAssetType={null}
-                          goals={assetGoals}
-                          onGoalsChange={setAssetGoals}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <CalendarView
+                    entries={entries}
+                    ideas={ideas}
+                    onApprove={toggleApprove}
+                    onDelete={softDelete}
+                    onOpenEntry={openEntry}
+                    onImportPerformance={() => setPerformanceImportOpen(true)}
+                    assetGoals={assetGoals}
+                    onGoalsChange={setAssetGoals}
+                  />
                 );
               case 'trash':
                 if (!canUseCalendar) return null;
