@@ -2,6 +2,9 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { CalendarView } from './features/calendar/CalendarView';
+import { ApprovalsView } from './features/approvals';
+import { KanbanView } from './features/kanban';
+import { useApi } from './hooks/useApi';
 import {
   ALL_PLATFORMS,
   ASSET_TYPES,
@@ -1492,6 +1495,7 @@ function CopyCheckSection({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [results, setResults] = useState({}); // { [platform]: { suggestion, score, flags } }
+  const api = useApi();
   const safeGuidelines =
     guidelines && typeof guidelines === 'object' ? guidelines : FALLBACK_GUIDELINES;
 
@@ -1520,16 +1524,7 @@ function CopyCheckSection({
         if (window.copyChecker && typeof window.copyChecker.runCopyCheck === 'function') {
           json = await window.copyChecker.runCopyCheck(payload);
         } else {
-          const res = await fetch('/api/copy-check', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          if (!res.ok) {
-            const j = await res.json().catch(() => ({}));
-            throw new Error(j?.error || `HTTP ${res.status}`);
-          }
-          json = await res.json();
+          json = await api.post('/api/copy-check', payload);
         }
         return { platform, data: json };
       });
@@ -2572,106 +2567,6 @@ function EntryForm({
         </form>
       </CardContent>
     </Card>
-  );
-}
-
-function KanbanBoard({ statuses, entries, onOpen, onUpdateStatus }) {
-  return (
-    <div className="overflow-x-auto pb-4">
-      <div className="flex min-w-max gap-4">
-        {statuses.map((status) => {
-          const cards = entries.filter((entry) => (entry.workflowStatus || statuses[0]) === status);
-          return (
-            <div key={status} className="w-72 shrink-0">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="text-sm font-semibold text-ocean-700">{status}</div>
-                <Badge variant="secondary">{cards.length}</Badge>
-              </div>
-              <div className="space-y-3">
-                {cards.length === 0 ? (
-                  <div className="rounded-xl border border-aqua-200 bg-aqua-50 px-3 py-4 text-xs text-graystone-500">
-                    Nothing here yet.
-                  </div>
-                ) : (
-                  cards.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="space-y-2 rounded-2xl border border-graystone-200 bg-white p-3 shadow-sm"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <Badge variant="outline">{entry.assetType}</Badge>
-                        {entry.analytics && Object.keys(entry.analytics).length ? (
-                          <span className="rounded-full bg-ocean-500/10 px-2 py-0.5 text-[11px] font-semibold text-ocean-700">
-                            Performance
-                          </span>
-                        ) : null}
-                        <select
-                          value={entry.workflowStatus || statuses[0]}
-                          onChange={(event) => onUpdateStatus(entry.id, event.target.value)}
-                          className={cx(selectBaseClasses, 'w-32 px-3 py-1 text-xs')}
-                        >
-                          {statuses.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold text-graystone-800 line-clamp-2">
-                          {entry.caption || entry.title || 'Untitled'}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1 text-[11px] text-graystone-500">
-                          {entry.campaign ? (
-                            <span className="rounded-full bg-aqua-100 px-2 py-0.5 text-ocean-700">
-                              {entry.campaign}
-                            </span>
-                          ) : null}
-                          {entry.contentPillar ? (
-                            <span className="rounded-full bg-graystone-100 px-2 py-0.5 text-graystone-700">
-                              {entry.contentPillar}
-                            </span>
-                          ) : null}
-                          {entry.testingFrameworkName ? (
-                            <span className="rounded-full bg-ocean-500/10 px-2 py-0.5 text-ocean-700">
-                              Test: {entry.testingFrameworkName}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-graystone-500">
-                        <span>{new Date(entry.date).toLocaleDateString()}</span>
-                        {entry.platforms && entry.platforms.length > 0 && (
-                          <span>{entry.platforms.join(', ')}</span>
-                        )}
-                      </div>
-                      {entry.firstComment && (
-                        <div className="rounded-xl bg-aqua-50 px-2 py-1 text-[11px] text-ocean-700 line-clamp-2">
-                          {entry.firstComment}
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onOpen(entry.id)}
-                          className="text-xs"
-                        >
-                          Open
-                        </Button>
-                        <span className="text-[11px] uppercase tracking-wide text-graystone-400">
-                          {entry.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
@@ -5315,6 +5210,7 @@ function EntryModal({
   const [timelineEntries, setTimelineEntries] = useState([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineError, setTimelineError] = useState('');
+  const api = useApi();
   const frameworkOptions = Array.isArray(testingFrameworks) ? testingFrameworks : [];
   const frameworkMap = useMemo(() => {
     const map = new Map();
@@ -5601,30 +5497,29 @@ function EntryModal({
     }
   };
 
-  const loadTimeline = useCallback(async (entryId) => {
-    if (!entryId) return;
-    setTimelineLoading(true);
-    setTimelineError('');
-    try {
-      let payload = null;
-      if (window.api && typeof window.api.listAudit === 'function') {
-        payload = await window.api.listAudit({ entryId, limit: 200 });
-      } else {
-        const res = await fetch(`/api/audit?entryId=${encodeURIComponent(entryId)}&limit=200`, {
-          method: 'GET',
-        });
-        if (!res.ok) throw new Error(`HTTP_${res.status}`);
-        payload = await res.json();
+  const loadTimeline = useCallback(
+    async (entryId) => {
+      if (!entryId) return;
+      setTimelineLoading(true);
+      setTimelineError('');
+      try {
+        let payload = null;
+        if (window.api && typeof window.api.listAudit === 'function') {
+          payload = await window.api.listAudit({ entryId, limit: 200 });
+        } else {
+          payload = await api.get(`/api/audit?entryId=${encodeURIComponent(entryId)}&limit=200`);
+        }
+        setTimelineEntries(Array.isArray(payload) ? payload : []);
+      } catch (error) {
+        console.warn('Failed to load timeline', error);
+        setTimelineEntries([]);
+        setTimelineError('Unable to load timeline right now.');
+      } finally {
+        setTimelineLoading(false);
       }
-      setTimelineEntries(Array.isArray(payload) ? payload : []);
-    } catch (error) {
-      console.warn('Failed to load timeline', error);
-      setTimelineEntries([]);
-      setTimelineError('Unable to load timeline right now.');
-    } finally {
-      setTimelineLoading(false);
-    }
-  }, []);
+    },
+    [api],
+  );
 
   const handleOpenTimeline = () => {
     if (!sanitizedEntry?.id) return;
@@ -6462,6 +6357,7 @@ function EntryModal({
 }
 
 function ContentDashboard() {
+  const api = useApi();
   const [entries, setEntries] = useState([]);
   const [monthCursor, setMonthCursor] = useState(() => new Date());
   const [viewingId, setViewingId] = useState(null);
@@ -6759,9 +6655,7 @@ function ContentDashboard() {
       }
       if (!payload) {
         // Fallback to legacy API
-        const res = await fetch('/api/user', { method: 'GET' });
-        if (!res.ok) throw new Error(`AUTH_HTTP_${res.status}`);
-        payload = await res.json();
+        payload = await api.get('/api/user');
       }
       if (!payload) throw new Error('No user payload');
       const nextName =
@@ -6789,7 +6683,7 @@ function ContentDashboard() {
       setAuthStatus(inviteToken ? 'invite' : 'login');
       setProfileMenuOpen(false);
     }
-  }, [inviteToken]);
+  }, [inviteToken, api]);
 
   useEffect(() => {
     hydrateCurrentUser();
@@ -6838,16 +6732,7 @@ function ContentDashboard() {
       if (window.api && window.api.enabled && window.api.notify) {
         return window.api.notify(payload);
       }
-      const res = await fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const detail = await res.text().catch(() => '');
-        throw new Error(detail || `HTTP_${res.status}`);
-      }
-      return res.json().catch(() => ({}));
+      return api.post('/api/notify', payload);
     };
     runSyncTask(label, action, { requiresApi: false });
   };
@@ -6867,17 +6752,7 @@ function ContentDashboard() {
         if (window.api && window.api.enabled && window.api.changePassword) {
           return window.api.changePassword(payload);
         }
-        const res = await fetch('/api/password', {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          const detail = data?.error ? String(data.error) : `HTTP_${res.status}`;
-          throw new Error(detail);
-        }
-        return data;
+        return api.put('/api/password', payload);
       };
       try {
         const response = await submit();
@@ -6889,7 +6764,7 @@ function ContentDashboard() {
         throw new Error('Unable to update password.');
       }
     },
-    [setCurrentUserHasPassword],
+    [setCurrentUserHasPassword, api],
   );
   const refreshApprovers = useCallback(async () => {
     try {
@@ -6897,9 +6772,7 @@ function ContentDashboard() {
       if (window.api && typeof window.api.listApprovers === 'function') {
         payload = await window.api.listApprovers();
       } else {
-        const res = await fetch('/api/approvers', { method: 'GET' });
-        if (!res.ok) throw new Error(`HTTP_${res.status}`);
-        payload = await res.json();
+        payload = await api.get('/api/approvers');
       }
       if (Array.isArray(payload) && payload.length) {
         setApproverDirectory(
@@ -6920,7 +6793,7 @@ function ContentDashboard() {
       console.warn('Failed to load approvers', error);
       setApproverDirectory(DEFAULT_APPROVERS);
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     refreshApprovers();
@@ -6995,13 +6868,7 @@ function ContentDashboard() {
       if (window.api && typeof window.api.updateProfile === 'function') {
         response = await window.api.updateProfile(payload);
       } else {
-        const res = await fetch('/api/user', {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error(`HTTP_${res.status}`);
-        response = await res.json();
+        response = await api.put('/api/user', payload);
       }
       if (response?.user) {
         setCurrentUser(response.user.name || desiredName);
@@ -7929,7 +7796,6 @@ function ContentDashboard() {
     return items.slice().sort((a, b) => (a.targetDate || '').localeCompare(b.targetDate || ''));
   }, [ideasByMonth, monthCursor]);
 
-  const kanbanEntries = useMemo(() => entries.filter((entry) => !entry.deletedAt), [entries]);
   const entriesByFramework = useMemo(() => {
     const map = new Map();
     entries.forEach((entry) => {
@@ -8538,7 +8404,7 @@ function ContentDashboard() {
         if (window.api && typeof window.api.logout === 'function') {
           await window.api.logout();
         } else {
-          await fetch('/api/auth', { method: 'DELETE' });
+          await api.del('/api/auth');
         }
       } catch {}
       setCurrentUser('');
@@ -8582,13 +8448,7 @@ function ContentDashboard() {
       if (window.api && typeof window.api.login === 'function') {
         response = await window.api.login({ email: normalizedEmail, password: loginPassword });
       } else {
-        const res = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ email: normalizedEmail, password: loginPassword }),
-        });
-        if (!res.ok) throw new Error(`HTTP_${res.status}`);
-        response = await res.json();
+        response = await api.post('/api/auth', { email: normalizedEmail, password: loginPassword });
       }
       const name =
         response?.user?.name && response.user.name.trim().length
@@ -8640,13 +8500,7 @@ function ContentDashboard() {
       if (window.api && typeof window.api.acceptInvite === 'function') {
         response = await window.api.acceptInvite({ token: inviteToken, password: invitePassword });
       } else {
-        const res = await fetch('/api/auth', {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ token: inviteToken, password: invitePassword }),
-        });
-        if (!res.ok) throw new Error(`HTTP_${res.status}`);
-        response = await res.json();
+        response = await api.put('/api/auth', { token: inviteToken, password: invitePassword });
       }
       const name =
         response?.user?.name && response.user.name.trim().length
@@ -9682,10 +9536,9 @@ function ContentDashboard() {
               case 'kanban':
                 if (!canUseKanban) return null;
                 return (
-                  <KanbanBoard
-                    statuses={KANBAN_STATUSES}
-                    entries={kanbanEntries}
-                    onOpen={openEntry}
+                  <KanbanView
+                    entries={entries}
+                    onOpenEntry={openEntry}
                     onUpdateStatus={updateWorkflowStatus}
                   />
                 );
@@ -9741,187 +9594,33 @@ function ContentDashboard() {
       )}
 
       {currentView === 'approvals' && canUseApprovals && (
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setCurrentView('menu');
-                  setPlanTab('plan');
-                  closeEntry();
-                }}
-              >
-                Back to menu
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  if (!canUseCalendar) return;
-                  setCurrentView('plan');
-                  setPlanTab('plan');
-                }}
-                disabled={!canUseCalendar}
-              >
-                Go to calendar
-              </Button>
-              <Badge variant="outline" className="text-xs">
-                {outstandingCount} waiting
-              </Badge>
-              {unreadMentionsCount > 0 && (
-                <Badge variant="outline" className="text-xs bg-ocean-500/10 text-ocean-700">
-                  {unreadMentionsCount} mentions
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => {
-                  setCurrentView('form');
-                  setPlanTab('plan');
-                  closeEntry();
-                  try {
-                    window.location.hash = '#create';
-                  } catch {}
-                }}
-                className="gap-2"
-              >
-                <PlusIcon className="h-4 w-4 text-white" />
-                Create content
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={handleSignOut}
-                className="heading-font text-sm normal-case"
-              >
-                Switch user
-              </Button>
-            </div>
-          </div>
-
-          <Card className="shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-lg text-ocean-900">Your Approvals</CardTitle>
-              <p className="mt-2 text-sm text-graystone-500">
-                Items assigned to you that still need approval. Click an item to review, comment, or
-                approve.
-              </p>
-            </CardHeader>
-            <CardContent>
-              {outstandingApprovals.length === 0 ? (
-                <p className="text-sm text-graystone-500">
-                  Everything looks good. Nothing needs your approval right now.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {outstandingApprovals.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="rounded-xl border border-graystone-200 bg-white px-4 py-4 shadow-sm transition hover:border-aqua-400"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline">{entry.assetType}</Badge>
-                            <span className="text-sm font-semibold text-graystone-800">
-                              {new Date(entry.date).toLocaleDateString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                                weekday: 'short',
-                              })}
-                            </span>
-                            <span className="max-w-[140px] truncate rounded-full bg-aqua-100 px-2 py-1 text-xs font-medium text-ocean-700">
-                              {entry.statusDetail}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-2 text-xs text-graystone-500">
-                            <span>Requested by {entry.author || 'Unknown'}</span>
-                            {entry.approvers?.length ? (
-                              <span>Approvers: {entry.approvers.join(', ')}</span>
-                            ) : null}
-                          </div>
-                          {entry.caption && (
-                            <p className="line-clamp-3 text-sm text-graystone-700">
-                              {entry.caption}
-                            </p>
-                          )}
-                          {(entry.campaign ||
-                            entry.contentPillar ||
-                            entry.testingFrameworkName) && (
-                            <div className="flex flex-wrap items-center gap-1 text-[11px] text-graystone-500">
-                              {entry.campaign ? (
-                                <span className="max-w-[140px] truncate rounded-full bg-aqua-100 px-2 py-0.5 text-ocean-700">
-                                  {entry.campaign}
-                                </span>
-                              ) : null}
-                              {entry.contentPillar ? (
-                                <span className="rounded-full bg-graystone-100 px-2 py-0.5 text-graystone-700">
-                                  {entry.contentPillar}
-                                </span>
-                              ) : null}
-                              {entry.testingFrameworkName ? (
-                                <span className="max-w-[160px] truncate rounded-full bg-ocean-500/10 px-2 py-0.5 text-ocean-700">
-                                  Test: {entry.testingFrameworkName}
-                                </span>
-                              ) : null}
-                            </div>
-                          )}
-                          {entry.checklist && (
-                            <div className="flex flex-wrap gap-2 text-xs text-graystone-500">
-                              {Object.entries(entry.checklist).map(([key, value]) => {
-                                const itemDef = CHECKLIST_ITEMS.find((item) => item.key === key);
-                                if (!itemDef) return null;
-                                return (
-                                  <span
-                                    key={key}
-                                    className={cx(
-                                      'inline-flex items-center gap-1 rounded-full px-2 py-1',
-                                      value
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : 'bg-graystone-100 text-graystone-500',
-                                    )}
-                                  >
-                                    {value ? (
-                                      <CheckCircleIcon className="h-3 w-3 text-emerald-600" />
-                                    ) : (
-                                      <LoaderIcon className="h-3 w-3 text-graystone-400 animate-none" />
-                                    )}
-                                    {itemDef.label}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              toggleApprove(entry.id);
-                            }}
-                            className="gap-2"
-                          >
-                            <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
-                            Mark approved
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => openEntry(entry.id)}
-                            className="gap-2"
-                          >
-                            Open detail
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <ApprovalsView
+          approvals={outstandingApprovals}
+          outstandingCount={outstandingCount}
+          unreadMentionsCount={unreadMentionsCount}
+          canUseCalendar={canUseCalendar}
+          onApprove={toggleApprove}
+          onOpenEntry={openEntry}
+          onBackToMenu={() => {
+            setCurrentView('menu');
+            setPlanTab('plan');
+            closeEntry();
+          }}
+          onGoToCalendar={() => {
+            if (!canUseCalendar) return;
+            setCurrentView('plan');
+            setPlanTab('plan');
+          }}
+          onCreateContent={() => {
+            setCurrentView('form');
+            setPlanTab('plan');
+            closeEntry();
+            try {
+              window.location.hash = '#create';
+            } catch {}
+          }}
+          onSwitchUser={handleSignOut}
+        />
       )}
       {currentView === 'admin' && currentUserIsAdmin && (
         <div className="space-y-6">
@@ -9937,9 +9636,7 @@ function ContentDashboard() {
                 variant="outline"
                 onClick={() => {
                   if (window.api && window.api.enabled) {
-                    fetch('/api/health')
-                      .then(() => {})
-                      .catch(() => {});
+                    api.get('/api/health').catch(() => {});
                   }
                 }}
               >
@@ -9950,8 +9647,7 @@ function ContentDashboard() {
                   (async () => {
                     try {
                       if (window.api && window.api.enabled) {
-                        const res = await fetch('/api/audit?limit=200');
-                        const json = await res.json().catch(() => []);
+                        const json = await api.get('/api/audit?limit=200');
                         setAdminAudits(Array.isArray(json) ? json : []);
                       } else {
                         const raw = storageAvailable

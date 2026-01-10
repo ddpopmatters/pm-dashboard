@@ -1,5 +1,6 @@
 import { authorizeRequest } from './_auth';
 import { jsonResponse as ok, str, parseJson } from '../lib/response';
+import type { ApiContext, GuidelinesRow } from '../types';
 
 const DEFAULTS = {
   charLimits: {
@@ -19,11 +20,13 @@ const DEFAULTS = {
   teamsWebhookUrl: '',
 };
 
-export const onRequestGet = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestGet = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   if (!env.DB) return ok({ id: 'default', ...DEFAULTS });
-  const row = await env.DB.prepare("SELECT * FROM guidelines WHERE id='default'").first();
+  const row = await env.DB.prepare(
+    "SELECT * FROM guidelines WHERE id='default'",
+  ).first<GuidelinesRow>();
   if (!row) return ok({ id: 'default', ...DEFAULTS });
   return ok({
     id: row.id,
@@ -36,7 +39,7 @@ export const onRequestGet = async ({ request, env }: { request: Request; env: an
   });
 };
 
-export const onRequestPut = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestPut = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const b = await request.json().catch(() => null);

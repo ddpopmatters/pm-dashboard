@@ -1,7 +1,8 @@
 import { authorizeRequest } from './_auth';
 import { jsonResponse as ok, uuid, nowIso } from '../lib/response';
+import type { ApiContext, AuditRow, SqlBindValue } from '../types';
 
-export const onRequestGet = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestGet = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const url = new URL(request.url);
@@ -10,7 +11,7 @@ export const onRequestGet = async ({ request, env }: { request: Request; env: an
   const limitValue = Number.isFinite(requestedLimit) ? requestedLimit : 100;
   const limit = Math.max(1, Math.min(500, limitValue));
   let stmt = 'SELECT * FROM audit';
-  const binds: any[] = [];
+  const binds: SqlBindValue[] = [];
   if (entryId) {
     stmt += ' WHERE entryId=?';
     binds.push(entryId);
@@ -19,11 +20,11 @@ export const onRequestGet = async ({ request, env }: { request: Request; env: an
   binds.push(limit);
   const { results } = await env.DB.prepare(stmt)
     .bind(...binds)
-    .all();
+    .all<AuditRow>();
   return ok(results || []);
 };
 
-export const onRequestPost = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestPost = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const b = await request.json().catch(() => null);

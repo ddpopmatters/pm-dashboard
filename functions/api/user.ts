@@ -1,9 +1,10 @@
 import { authorizeRequest } from './_auth';
 import { jsonResponse } from '../lib/response';
+import type { ApiContext, UserRow, SqlBindValue } from '../types';
 
 const ok = jsonResponse;
 
-const sanitizeUser = (row: any) => {
+const sanitizeUser = (row: UserRow) => {
   const parseFeatures = () => {
     try {
       const parsed = JSON.parse(row.features || '[]');
@@ -24,7 +25,7 @@ const sanitizeUser = (row: any) => {
   };
 };
 
-export const onRequestGet = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestGet = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   return ok({
@@ -42,13 +43,13 @@ export const onRequestGet = async ({ request, env }: { request: Request; env: an
 
 const MAX_AVATAR_LENGTH = 400000; // ~200KB base64
 
-export const onRequestPut = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestPut = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') return ok({ error: 'Invalid JSON' }, 400);
   const updates: string[] = [];
-  const bindings: any[] = [];
+  const bindings: SqlBindValue[] = [];
   if (typeof body.name === 'string' && body.name.trim()) {
     updates.push('name=?');
     bindings.push(body.name.trim());
@@ -71,7 +72,9 @@ export const onRequestPut = async ({ request, env }: { request: Request; env: an
   await env.DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id=?`)
     .bind(...bindings)
     .run();
-  const row = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(auth.user.id).first();
+  const row = await env.DB.prepare('SELECT * FROM users WHERE id=?')
+    .bind(auth.user.id)
+    .first<UserRow>();
   if (!row) return ok({ error: 'User not found' }, 404);
   return ok({ ok: true, user: sanitizeUser(row) });
 };

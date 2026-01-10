@@ -1,18 +1,10 @@
 // Notification proxy: supports Teams webhook plus email via MailChannels
 
 import { authorizeRequest } from './_auth';
+import type { Env, ApiContext, NotifyPayload, NotifyResults, MailChannelsContent } from '../types';
 
 const ok = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
-
-type TeamsPayload = { teamsWebhookUrl?: string; message?: string };
-type EmailPayload = {
-  to?: string[];
-  approvers?: string[];
-  subject?: string;
-  text?: string;
-  html?: string;
-};
 
 const hostMatches = (host: string, candidate: string) =>
   host === candidate || host.endsWith(`.${candidate}`);
@@ -23,7 +15,7 @@ const allowedDomainList = (value: string | undefined) =>
     .map((entry) => entry.trim().toLowerCase())
     .filter(Boolean);
 
-const isAllowedTeamsWebhook = (url: string, env: any) => {
+const isAllowedTeamsWebhook = (url: string, env: Env) => {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') return false;
@@ -36,13 +28,13 @@ const isAllowedTeamsWebhook = (url: string, env: any) => {
   }
 };
 
-const parseDirectory = (value: unknown) => {
+const parseDirectory = (value: unknown): Record<string, string> => {
   if (!value || typeof value !== 'string') return {};
   try {
     const parsed = JSON.parse(value);
     if (!parsed || typeof parsed !== 'object') return {};
     const directory: Record<string, string> = {};
-    Object.entries(parsed as Record<string, any>).forEach(([key, email]) => {
+    Object.entries(parsed as Record<string, unknown>).forEach(([key, email]) => {
       if (typeof key !== 'string' || typeof email !== 'string') return;
       const normalizedKey = key.trim().toLowerCase();
       const normalizedEmail = email.trim();
@@ -57,7 +49,15 @@ const parseDirectory = (value: unknown) => {
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
-const resolveRecipients = (body: EmailPayload, env: any) => {
+interface EmailPayload {
+  to?: string[];
+  approvers?: string[];
+  subject?: string;
+  text?: string;
+  html?: string;
+}
+
+const resolveRecipients = (body: EmailPayload, env: Env) => {
   const rawInputs = Array.isArray(body.to) ? body.to : [];
   const directory = parseDirectory(env.APPROVER_DIRECTORY);
   const approverNames = Array.isArray(body.approvers) ? body.approvers : [];
@@ -100,11 +100,11 @@ const sendViaMailChannels = async ({
   subject: string;
   text?: string;
   html?: string;
-  env: any;
+  env: Env;
 }) => {
   const fromEmail = env.MAIL_FROM || 'no-reply@example.com';
   const fromName = env.MAIL_FROM_NAME || 'PM Dashboard';
-  const content: any[] = [];
+  const content: MailChannelsContent[] = [];
   if (text) content.push({ type: 'text/plain', value: String(text) });
   if (html) content.push({ type: 'text/html', value: String(html) });
   if (!content.length) content.push({ type: 'text/plain', value: 'Notification' });
@@ -121,13 +121,13 @@ const sendViaMailChannels = async ({
   return { ok: res.ok, status: res.status };
 };
 
-export const onRequestPost = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestPost = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
-  const b = await request.json().catch(() => null);
+  const b = (await request.json().catch(() => null)) as NotifyPayload | null;
   if (!b || typeof b !== 'object') return ok({ error: 'Invalid JSON' }, 400);
 
-  const results: any = {};
+  const results: NotifyResults = {};
 
   // Teams webhook
   if (b.teamsWebhookUrl && typeof b.teamsWebhookUrl === 'string') {
@@ -141,7 +141,7 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: a
           body: JSON.stringify({ text: String(b.message || 'Notification') }),
         });
         results.teams = res.ok ? 'sent' : `http_${res.status}`;
-      } catch (e: any) {
+      } catch {
         results.teams = 'error';
       }
     }

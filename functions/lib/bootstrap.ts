@@ -1,4 +1,5 @@
 import { generateToken, hashToken, randomId } from './crypto';
+import type { Env, UserRow, SqlBindValue } from '../types';
 
 // Default owner configuration - MUST be set via environment variables
 // DEFAULT_OWNER_EMAIL and DEFAULT_OWNER_NAME are required for bootstrap
@@ -23,7 +24,7 @@ const USER_ALTERS = [
   'ALTER TABLE users ADD COLUMN avatarUrl TEXT',
 ];
 
-async function ensureSchema(env: any) {
+async function ensureSchema(env: Env) {
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -71,7 +72,7 @@ const logInviteToken = (token: string, email: string) => {
   // Note: The actual token is intentionally NOT logged for security reasons
 };
 
-export async function ensureDefaultOwner(env: any) {
+export async function ensureDefaultOwner(env: Env) {
   try {
     if (!env?.DB) return;
     await ensureSchema(env);
@@ -88,7 +89,7 @@ export async function ensureDefaultOwner(env: any) {
     const displayName = ownerName?.trim() || normalizedEmail;
     const existing = await env.DB.prepare('SELECT * FROM users WHERE email=?')
       .bind(normalizedEmail)
-      .first();
+      .first<UserRow>();
     const now = new Date().toISOString();
     const featuresJson = JSON.stringify(DEFAULT_OWNER_FEATURES);
     if (!existing) {
@@ -117,7 +118,7 @@ export async function ensureDefaultOwner(env: any) {
       return;
     }
     const updates: string[] = [];
-    const bindings: any[] = [];
+    const bindings: SqlBindValue[] = [];
     if (displayName && existing.name !== displayName) {
       updates.push('name=?');
       bindings.push(displayName);

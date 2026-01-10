@@ -1,5 +1,6 @@
 import { authorizeRequest } from './_auth';
 import { generateToken, hashPassword, hashToken, randomId, verifyPassword } from '../lib/crypto';
+import type { Env, UserRow, ApiContext } from '../types';
 
 const SESSION_COOKIE = 'pm_session';
 
@@ -12,7 +13,7 @@ const json = (data: unknown, status = 200, cookies?: string | string[]) => {
   return new Response(JSON.stringify(data), { status, headers });
 };
 
-const sessionTtlSeconds = (env: any) => {
+const sessionTtlSeconds = (env: Env) => {
   const raw = Number(env.SESSION_TTL_SECONDS);
   if (Number.isFinite(raw) && raw > 0) return raw;
   return 60 * 60 * 24 * 7;
@@ -26,7 +27,7 @@ const getIP = (req: Request) =>
 
 const sessionUserAgent = (req: Request) => req.headers.get('user-agent') || '';
 
-const createSession = async (request: Request, env: any, userId: string) => {
+const createSession = async (request: Request, env: Env, userId: string) => {
   const ttl = sessionTtlSeconds(env);
   const token = generateToken(32);
   const tokenHash = await hashToken(token);
@@ -48,7 +49,7 @@ const createSession = async (request: Request, env: any, userId: string) => {
   return { token, ttl };
 };
 
-export const onRequestPut = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestPut = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return json({ error: auth.error }, auth.status);
   const body = await request.json().catch(() => null);
@@ -58,7 +59,9 @@ export const onRequestPut = async ({ request, env }: { request: Request; env: an
   if (!newPassword || newPassword.length < 8) {
     return json({ error: 'New password must be at least 8 characters.' }, 400);
   }
-  const row = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(auth.user.id).first();
+  const row = await env.DB.prepare('SELECT * FROM users WHERE id=?')
+    .bind(auth.user.id)
+    .first<UserRow>();
   if (!row) return json({ error: 'User not found' }, 404);
   if (row.status === 'disabled') return json({ error: 'Account disabled' }, 403);
   if (row.passwordHash) {

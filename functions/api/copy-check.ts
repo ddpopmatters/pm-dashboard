@@ -1,11 +1,23 @@
 import { authorizeRequest } from './_auth';
 import { jsonResponse } from '../lib/response';
+import { checkRateLimit, maybeCleanupExpiredRateLimits } from '../lib/ratelimit';
+import type {
+  ApiContext,
+  CopyCheckResponse,
+  CopyCheckScore,
+  CopyCheckVariant,
+  OpenAIChatResponse,
+} from '../types';
 
 // Cloudflare Pages Function: /api/copy-check
 // Validates input, calls OpenAI (configurable), and enforces constraints on output
 
 // JSON response helper
 const ok = jsonResponse;
+
+// Rate limiting constants for copy-check API
+const COPY_CHECK_RL_LIMIT = 20; // 20 requests per minute
+const COPY_CHECK_RL_WINDOW_MS = 60 * 1000; // 1 minute
 
 // Allowed enums
 const PLATFORMS = new Set([
@@ -41,47 +53,13 @@ const getSystemPrompt = (platform: string) => {
   return platformPrompt ? `${BASE_SYSTEM_PROMPT}\n${platformPrompt}` : BASE_SYSTEM_PROMPT;
 };
 
-// Simple token-bucket RL per IP (with idle cleanup)
-const RL = new Map<string, { tokens: number; ts: number; seen: number }>();
-function rateLimit(ip: string, limit = 20, interval = 60_000) {
-  const now = Date.now();
-  let bucket = RL.get(ip);
-  if (!bucket) {
-    bucket = { tokens: limit, ts: now, seen: now };
-    RL.set(ip, bucket);
-  } else {
-    const elapsed = now - bucket.ts;
-    if (elapsed > 0) {
-      const refill = Math.floor((elapsed / interval) * limit);
-      if (refill > 0) {
-        bucket.tokens = Math.min(limit, bucket.tokens + refill);
-        bucket.ts = now;
-        if (bucket.tokens === limit && now - bucket.seen > interval * 5) {
-          RL.delete(ip);
-          bucket = { tokens: limit, ts: now, seen: now };
-          RL.set(ip, bucket);
-        }
-      }
-    }
-  }
-  if (bucket.tokens <= 0) {
-    bucket.seen = now;
-    RL.set(ip, bucket);
-    return false;
-  }
-  bucket.tokens -= 1;
-  bucket.seen = now;
-  RL.set(ip, bucket);
-  return true;
-}
-
 const getIP = (req: Request) =>
   (req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || 'anon').toString();
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Sanitize user input for LLM prompts to prevent prompt injection
-const sanitizeForPrompt = (input: any): any => {
+const sanitizeForPrompt = (input: unknown): unknown => {
   if (typeof input === 'string') {
     // Remove control characters and normalize whitespace
     // Escape sequences that could be interpreted as prompt delimiters
@@ -96,10 +74,10 @@ const sanitizeForPrompt = (input: any): any => {
     return input.slice(0, 50).map(sanitizeForPrompt); // Limit array size
   }
   if (input && typeof input === 'object') {
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     const keys = Object.keys(input).slice(0, 20); // Limit object keys
     for (const key of keys) {
-      result[key] = sanitizeForPrompt(input[key]);
+      result[key] = sanitizeForPrompt((input as Record<string, unknown>)[key]);
     }
     return result;
   }
@@ -223,7 +201,24 @@ function trimTo(text: string, limit: number, urls: string[], preservePhrases: st
   return working;
 }
 
-function postValidate(result: any, input: any) {
+interface CopyCheckInput {
+  text: string;
+  platform: string;
+  assetType: string;
+  constraints: { maxChars: number; maxHashtags?: number };
+  brand?: { bannedWords?: string[]; requiredPhrases?: string[] };
+  readingLevelTarget?: string;
+}
+
+interface ParsedLLMResult {
+  score?: CopyCheckScore;
+  flags?: string[];
+  suggestion?: { text: string };
+  variants?: Array<{ label?: string; text?: string }>;
+  explanations?: string[];
+}
+
+function postValidate(result: ParsedLLMResult | null, input: CopyCheckInput): CopyCheckResponse {
   const c = input.constraints || {};
   const brand = input.brand || {};
   const base = result?.suggestion?.text || input.text || '';
@@ -236,16 +231,16 @@ function postValidate(result: any, input: any) {
   work = trimTo(work, c.maxChars || 280, urls, brand.requiredPhrases || []);
   work = ensureRequired(work, brand.requiredPhrases || [], c.maxChars || 280, urls);
   const suggestion = { text: work };
-  const score = result?.score || {
+  const score: CopyCheckScore = result?.score || {
     clarity: 0.7,
     brevity: 0.7,
     hook: 0.6,
     fit: 0.75,
     readingLevel: input.readingLevelTarget || 'Grade 8',
   };
-  const flags = Array.isArray(result?.flags) ? result.flags : [];
-  const variants = Array.isArray(result?.variants)
-    ? result.variants.slice(0, 3).map((v: any, i: number) => {
+  const flags: string[] = Array.isArray(result?.flags) ? result.flags : [];
+  const variants: CopyCheckVariant[] = Array.isArray(result?.variants)
+    ? result.variants.slice(0, 3).map((v, i: number) => {
         const variantSource = typeof v?.text === 'string' && v.text.trim() ? v.text : input.text;
         const { masked: variantMasked, urls: variantUrls } = maskUrls(variantSource || '');
         const normalized = trimTo(
@@ -272,18 +267,36 @@ function postValidate(result: any, input: any) {
         };
       })
     : [];
-  const explanations = Array.isArray(result?.explanations)
+  const explanations: string[] = Array.isArray(result?.explanations)
     ? result.explanations
     : ['Copy adjusted for constraints'];
   return { score, flags, suggestion, variants, explanations };
 }
 
-const withFallbackMeta = (payload: any) => ({ ...payload, fallback: true });
+const withFallbackMeta = (
+  payload: CopyCheckResponse,
+): CopyCheckResponse & { fallback: boolean } => ({
+  ...payload,
+  fallback: true,
+});
 
-export const onRequestPost = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestPost = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
-  if (!rateLimit(getIP(request))) return ok({ error: 'Rate limit exceeded' }, 429);
+
+  // Probabilistically clean up expired rate limits
+  maybeCleanupExpiredRateLimits(env.DB);
+
+  // Check rate limit using D1-backed rate limiter
+  const ip = getIP(request);
+  const rateLimitKey = `copy-check:${ip}`;
+  const rlCheck = await checkRateLimit(
+    env.DB,
+    rateLimitKey,
+    COPY_CHECK_RL_LIMIT,
+    COPY_CHECK_RL_WINDOW_MS,
+  );
+  if (!rlCheck.allowed) return ok({ error: 'Rate limit exceeded' }, 429);
   const b = await request.json().catch(() => null);
   if (!b || typeof b.text !== 'string') return ok({ error: 'Invalid JSON body' }, 400);
   if (!PLATFORMS.has(b.platform)) return ok({ error: 'Invalid platform' }, 400);
@@ -346,16 +359,16 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: a
       }),
     });
     if (!r.ok) throw new Error('LLM_HTTP');
-    const j: any = await r.json();
+    const j = (await r.json()) as OpenAIChatResponse;
     raw = j?.choices?.[0]?.message?.content ?? '';
   } catch {
     const fb = postValidate(null, b);
     return ok(withFallbackMeta(fb));
   }
 
-  let parsed: any;
+  let parsed: ParsedLLMResult | null = null;
   try {
-    parsed = JSON.parse((raw || '').trim());
+    parsed = JSON.parse((raw || '').trim()) as ParsedLLMResult;
   } catch {
     // Retry once with stricter instruction
     try {
@@ -375,14 +388,14 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: a
         }),
       });
       if (!r2.ok) throw new Error('LLM_HTTP');
-      const j2: any = await r2.json();
-      parsed = JSON.parse((j2?.choices?.[0]?.message?.content || '').trim());
+      const j2 = (await r2.json()) as OpenAIChatResponse;
+      parsed = JSON.parse((j2?.choices?.[0]?.message?.content || '').trim()) as ParsedLLMResult;
     } catch {
       const fb = postValidate(null, b);
       return ok(withFallbackMeta(fb));
     }
   }
 
-  const safe = postValidate(parsed, b);
+  const safe = postValidate(parsed, b as CopyCheckInput);
   return ok(safe);
 };

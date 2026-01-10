@@ -1,5 +1,6 @@
 import { hashToken, randomId } from '../lib/crypto';
 import { ensureDefaultOwner } from '../lib/bootstrap';
+import type { Env, UserRow, SessionRow, AuthUser, AuthSuccess, AuthFailure } from '../types';
 
 const SESSION_COOKIE = 'pm_session';
 
@@ -55,7 +56,7 @@ const parseFeatureEnv = (value: string | undefined, fallback: string[]) => {
   return fallback;
 };
 
-const featureJsonForAccess = (env: any, isAdmin: boolean) => {
+const featureJsonForAccess = (env: Env, isAdmin: boolean) => {
   const fallback = isAdmin ? ADMIN_FEATURES : BASE_FEATURES;
   const envValue = isAdmin ? env.ACCESS_ADMIN_FEATURES : env.ACCESS_DEFAULT_FEATURES;
   const list = Array.isArray(envValue)
@@ -77,7 +78,7 @@ const parseFeatures = (value: string | null | undefined) => {
   return [];
 };
 
-const rowToUser = (row: any) => ({
+const rowToUser = (row: UserRow): AuthUser => ({
   id: row.id,
   email: row.email,
   name: row.name,
@@ -111,10 +112,10 @@ const accessIdentityHeaders = (request: Request) =>
   request.headers.get('Cf-Access-Jwt-Assertion') ||
   request.headers.get('CF-Access-Jwt-Assertion');
 
-const hasAccessIdentityConfig = (env: any) =>
+const hasAccessIdentityConfig = (env: Env) =>
   Boolean(env?.ACCESS_TEAM_DOMAIN && env?.ACCESS_CLIENT_ID && env?.ACCESS_CLIENT_SECRET);
 
-const fetchAccessIdentity = async (request: Request, env: any) => {
+const fetchAccessIdentity = async (request: Request, env: Env) => {
   if (!hasAccessIdentityConfig(env)) return null;
   const assertion = accessIdentityHeaders(request);
   if (!assertion) return null;
@@ -155,12 +156,12 @@ const fetchAccessIdentity = async (request: Request, env: any) => {
   }
 };
 
-const ensureUserForAccess = async (env: any, email: string, name: string) => {
+const ensureUserForAccess = async (env: Env, email: string, name: string) => {
   const normalized = normalizeEmail(email);
   if (!normalized) return null;
   const existing = await env.DB.prepare('SELECT * FROM users WHERE email=?')
     .bind(normalized)
-    .first();
+    .first<UserRow>();
   const now = new Date().toISOString();
   const isAdmin = toSet(env.ADMIN_EMAILS).has(normalized) ? 1 : 0;
   const featuresJson = featureJsonForAccess(env, Boolean(isAdmin));
@@ -183,8 +184,8 @@ const ensureUserForAccess = async (env: any, email: string, name: string) => {
         .run();
       const updated = await env.DB.prepare('SELECT * FROM users WHERE id=?')
         .bind(existing.id)
-        .first();
-      return rowToUser(updated);
+        .first<UserRow>();
+      return rowToUser(updated!);
     }
     return rowToUser(existing);
   }
@@ -195,13 +196,13 @@ const ensureUserForAccess = async (env: any, email: string, name: string) => {
   )
     .bind(id, normalized, name || email, 'active', isAdmin ? 1 : 0, featuresJson, now, now)
     .run();
-  const row = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(id).first();
-  return rowToUser(row);
+  const row = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(id).first<UserRow>();
+  return rowToUser(row!);
 };
 
 const authorizeViaSession = async (
   request: Request,
-  env: any,
+  env: Env,
   cookies?: Record<string, string>,
 ) => {
   const cookieMap = cookies || parseCookies(request.headers.get('cookie'));
@@ -210,18 +211,20 @@ const authorizeViaSession = async (
   const tokenHash = await hashToken(token);
   const session = await env.DB.prepare('SELECT * FROM sessions WHERE tokenHash=?')
     .bind(tokenHash)
-    .first();
+    .first<SessionRow>();
   if (!session) return null;
   if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
     await env.DB.prepare('DELETE FROM sessions WHERE id=?').bind(session.id).run();
     return null;
   }
-  const user = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(session.userId).first();
+  const user = await env.DB.prepare('SELECT * FROM users WHERE id=?')
+    .bind(session.userId)
+    .first<UserRow>();
   if (!user || user.status === 'disabled') return null;
   return rowToUser(user);
 };
 
-const authorizeViaAccess = async (request: Request, env: any) => {
+const authorizeViaAccess = async (request: Request, env: Env) => {
   const identity = await fetchAccessIdentity(request, env);
   if (!identity) return null;
   const normalizedEmail = identity.email;
@@ -241,25 +244,9 @@ const authorizeViaAccess = async (request: Request, env: any) => {
   return user;
 };
 
-type AuthSuccess = {
-  ok: true;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    isAdmin: boolean;
-    features: string[];
-    status: string;
-    hasPassword?: boolean;
-    isApprover?: boolean;
-    avatarUrl?: string | null;
-  };
-};
-type AuthFailure = { ok: false; status: number; error: string };
-
 export async function authorizeRequest(
   request: Request,
-  env: any,
+  env: Env,
 ): Promise<AuthSuccess | AuthFailure> {
   // CSRF protection for state-changing requests
   if (!verifyCsrfHeader(request)) {

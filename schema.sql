@@ -136,3 +136,11 @@ CREATE INDEX IF NOT EXISTS idx_audit_entryId ON audit(entryId);
 CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_ideas_targetMonth ON ideas(targetMonth);
 CREATE INDEX IF NOT EXISTS idx_users_inviteToken ON users(inviteToken);
+
+-- Rate limiting for persistent rate limiting across Workers instances
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key TEXT PRIMARY KEY,
+  count INTEGER DEFAULT 1,
+  window_start INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_window_start ON rate_limits(window_start);

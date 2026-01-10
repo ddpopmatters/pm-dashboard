@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle, Badge, Button } from '../../components/ui';
 import { PlatformIcon, LoaderIcon, TrashIcon } from '../../components/common';
 import { cx } from '../../lib/utils';
@@ -6,6 +6,136 @@ import { ensureChecklist, isImageMedia } from '../../lib/sanitizers';
 import { CHECKLIST_ITEMS, WORKFLOW_STAGES } from '../../constants';
 
 export function MonthGrid({ days, month, year, entries, onApprove, onDelete, onOpen }) {
+  const [focusedDayIndex, setFocusedDayIndex] = useState(0);
+  const [focusedEntryIndex, setFocusedEntryIndex] = useState(-1);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const dayRefs = useRef([]);
+  const entryRefs = useRef({});
+
+  // Reset focus when days change
+  useEffect(() => {
+    setFocusedDayIndex(0);
+    setFocusedEntryIndex(-1);
+    setSelectedDay(null);
+  }, [days, month, year]);
+
+  const handleDayKeyDown = useCallback(
+    (e, dayIndex, dayEntries) => {
+      const columnsPerRow = window.innerWidth >= 1280 ? 3 : window.innerWidth >= 768 ? 2 : 1;
+
+      switch (e.key) {
+        case 'ArrowRight':
+          e.preventDefault();
+          if (dayIndex < days.length - 1) {
+            setFocusedDayIndex(dayIndex + 1);
+            setFocusedEntryIndex(-1);
+            dayRefs.current[dayIndex + 1]?.focus();
+          }
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (dayIndex > 0) {
+            setFocusedDayIndex(dayIndex - 1);
+            setFocusedEntryIndex(-1);
+            dayRefs.current[dayIndex - 1]?.focus();
+          }
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          if (focusedEntryIndex === -1 && dayEntries.length > 0) {
+            // Move into first entry in the day
+            setFocusedEntryIndex(0);
+            const iso = new Date(year, month, days[dayIndex]).toISOString().slice(0, 10);
+            entryRefs.current[`${iso}-0`]?.focus();
+          } else {
+            // Move to next row of days
+            const nextRowIndex = dayIndex + columnsPerRow;
+            if (nextRowIndex < days.length) {
+              setFocusedDayIndex(nextRowIndex);
+              setFocusedEntryIndex(-1);
+              dayRefs.current[nextRowIndex]?.focus();
+            }
+          }
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          {
+            const prevRowIndex = dayIndex - columnsPerRow;
+            if (prevRowIndex >= 0) {
+              setFocusedDayIndex(prevRowIndex);
+              setFocusedEntryIndex(-1);
+              dayRefs.current[prevRowIndex]?.focus();
+            }
+          }
+          break;
+        case 'Enter':
+        case ' ':
+          e.preventDefault();
+          setSelectedDay(selectedDay === dayIndex ? null : dayIndex);
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setSelectedDay(null);
+          setFocusedEntryIndex(-1);
+          break;
+      }
+    },
+    [days, month, year, focusedEntryIndex, selectedDay],
+  );
+
+  const handleEntryKeyDown = useCallback(
+    (e, dayIndex, entryIndex, dayEntries, entryId) => {
+      const iso = new Date(year, month, days[dayIndex]).toISOString().slice(0, 10);
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          if (entryIndex < dayEntries.length - 1) {
+            setFocusedEntryIndex(entryIndex + 1);
+            entryRefs.current[`${iso}-${entryIndex + 1}`]?.focus();
+          }
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          if (entryIndex > 0) {
+            setFocusedEntryIndex(entryIndex - 1);
+            entryRefs.current[`${iso}-${entryIndex - 1}`]?.focus();
+          } else {
+            // Move back to day card
+            setFocusedEntryIndex(-1);
+            dayRefs.current[dayIndex]?.focus();
+          }
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          if (dayIndex < days.length - 1) {
+            setFocusedDayIndex(dayIndex + 1);
+            setFocusedEntryIndex(-1);
+            dayRefs.current[dayIndex + 1]?.focus();
+          }
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (dayIndex > 0) {
+            setFocusedDayIndex(dayIndex - 1);
+            setFocusedEntryIndex(-1);
+            dayRefs.current[dayIndex - 1]?.focus();
+          }
+          break;
+        case 'Enter':
+        case ' ':
+          e.preventDefault();
+          onOpen(entryId);
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setFocusedEntryIndex(-1);
+          dayRefs.current[dayIndex]?.focus();
+          break;
+      }
+    },
+    [days, month, year, onOpen],
+  );
   const byDate = useMemo(() => {
     const map = new Map();
     days.forEach((day) => {
@@ -21,16 +151,35 @@ export function MonthGrid({ days, month, year, entries, onApprove, onDelete, onO
   }, [days, month, year, entries]);
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {days.map((day) => {
+    <div
+      className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+      role="grid"
+      aria-label="Calendar month view"
+    >
+      {days.map((day, dayIndex) => {
         const iso = new Date(year, month, day).toISOString().slice(0, 10);
         const dayEntries = byDate.get(iso) || [];
         const label = new Date(year, month, day).toLocaleDateString(undefined, {
           weekday: 'short',
           day: '2-digit',
         });
+        const isSelected = selectedDay === dayIndex;
+        const isFocusedDay = focusedDayIndex === dayIndex;
         return (
-          <Card key={iso} className="flex h-64 flex-col bg-white">
+          <Card
+            key={iso}
+            ref={(el) => (dayRefs.current[dayIndex] = el)}
+            tabIndex={isFocusedDay ? 0 : -1}
+            role="gridcell"
+            aria-selected={isSelected}
+            aria-label={`${label}, ${dayEntries.length} ${dayEntries.length === 1 ? 'item' : 'items'}`}
+            onKeyDown={(e) => handleDayKeyDown(e, dayIndex, dayEntries)}
+            className={cx(
+              'flex h-64 flex-col bg-white outline-none',
+              'focus:ring-2 focus:ring-aqua-500 focus:ring-offset-2',
+              isSelected && 'ring-2 ring-ocean-500 ring-offset-2',
+            )}
+          >
             <CardHeader className="border-b border-graystone-200 py-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold text-ocean-900">{label}</CardTitle>
@@ -43,17 +192,29 @@ export function MonthGrid({ days, month, year, entries, onApprove, onDelete, onO
               {dayEntries.length === 0 && (
                 <p className="text-sm text-graystone-500">No items planned.</p>
               )}
-              {dayEntries.map((entry) => {
+              {dayEntries.map((entry, entryIndex) => {
                 const checklist = ensureChecklist(entry.checklist);
                 const completed = Object.values(checklist).filter(Boolean).length;
                 const total = CHECKLIST_ITEMS.length;
                 const hasPreviewImage = isImageMedia(entry.previewUrl);
                 const hasPerformance = entry.analytics && Object.keys(entry.analytics).length > 0;
+                const isFocusedEntry = isFocusedDay && focusedEntryIndex === entryIndex;
                 return (
                   <div
                     key={entry.id}
-                    className="cursor-pointer rounded-xl border border-graystone-200 bg-white p-3 transition hover:border-aqua-400 hover:bg-aqua-50"
+                    ref={(el) => (entryRefs.current[`${iso}-${entryIndex}`] = el)}
+                    tabIndex={isFocusedEntry ? 0 : -1}
+                    role="button"
+                    aria-label={`${entry.assetType}: ${entry.caption || entry.title || 'Untitled'}, ${entry.status}`}
                     onClick={() => onOpen(entry.id)}
+                    onKeyDown={(e) =>
+                      handleEntryKeyDown(e, dayIndex, entryIndex, dayEntries, entry.id)
+                    }
+                    className={cx(
+                      'cursor-pointer rounded-xl border border-graystone-200 bg-white p-3 transition outline-none',
+                      'hover:border-aqua-400 hover:bg-aqua-50',
+                      'focus:ring-2 focus:ring-aqua-500 focus:ring-offset-1',
+                    )}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-2">

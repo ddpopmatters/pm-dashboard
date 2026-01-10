@@ -6,15 +6,16 @@ import {
   sanitizeOptionalText,
   sanitizeLinks,
 } from '../lib/sanitize';
+import type { ApiContext, LinkedInPostRow, SqlBindValue } from '../types';
 
-const inflate = (row: any) =>
+const inflate = (row: LinkedInPostRow | null) =>
   row && {
     ...row,
     links: parseJson(row.links) ?? [],
     attachments: parseJson(row.attachments) ?? [],
   };
 
-export const onRequestGet = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestGet = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const url = new URL(request.url);
@@ -23,11 +24,11 @@ export const onRequestGet = async ({ request, env }: { request: Request; env: an
   if (id) {
     const row = await env.DB.prepare('SELECT * FROM linkedin_submissions WHERE id=?')
       .bind(id)
-      .first();
+      .first<LinkedInPostRow>();
     return ok(inflate(row) || null);
   }
   let stmt = 'SELECT * FROM linkedin_submissions';
-  const binds: any[] = [];
+  const binds: SqlBindValue[] = [];
   const conds: string[] = [];
   if (month) {
     conds.push('substr(targetDate,1,7)=?');
@@ -37,11 +38,11 @@ export const onRequestGet = async ({ request, env }: { request: Request; env: an
   stmt += ' ORDER BY createdAt DESC';
   const { results } = await env.DB.prepare(stmt)
     .bind(...binds)
-    .all();
+    .all<LinkedInPostRow>();
   return ok((results || []).map(inflate));
 };
 
-export const onRequestPost = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestPost = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const b = await request.json().catch(() => null);
@@ -70,7 +71,7 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: a
   return ok({ id });
 };
 
-export const onRequestPut = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestPut = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const url = new URL(request.url);
@@ -80,7 +81,7 @@ export const onRequestPut = async ({ request, env }: { request: Request; env: an
   if (!b) return ok({ error: 'Invalid JSON' }, 400);
   const existing = await env.DB.prepare('SELECT * FROM linkedin_submissions WHERE id=?')
     .bind(id)
-    .first();
+    .first<LinkedInPostRow>();
   if (!existing) return ok({ error: 'Not found' }, 404);
   const updatedAt = nowIso();
   await env.DB.prepare(
@@ -106,7 +107,7 @@ export const onRequestPut = async ({ request, env }: { request: Request; env: an
   return ok({ ok: true });
 };
 
-export const onRequestDelete = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestDelete = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const url = new URL(request.url);

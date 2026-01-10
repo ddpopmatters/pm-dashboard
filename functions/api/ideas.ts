@@ -6,26 +6,27 @@ import {
   sanitizeOptionalText,
   sanitizeLinks,
 } from '../lib/sanitize';
+import type { ApiContext, IdeaRow, SqlBindValue } from '../types';
 
-const inflate = (row: any) =>
+const inflate = (row: IdeaRow | null) =>
   row && {
     ...row,
     links: parseJson(row.links) ?? [],
     attachments: parseJson(row.attachments) ?? [],
   };
 
-export const onRequestGet = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestGet = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
   const month = url.searchParams.get('month');
   if (id) {
-    const row = await env.DB.prepare('SELECT * FROM ideas WHERE id=?').bind(id).first();
+    const row = await env.DB.prepare('SELECT * FROM ideas WHERE id=?').bind(id).first<IdeaRow>();
     return ok(inflate(row) || null);
   }
   let stmt = 'SELECT * FROM ideas';
-  const binds: any[] = [];
+  const binds: SqlBindValue[] = [];
   if (month) {
     stmt += ' WHERE targetMonth=?';
     binds.push(month);
@@ -33,11 +34,11 @@ export const onRequestGet = async ({ request, env }: { request: Request; env: an
   stmt += ' ORDER BY createdAt DESC';
   const { results } = await env.DB.prepare(stmt)
     .bind(...binds)
-    .all();
+    .all<IdeaRow>();
   return ok((results || []).map(inflate));
 };
 
-export const onRequestPost = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestPost = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const b = await request.json().catch(() => null);
@@ -66,7 +67,7 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: a
   return ok({ id });
 };
 
-export const onRequestPut = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestPut = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const url = new URL(request.url);
@@ -74,7 +75,7 @@ export const onRequestPut = async ({ request, env }: { request: Request; env: an
   if (!id) return ok({ error: 'Missing id' }, 400);
   const b = await request.json().catch(() => null);
   if (!b) return ok({ error: 'Invalid JSON' }, 400);
-  const existing = await env.DB.prepare('SELECT * FROM ideas WHERE id=?').bind(id).first();
+  const existing = await env.DB.prepare('SELECT * FROM ideas WHERE id=?').bind(id).first<IdeaRow>();
   if (!existing) return ok({ error: 'Not found' }, 404);
   const nextTargetMonth =
     b.targetMonth ||
@@ -100,7 +101,7 @@ export const onRequestPut = async ({ request, env }: { request: Request; env: an
   return ok({ ok: true });
 };
 
-export const onRequestDelete = async ({ request, env }: { request: Request; env: any }) => {
+export const onRequestDelete = async ({ request, env }: ApiContext) => {
   const auth = await authorizeRequest(request, env);
   if (!auth.ok) return ok({ error: auth.error }, auth.status);
   const url = new URL(request.url);
