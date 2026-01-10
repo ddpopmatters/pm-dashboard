@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Content Dashboard</title>
+    <meta
+      name="description"
+      content="Plan, approve, and ship Population Matters social content with a shared calendar, approvals, and reporting."
+    />
+    <meta name="theme-color" content="#00ffff" />
+    <meta name="color-scheme" content="light" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ocean: {
+                50: '#e6f7fb',
+                100: '#bfecf6',
+                200: '#87dde9',
+                300: '#4ac9da',
+                400: '#1fb1c7',
+                500: '#11607d',
+                600: '#0e4d63',
+                700: '#0c3d4e',
+                800: '#072833',
+                900: '#03161d',
+              },
+              aqua: {
+                50: '#f2ffff',
+                100: '#ccffff',
+                200: '#99ffff',
+                300: '#66ffff',
+                400: '#33ffff',
+                500: '#00ffff',
+                600: '#00cccc',
+                700: '#009999',
+                800: '#007373',
+                900: '#004d4d',
+              },
+              graystone: {
+                50: '#f7f7f7',
+                100: '#eeeeee',
+                200: '#dcdcdc',
+                300: '#c2c2c2',
+                400: '#b9b9b9',
+                500: '#8f8f8f',
+                600: '#6d6d6d',
+                700: '#4f4f4f',
+                800: '#323232',
+                900: '#1a1a1a',
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        background: #cfebf8;
+        color: #1a1a1a;
+        min-height: 100vh;
+        font-family: 'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Arial, sans-serif;
+        letter-spacing: -0.01em;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6,
+      .heading,
+      .card-title,
+      .font-heading,
+      .heading-font {
+        font-family:
+          'Impact', 'Anton', 'Arial Black', 'Neue Plak Condensed', 'Neue Plak', 'Helvetica Neue',
+          Arial, sans-serif;
+        letter-spacing: -0.02em;
+        text-transform: uppercase;
+        font-weight: 900;
+      }
+
+      .dropdown-font {
+        font-family: 'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Arial, sans-serif;
+        font-weight: 400;
+        letter-spacing: 0.01em;
+        text-transform: none;
+      }
+
+      .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+      }
+
+      .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        overflow: hidden;
+      }
+
+      .floating-panel {
+        backdrop-filter: blur(12px);
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 12px 40px rgba(17, 96, 125, 0.15);
+      }
+
+      .select-control {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-color: #ffffff;
+        padding-right: 2rem;
+        background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 12 7' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 5.5L11 1.5' stroke='%2311607d' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 0.6rem;
+      }
+
+      .select-control:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(17, 96, 125, 0.2);
+      }
+
+      .select-control::-ms-expand {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="antialiased text-ocean-900">
+    <div id="root" class="py-10"></div>
+    <noscript>
+      <div
+        class="mx-auto max-w-2xl rounded-3xl border border-aqua-200 bg-white px-6 py-5 text-sm text-graystone-700"
+      >
+        This dashboard needs JavaScript enabled to load. Please enable scripts and refresh.
+      </div>
+    </noscript>
+
+    <script type="module" src="/js/apiClient.js"></script>
+    <script type="module" src="/js/copyCheckerClient.js"></script>
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

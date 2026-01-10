@@ -1,0 +1,1016 @@
+// Supabase API client - replaces Cloudflare Workers backend
+// Provides the same window.api interface for compatibility
+// Load this INSTEAD of apiClient.js when using Supabase
+
+// Configuration - UPDATE THESE VALUES
+const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const DEBUG_MODE = window.location.protocol === 'file:' || window.location.hostname === 'localhost';
+
+// Logger
+const Logger = {
+  debug: (...args) => DEBUG_MODE && console.log('[DEBUG]', ...args),
+  error: (error, context = '') => console.error('[ERROR]', context, error?.message || error),
+};
+
+// Supabase client
+let supabase = null;
+
+async function initSupabase() {
+  if (supabase) return supabase;
+
+  try {
+    // Wait for SDK to load
+    if (window.supabaseReady) {
+      await window.supabaseReady;
+    }
+
+    const { createClient } = window.supabase;
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    });
+
+    Logger.debug('Supabase client initialized');
+    return supabase;
+  } catch (error) {
+    Logger.error(error, 'Failed to initialize Supabase');
+    return null;
+  }
+}
+
+// Get current user email
+async function getCurrentUserEmail() {
+  await initSupabase();
+  if (!supabase) return null;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.email || window.__currentUserEmail || null;
+}
+
+// ============================================
+// ENTRIES
+// ============================================
+
+async function listEntries(params = {}) {
+  await initSupabase();
+  if (!supabase) return [];
+
+  try {
+    let query = supabase
+      .from('entries')
+      .select('*')
+      .is('deleted_at', null)
+      .order('date', { ascending: true });
+
+    if (params.month) {
+      const startDate = `${params.month}-01`;
+      const endDate = `${params.month}-31`;
+      query = query.gte('date', startDate).lte('date', endDate);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || []).map(mapEntryToApp);
+  } catch (error) {
+    Logger.error(error, 'listEntries');
+    return [];
+  }
+}
+
+async function createEntry(entry) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const userEmail = await getCurrentUserEmail();
+    const dbEntry = mapEntryToDb(entry, userEmail);
+
+    const { data, error } = await supabase.from('entries').insert(dbEntry).select().single();
+
+    if (error) throw error;
+
+    await logActivity('create', 'entry', data.id, entry.caption?.substring(0, 50));
+    return { id: data.id, ok: true };
+  } catch (error) {
+    Logger.error(error, 'createEntry');
+    throw error;
+  }
+}
+
+async function updateEntry(id, patch) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const dbPatch = {};
+
+    // Map camelCase to snake_case for each field
+    if (patch.date !== undefined) dbPatch.date = patch.date;
+    if (patch.platforms !== undefined) dbPatch.platforms = patch.platforms;
+    if (patch.assetType !== undefined) dbPatch.asset_type = patch.assetType;
+    if (patch.caption !== undefined) dbPatch.caption = patch.caption;
+    if (patch.platformCaptions !== undefined) dbPatch.platform_captions = patch.platformCaptions;
+    if (patch.firstComment !== undefined) dbPatch.first_comment = patch.firstComment;
+    if (patch.approvalDeadline !== undefined) dbPatch.approval_deadline = patch.approvalDeadline;
+    if (patch.status !== undefined) dbPatch.status = patch.status;
+    if (patch.approvers !== undefined) dbPatch.approvers = patch.approvers;
+    if (patch.author !== undefined) dbPatch.author = patch.author;
+    if (patch.campaign !== undefined) dbPatch.campaign = patch.campaign;
+    if (patch.contentPillar !== undefined) dbPatch.content_pillar = patch.contentPillar;
+    if (patch.previewUrl !== undefined) dbPatch.preview_url = patch.previewUrl;
+    if (patch.checklist !== undefined) dbPatch.checklist = patch.checklist;
+    if (patch.analytics !== undefined) dbPatch.analytics = patch.analytics;
+    if (patch.workflowStatus !== undefined) dbPatch.workflow_status = patch.workflowStatus;
+    if (patch.statusDetail !== undefined) dbPatch.status_detail = patch.statusDetail;
+    if (patch.aiFlags !== undefined) dbPatch.ai_flags = patch.aiFlags;
+    if (patch.aiScore !== undefined) dbPatch.ai_score = patch.aiScore;
+    if (patch.testingFrameworkId !== undefined)
+      dbPatch.testing_framework_id = patch.testingFrameworkId;
+    if (patch.testingFrameworkName !== undefined)
+      dbPatch.testing_framework_name = patch.testingFrameworkName;
+    if (patch.approvedAt !== undefined) dbPatch.approved_at = patch.approvedAt;
+    if (patch.deletedAt !== undefined) dbPatch.deleted_at = patch.deletedAt;
+
+    const { data, error } = await supabase
+      .from('entries')
+      .update(dbPatch)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await logActivity('update', 'entry', id, '');
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'updateEntry');
+    throw error;
+  }
+}
+
+async function deleteEntry(id, options = {}) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    if (options.hard) {
+      const { error } = await supabase.from('entries').delete().eq('id', id);
+      if (error) throw error;
+    } else {
+      // Soft delete
+      const { error } = await supabase
+        .from('entries')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    }
+
+    await logActivity('delete', 'entry', id, '');
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'deleteEntry');
+    throw error;
+  }
+}
+
+// ============================================
+// IDEAS
+// ============================================
+
+async function listIdeas(params = {}) {
+  await initSupabase();
+  if (!supabase) return [];
+
+  try {
+    let query = supabase.from('ideas').select('*').order('created_at', { ascending: false });
+
+    if (params.month) {
+      query = query.eq('target_month', params.month);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || []).map(mapIdeaToApp);
+  } catch (error) {
+    Logger.error(error, 'listIdeas');
+    return [];
+  }
+}
+
+async function createIdea(idea) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const userEmail = await getCurrentUserEmail();
+    const dbIdea = mapIdeaToDb(idea, userEmail);
+
+    const { data, error } = await supabase.from('ideas').insert(dbIdea).select().single();
+
+    if (error) throw error;
+    return { id: data.id, ok: true };
+  } catch (error) {
+    Logger.error(error, 'createIdea');
+    throw error;
+  }
+}
+
+async function updateIdea(id, patch) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const dbPatch = {};
+    if (patch.type !== undefined) dbPatch.type = patch.type;
+    if (patch.title !== undefined) dbPatch.title = patch.title;
+    if (patch.notes !== undefined) dbPatch.notes = patch.notes;
+    if (patch.links !== undefined) dbPatch.links = patch.links;
+    if (patch.attachments !== undefined) dbPatch.attachments = patch.attachments;
+    if (patch.inspiration !== undefined) dbPatch.inspiration = patch.inspiration;
+    if (patch.targetDate !== undefined) dbPatch.target_date = patch.targetDate;
+    if (patch.targetMonth !== undefined) dbPatch.target_month = patch.targetMonth;
+
+    const { error } = await supabase.from('ideas').update(dbPatch).eq('id', id);
+    if (error) throw error;
+
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'updateIdea');
+    throw error;
+  }
+}
+
+async function deleteIdea(id) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const { error } = await supabase.from('ideas').delete().eq('id', id);
+    if (error) throw error;
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'deleteIdea');
+    throw error;
+  }
+}
+
+// ============================================
+// LINKEDIN SUBMISSIONS
+// ============================================
+
+async function listLinkedIn(params = {}) {
+  await initSupabase();
+  if (!supabase) return [];
+
+  try {
+    let query = supabase
+      .from('linkedin_submissions')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (params.month) {
+      const startDate = `${params.month}-01`;
+      const endDate = `${params.month}-31`;
+      query = query.gte('target_date', startDate).lte('target_date', endDate);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || []).map(mapLinkedInToApp);
+  } catch (error) {
+    Logger.error(error, 'listLinkedIn');
+    return [];
+  }
+}
+
+async function createLinkedIn(submission) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const userEmail = await getCurrentUserEmail();
+    const dbSubmission = mapLinkedInToDb(submission, userEmail);
+
+    const { data, error } = await supabase
+      .from('linkedin_submissions')
+      .insert(dbSubmission)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { id: data.id, ok: true };
+  } catch (error) {
+    Logger.error(error, 'createLinkedIn');
+    throw error;
+  }
+}
+
+async function updateLinkedIn(id, patch) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const dbPatch = {};
+    if (patch.submissionType !== undefined) dbPatch.submission_type = patch.submissionType;
+    if (patch.status !== undefined) dbPatch.status = patch.status;
+    if (patch.title !== undefined) dbPatch.title = patch.title;
+    if (patch.postCopy !== undefined) dbPatch.post_copy = patch.postCopy;
+    if (patch.comments !== undefined) dbPatch.comments = patch.comments;
+    if (patch.owner !== undefined) dbPatch.owner = patch.owner;
+    if (patch.submitter !== undefined) dbPatch.submitter = patch.submitter;
+    if (patch.links !== undefined) dbPatch.links = patch.links;
+    if (patch.attachments !== undefined) dbPatch.attachments = patch.attachments;
+    if (patch.targetDate !== undefined) dbPatch.target_date = patch.targetDate;
+
+    const { error } = await supabase.from('linkedin_submissions').update(dbPatch).eq('id', id);
+    if (error) throw error;
+
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'updateLinkedIn');
+    throw error;
+  }
+}
+
+async function deleteLinkedIn(id) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const { error } = await supabase.from('linkedin_submissions').delete().eq('id', id);
+    if (error) throw error;
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'deleteLinkedIn');
+    throw error;
+  }
+}
+
+// ============================================
+// TESTING FRAMEWORKS
+// ============================================
+
+async function listTestingFrameworks() {
+  await initSupabase();
+  if (!supabase) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('testing_frameworks')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    Logger.error(error, 'listTestingFrameworks');
+    return [];
+  }
+}
+
+async function createTestingFramework(framework) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const { data, error } = await supabase
+      .from('testing_frameworks')
+      .insert(framework)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { id: data.id, ok: true };
+  } catch (error) {
+    Logger.error(error, 'createTestingFramework');
+    throw error;
+  }
+}
+
+async function updateTestingFramework(id, patch) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const { error } = await supabase.from('testing_frameworks').update(patch).eq('id', id);
+    if (error) throw error;
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'updateTestingFramework');
+    throw error;
+  }
+}
+
+async function deleteTestingFramework(id) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const { error } = await supabase.from('testing_frameworks').delete().eq('id', id);
+    if (error) throw error;
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'deleteTestingFramework');
+    throw error;
+  }
+}
+
+// ============================================
+// GUIDELINES
+// ============================================
+
+async function getGuidelines() {
+  await initSupabase();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('guidelines')
+      .select('*')
+      .eq('id', 'default')
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data ? mapGuidelinesToApp(data) : null;
+  } catch (error) {
+    Logger.error(error, 'getGuidelines');
+    return null;
+  }
+}
+
+async function saveGuidelines(guidelines) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const dbGuidelines = mapGuidelinesToDb(guidelines);
+    const { error } = await supabase.from('guidelines').upsert(dbGuidelines);
+    if (error) throw error;
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'saveGuidelines');
+    throw error;
+  }
+}
+
+// ============================================
+// USERS
+// ============================================
+
+async function listUsers() {
+  await initSupabase();
+  if (!supabase) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+
+    return (data || []).map((row) => ({
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      features: row.features || [],
+      status: row.status,
+      isAdmin: row.is_admin,
+      isApprover: row.is_approver,
+      avatarUrl: row.avatar_url,
+    }));
+  } catch (error) {
+    Logger.error(error, 'listUsers');
+    return [];
+  }
+}
+
+async function getCurrentUser() {
+  await initSupabase();
+  if (!supabase) return null;
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('auth_user_id', user.id)
+      .single();
+
+    if (error) {
+      Logger.error(error, 'getCurrentUser');
+      return null;
+    }
+
+    window.__currentUserEmail = data.email;
+    window.__currentUserName = data.name;
+
+    return {
+      id: data.id,
+      email: data.email,
+      name: data.name,
+      features: data.features || [],
+      status: data.status,
+      isAdmin: data.is_admin,
+      isApprover: data.is_approver,
+      avatarUrl: data.avatar_url,
+    };
+  } catch (error) {
+    Logger.error(error, 'getCurrentUser');
+    return null;
+  }
+}
+
+async function createUser(userData) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .insert({
+        email: userData.email,
+        name: userData.name,
+        features: userData.features || [],
+        status: 'pending',
+        is_admin: false,
+        is_approver: userData.isApprover || false,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { id: data.id, ok: true };
+  } catch (error) {
+    Logger.error(error, 'createUser');
+    throw error;
+  }
+}
+
+async function updateUser(id, patch) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const dbPatch = {};
+    if (patch.name !== undefined) dbPatch.name = patch.name;
+    if (patch.features !== undefined) dbPatch.features = patch.features;
+    if (patch.status !== undefined) dbPatch.status = patch.status;
+    if (patch.isAdmin !== undefined) dbPatch.is_admin = patch.isAdmin;
+    if (patch.isApprover !== undefined) dbPatch.is_approver = patch.isApprover;
+    if (patch.avatarUrl !== undefined) dbPatch.avatar_url = patch.avatarUrl;
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .update(dbPatch)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      id: data.id,
+      email: data.email,
+      name: data.name,
+      features: data.features || [],
+      isApprover: data.is_approver,
+      ok: true,
+    };
+  } catch (error) {
+    Logger.error(error, 'updateUser');
+    throw error;
+  }
+}
+
+async function deleteUser(id) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const { error } = await supabase.from('user_profiles').delete().eq('id', id);
+    if (error) throw error;
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'deleteUser');
+    throw error;
+  }
+}
+
+async function updateProfile(patch) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const dbPatch = {};
+    if (patch.name !== undefined) dbPatch.name = patch.name;
+    if (patch.avatarUrl !== undefined) dbPatch.avatar_url = patch.avatarUrl;
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .update(dbPatch)
+      .eq('auth_user_id', user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { ok: true, name: data.name, avatarUrl: data.avatar_url };
+  } catch (error) {
+    Logger.error(error, 'updateProfile');
+    throw error;
+  }
+}
+
+async function listApprovers() {
+  await initSupabase();
+  if (!supabase) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('email, name')
+      .eq('is_approver', true)
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    Logger.error(error, 'listApprovers');
+    return [];
+  }
+}
+
+// ============================================
+// AUTHENTICATION
+// ============================================
+
+async function login({ email, password }) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    window.__currentUserEmail = data.user?.email;
+
+    // Fetch or create user profile
+    const profile = await getCurrentUser();
+
+    return { ok: true, user: profile };
+  } catch (error) {
+    Logger.error(error, 'login');
+    return { ok: false, error: error.message };
+  }
+}
+
+async function logout() {
+  await initSupabase();
+  if (!supabase) return;
+
+  try {
+    await supabase.auth.signOut();
+    window.__currentUserEmail = null;
+    window.__currentUserName = null;
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'logout');
+    throw error;
+  }
+}
+
+async function acceptInvite({ token, password }) {
+  // For Supabase, this would be handled via magic link or password reset
+  // This is a placeholder for compatibility
+  Logger.debug('acceptInvite called - use Supabase Auth flow instead');
+  return { ok: false, error: 'Use Supabase Auth for invitations' };
+}
+
+async function changePassword({ currentPassword, newPassword }) {
+  await initSupabase();
+  if (!supabase) throw new Error('Supabase not initialized');
+
+  try {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    return { ok: true };
+  } catch (error) {
+    Logger.error(error, 'changePassword');
+    return { ok: false, error: error.message };
+  }
+}
+
+// ============================================
+// ACTIVITY LOG / AUDIT
+// ============================================
+
+async function logActivity(actionType, targetType, targetId, targetTitle) {
+  await initSupabase();
+  if (!supabase) return;
+
+  try {
+    const userEmail = await getCurrentUserEmail();
+
+    await supabase.from('activity_log').insert({
+      action_type: actionType,
+      target_type: targetType,
+      target_id: targetId,
+      target_title: targetTitle || '',
+      actor_email: userEmail || 'unknown',
+      actor_name: window.__currentUserName || 'Unknown',
+    });
+  } catch (error) {
+    Logger.error(error, 'logActivity');
+  }
+}
+
+async function logAudit(event) {
+  return logActivity(
+    event.action || 'unknown',
+    event.type || 'entry',
+    event.entryId || event.id,
+    event.title || '',
+  );
+}
+
+async function listAudit(params = {}) {
+  await initSupabase();
+  if (!supabase) return [];
+
+  try {
+    let query = supabase
+      .from('activity_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(params.limit || 100);
+
+    if (params.entryId) {
+      query = query.eq('target_id', params.entryId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || []).map((row) => ({
+      id: row.id,
+      ts: row.created_at,
+      user: row.actor_name || row.actor_email,
+      entryId: row.target_id,
+      action: row.action_type,
+      meta: row.details,
+    }));
+  } catch (error) {
+    Logger.error(error, 'listAudit');
+    return [];
+  }
+}
+
+// ============================================
+// NOTIFICATIONS (simplified - use Supabase Edge Functions for email)
+// ============================================
+
+async function notify(payload) {
+  // For Teams webhooks, we'd need a Supabase Edge Function
+  // This is a placeholder that logs the notification
+  Logger.debug('Notification requested:', payload);
+  return { ok: true, results: { message: 'Notifications require Edge Function setup' } };
+}
+
+// ============================================
+// DATA MAPPING FUNCTIONS
+// ============================================
+
+function mapEntryToApp(row) {
+  return {
+    id: row.id,
+    date: row.date,
+    platforms: row.platforms || [],
+    assetType: row.asset_type,
+    caption: row.caption,
+    platformCaptions: row.platform_captions || {},
+    firstComment: row.first_comment,
+    approvalDeadline: row.approval_deadline,
+    status: row.status,
+    approvers: row.approvers || [],
+    author: row.author,
+    campaign: row.campaign,
+    contentPillar: row.content_pillar,
+    previewUrl: row.preview_url,
+    checklist: row.checklist || {},
+    analytics: row.analytics || {},
+    workflowStatus: row.workflow_status,
+    statusDetail: row.status_detail,
+    aiFlags: row.ai_flags || [],
+    aiScore: row.ai_score || {},
+    testingFrameworkId: row.testing_framework_id,
+    testingFrameworkName: row.testing_framework_name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    approvedAt: row.approved_at,
+  };
+}
+
+function mapEntryToDb(entry, userEmail) {
+  return {
+    id: entry.id || undefined,
+    date: entry.date,
+    platforms: entry.platforms || [],
+    asset_type: entry.assetType || 'Design',
+    caption: entry.caption,
+    platform_captions: entry.platformCaptions || {},
+    first_comment: entry.firstComment,
+    approval_deadline: entry.approvalDeadline,
+    status: entry.status || 'Pending',
+    approvers: entry.approvers || [],
+    author: entry.author,
+    author_email: userEmail,
+    campaign: entry.campaign,
+    content_pillar: entry.contentPillar,
+    preview_url: entry.previewUrl,
+    checklist: entry.checklist || {},
+    analytics: entry.analytics || {},
+    workflow_status: entry.workflowStatus || 'Draft',
+    status_detail: entry.statusDetail,
+    ai_flags: entry.aiFlags || [],
+    ai_score: entry.aiScore || {},
+    testing_framework_id: entry.testingFrameworkId,
+    testing_framework_name: entry.testingFrameworkName,
+  };
+}
+
+function mapIdeaToApp(row) {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    notes: row.notes,
+    links: row.links || [],
+    attachments: row.attachments || [],
+    inspiration: row.inspiration,
+    createdBy: row.created_by,
+    targetDate: row.target_date,
+    targetMonth: row.target_month,
+    createdAt: row.created_at,
+  };
+}
+
+function mapIdeaToDb(idea, userEmail) {
+  return {
+    id: idea.id || undefined,
+    type: idea.type || 'Other',
+    title: idea.title,
+    notes: idea.notes,
+    links: idea.links || [],
+    attachments: idea.attachments || [],
+    inspiration: idea.inspiration,
+    created_by: idea.createdBy,
+    created_by_email: userEmail,
+    target_date: idea.targetDate,
+    target_month: idea.targetMonth || (idea.targetDate ? idea.targetDate.substring(0, 7) : null),
+  };
+}
+
+function mapLinkedInToApp(row) {
+  return {
+    id: row.id,
+    submissionType: row.submission_type,
+    status: row.status,
+    title: row.title,
+    postCopy: row.post_copy,
+    comments: row.comments,
+    owner: row.owner,
+    submitter: row.submitter,
+    links: row.links || [],
+    attachments: row.attachments || [],
+    targetDate: row.target_date,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapLinkedInToDb(submission, userEmail) {
+  return {
+    id: submission.id || undefined,
+    submission_type: submission.submissionType || 'My own account',
+    status: submission.status || 'Draft',
+    title: submission.title,
+    post_copy: submission.postCopy,
+    comments: submission.comments,
+    owner: submission.owner,
+    owner_email: userEmail,
+    submitter: submission.submitter,
+    submitter_email: userEmail,
+    links: submission.links || [],
+    attachments: submission.attachments || [],
+    target_date: submission.targetDate,
+  };
+}
+
+function mapGuidelinesToApp(row) {
+  return {
+    id: row.id,
+    charLimits: row.char_limits || {},
+    bannedWords: row.banned_words || [],
+    requiredPhrases: row.required_phrases || [],
+    languageGuide: row.language_guide,
+    hashtagTips: row.hashtag_tips,
+    teamsWebhookUrl: row.teams_webhook_url,
+  };
+}
+
+function mapGuidelinesToDb(guidelines) {
+  return {
+    id: 'default',
+    char_limits: guidelines.charLimits || {},
+    banned_words: guidelines.bannedWords || [],
+    required_phrases: guidelines.requiredPhrases || [],
+    language_guide: guidelines.languageGuide,
+    hashtag_tips: guidelines.hashtagTips,
+    teams_webhook_url: guidelines.teamsWebhookUrl,
+  };
+}
+
+// ============================================
+// INITIALIZE AND EXPOSE API
+// ============================================
+
+(async () => {
+  try {
+    await initSupabase();
+    const enabled = supabase !== null;
+
+    if (typeof window !== 'undefined') {
+      window.api = Object.freeze({
+        enabled,
+        // Entries
+        listEntries,
+        createEntry,
+        updateEntry,
+        deleteEntry,
+        // Ideas
+        listIdeas,
+        createIdea,
+        updateIdea,
+        deleteIdea,
+        // LinkedIn
+        listLinkedIn,
+        createLinkedIn,
+        updateLinkedIn,
+        deleteLinkedIn,
+        // Testing Frameworks
+        listTestingFrameworks,
+        createTestingFramework,
+        updateTestingFramework,
+        deleteTestingFramework,
+        // Guidelines
+        getGuidelines,
+        saveGuidelines,
+        // Users
+        listUsers,
+        getCurrentUser,
+        createUser,
+        updateUser,
+        deleteUser,
+        updateProfile,
+        listApprovers,
+        // Auth
+        login,
+        logout,
+        acceptInvite,
+        changePassword,
+        // Audit
+        logAudit,
+        listAudit,
+        // Notifications
+        notify,
+      });
+
+      // Dispatch ready event
+      try {
+        window.dispatchEvent(new CustomEvent('pm-api-ready', { detail: { enabled } }));
+      } catch {}
+
+      Logger.debug('Supabase API client ready, enabled:', enabled);
+    }
+  } catch (error) {
+    Logger.error(error, 'API initialization failed');
+  }
+})();
