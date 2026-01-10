@@ -1,0 +1,1 @@
+export { LinkedInView } from './LinkedInView';
