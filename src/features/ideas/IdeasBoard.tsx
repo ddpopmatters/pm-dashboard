@@ -8,7 +8,7 @@ import {
   Button,
   Label,
 } from '../../components/ui';
-import { TrashIcon } from '../../components/common';
+import { TrashIcon, PlusIcon, CheckCircleIcon } from '../../components/common';
 import { cx } from '../../lib/utils';
 import { selectBaseClasses } from '../../lib/styles';
 import { IDEA_TYPES } from '../../constants';
@@ -20,12 +20,14 @@ export interface IdeasBoardProps {
   ideas: Idea[];
   /** Callback when an idea is deleted */
   onDelete: (id: string) => void;
+  /** Callback when creating an entry from an idea */
+  onCreateEntry?: (idea: Idea) => void;
 }
 
 /**
  * IdeasBoard - Displays a filterable grid of idea cards
  */
-export const IdeasBoard: React.FC<IdeasBoardProps> = ({ ideas, onDelete }) => {
+export const IdeasBoard: React.FC<IdeasBoardProps> = ({ ideas, onDelete, onCreateEntry }) => {
   const [filter, setFilter] = useState('All');
 
   const filteredIdeas = useMemo(() => {
@@ -138,17 +140,35 @@ export const IdeasBoard: React.FC<IdeasBoardProps> = ({ ideas, onDelete }) => {
                       </div>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const confirmDelete = window.confirm('Remove this idea from the log?');
-                      if (confirmDelete) onDelete(idea.id);
-                    }}
-                  >
-                    <TrashIcon className="h-4 w-4 text-graystone-500" />
-                    Remove
-                  </Button>
+                  <div className="flex flex-col gap-2">
+                    {idea.convertedToEntryId ? (
+                      <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-700">
+                        <CheckCircleIcon className="h-3 w-3" />
+                        Converted to entry
+                      </div>
+                    ) : onCreateEntry ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onCreateEntry(idea)}
+                        className="gap-1 text-ocean-700"
+                      >
+                        <PlusIcon className="h-4 w-4 text-ocean-700" />
+                        Create entry
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const confirmDelete = window.confirm('Remove this idea from the log?');
+                        if (confirmDelete) onDelete(idea.id);
+                      }}
+                    >
+                      <TrashIcon className="h-4 w-4 text-graystone-500" />
+                      Remove
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}

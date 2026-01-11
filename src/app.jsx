@@ -108,6 +108,7 @@ import {
   TrashIcon,
   RotateCcwIcon,
   PlusIcon,
+  CopyIcon,
 } from './components/common';
 import { ChangePasswordModal } from './components/auth';
 import { PerformanceImportModal } from './features/performance';
@@ -1527,6 +1528,7 @@ function EntryModal({
   onClose,
   onApprove,
   onDelete,
+  onClone,
   onSave,
   onUpdate,
   onNotifyMentions,
@@ -1704,6 +1706,12 @@ function EntryModal({
       onDelete(draft.id);
       onClose();
     }
+  };
+
+  const handleClone = () => {
+    if (!onClone || !draft) return;
+    onClone(draft);
+    onClose();
   };
 
   const handleAssetTypeChange = (nextType) => {
@@ -2587,6 +2595,12 @@ function EntryModal({
                   Mark as approved
                 </Button>
               ) : null}
+              {onClone && (
+                <Button variant="outline" onClick={handleClone} className="gap-2 text-ocean-700">
+                  <CopyIcon className="h-4 w-4 text-ocean-700" />
+                  Clone entry
+                </Button>
+              )}
               {canEdit && (
                 <Button
                   variant="outline"
@@ -4715,6 +4729,152 @@ function ContentDashboard() {
     }
   };
 
+  const cloneEntry = (sourceEntry) => {
+    if (!sourceEntry) return;
+    const timestamp = new Date().toISOString();
+    const newId = uuid();
+
+    // Clone all content fields but reset metadata
+    const clonedData = {
+      // Content fields - keep these
+      platforms: sourceEntry.platforms || [],
+      assetType: sourceEntry.assetType || '',
+      caption: sourceEntry.caption || '',
+      platformCaptions: sourceEntry.platformCaptions || {},
+      firstComment: sourceEntry.firstComment || '',
+      script: sourceEntry.script || '',
+      designCopy: sourceEntry.designCopy || '',
+      carouselSlides: sourceEntry.carouselSlides || [],
+      previewUrl: sourceEntry.previewUrl || '',
+      campaign: sourceEntry.campaign || '',
+      contentPillar: sourceEntry.contentPillar || '',
+      testingFrameworkId: sourceEntry.testingFrameworkId || '',
+      testingFrameworkName: sourceEntry.testingFrameworkName || '',
+
+      // Reset these for the new entry
+      id: newId,
+      date: '', // User must select a new date
+      status: 'Pending',
+      workflowStatus: KANBAN_STATUSES[0], // Draft
+      author: currentUser || 'Unknown',
+      approvers: sourceEntry.approvers || [], // Keep approvers for convenience
+      approvalDeadline: '', // Clear deadline
+      approvedAt: undefined,
+      checklist: createEmptyChecklist(), // Fresh checklist
+      comments: [], // No comments on clone
+      analytics: {}, // No analytics yet
+      analyticsUpdatedAt: '',
+      aiFlags: [],
+      aiScore: {},
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      deletedAt: null,
+    };
+
+    const sanitized = sanitizeEntry(clonedData);
+    const entryWithStatus = {
+      ...sanitized,
+      statusDetail: computeStatusDetail(sanitized),
+    };
+
+    setEntries((prev) => [entryWithStatus, ...prev]);
+
+    // Open the cloned entry for editing
+    setViewingId(newId);
+    setViewingSnapshot(entryWithStatus);
+
+    // Show toast notification
+    setSyncToast({ message: 'Entry cloned - select a date to schedule', tone: 'success' });
+    setTimeout(() => setSyncToast(null), 3000);
+
+    appendAudit({
+      user: currentUser,
+      entryId: newId,
+      action: 'entry-clone',
+      meta: {
+        sourceEntryId: sourceEntry.id,
+        assetType: clonedData.assetType,
+        platforms: clonedData.platforms,
+      },
+    });
+  };
+
+  const createEntryFromIdea = (idea) => {
+    if (!idea) return;
+    const timestamp = new Date().toISOString();
+    const newId = uuid();
+
+    // Create entry from idea data
+    const entryData = {
+      id: newId,
+      date: idea.targetDate || '', // Use target date if set, otherwise empty
+      platforms: [], // User will select
+      assetType: '',
+      caption: idea.title || '', // Use idea title as starting caption
+      platformCaptions: {},
+      firstComment: '',
+      script: '',
+      designCopy: '',
+      carouselSlides: [],
+      previewUrl: '',
+      campaign: '',
+      contentPillar: '',
+      testingFrameworkId: '',
+      testingFrameworkName: '',
+      status: 'Pending',
+      workflowStatus: KANBAN_STATUSES[0], // Draft
+      author: currentUser || 'Unknown',
+      approvers: [],
+      approvalDeadline: '',
+      approvedAt: undefined,
+      checklist: createEmptyChecklist(),
+      comments: [],
+      analytics: {},
+      analyticsUpdatedAt: '',
+      aiFlags: [],
+      aiScore: {},
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      deletedAt: null,
+      // Carry over links and attachments from idea
+      links: idea.links || [],
+      attachments: idea.attachments || [],
+    };
+
+    const sanitized = sanitizeEntry(entryData);
+    const entryWithStatus = {
+      ...sanitized,
+      statusDetail: computeStatusDetail(sanitized),
+    };
+
+    setEntries((prev) => [entryWithStatus, ...prev]);
+
+    // Mark the idea as converted
+    setIdeas((prev) =>
+      prev.map((i) =>
+        i.id === idea.id ? { ...i, convertedToEntryId: newId, convertedAt: timestamp } : i,
+      ),
+    );
+
+    // Open the new entry for editing
+    setViewingId(newId);
+    setViewingSnapshot(entryWithStatus);
+
+    // Show toast notification
+    setSyncToast({ message: 'Entry created from idea - complete the details', tone: 'success' });
+    setTimeout(() => setSyncToast(null), 3000);
+
+    appendAudit({
+      user: currentUser,
+      entryId: newId,
+      action: 'entry-create-from-idea',
+      meta: {
+        ideaId: idea.id,
+        ideaTitle: idea.title,
+      },
+    });
+  };
+
   const upsert = (updated) => {
     const timestamp = new Date().toISOString();
     let approvalNotifications = [];
@@ -6153,7 +6313,11 @@ function ContentDashboard() {
                     return (
                       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                         <IdeaForm onSubmit={addIdea} currentUser={currentUser} />
-                        <IdeasBoard ideas={ideas} onDelete={deleteIdea} />
+                        <IdeasBoard
+                          ideas={ideas}
+                          onDelete={deleteIdea}
+                          onCreateEntry={createEntryFromIdea}
+                        />
                       </div>
                     );
                   case 'linkedin':
@@ -6501,6 +6665,7 @@ function ContentDashboard() {
               onClose={closeEntry}
               onApprove={toggleApprove}
               onDelete={softDelete}
+              onClone={cloneEntry}
               onSave={upsert}
               onUpdate={upsert}
               onNotifyMentions={handleMentionNotifications}

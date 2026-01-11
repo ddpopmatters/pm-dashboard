@@ -103,6 +103,10 @@ export interface Idea {
   createdAt: string;
   targetDate: string;
   targetMonth: string;
+  /** Entry ID if this idea was converted to an entry */
+  convertedToEntryId?: string;
+  /** Timestamp when this idea was converted to an entry */
+  convertedAt?: string;
 }
 
 /**
