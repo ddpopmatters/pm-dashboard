@@ -2,6 +2,8 @@
 // Provides the same window.api interface for compatibility
 // Load this INSTEAD of apiClient.js when using Supabase
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
 // Configuration
 const SUPABASE_URL = 'https://dvhjvtxtkmtsqlnurhfg.supabase.co';
 const SUPABASE_ANON_KEY =
@@ -21,18 +23,6 @@ async function initSupabase() {
   if (supabaseClient) return supabaseClient;
 
   try {
-    // Wait for SDK to load (poll for window.supabase)
-    let attempts = 0;
-    while (!window.supabase && attempts < 50) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      attempts++;
-    }
-
-    if (!window.supabase) {
-      throw new Error('Supabase SDK failed to load from CDN');
-    }
-
-    const { createClient } = window.supabase;
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         autoRefreshToken: true,
