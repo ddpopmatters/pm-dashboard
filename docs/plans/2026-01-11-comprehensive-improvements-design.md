@@ -1,8 +1,9 @@
 # PM Dashboard Comprehensive Improvements Design
 
 **Date:** 2026-01-11
-**Status:** Draft - Awaiting Approval
+**Status:** Approved - Implementation In Progress
 **Author:** Dan Davis + Claude
+**Reviewed by:** GPT Plan Reviewer, GPT Architect
 
 ## Overview
 
@@ -1271,13 +1272,293 @@ Before rollout, the dashboard should:
 
 ---
 
+## Technical Addendum
+
+_Added following GPT Plan Reviewer and Architect consultation on 2026-01-11_
+
+### A1. Serverless Architecture for Callbacks & Scheduling
+
+GitHub Pages serves static files only. All server-side logic runs on **Supabase Edge Functions**.
+
+#### Zapier Callback Flow
+
+```
+Entry Approved → Client triggers Zapier webhook
+                         ↓
+              Zapier posts to platforms
+                         ↓
+              Zapier calls Supabase Edge Function
+                         ↓
+              Edge Function updates entry in database
+                         ↓
+              Client sees updated status on next fetch/realtime subscription
+```
+
+**Edge Function: `/functions/v1/publish-callback`**
+
+```typescript
+// supabase/functions/publish-callback/index.ts
+import { createClient } from '@supabase/supabase-js';
+
+Deno.serve(async (req) => {
+  // Verify request (shared secret in header)
+  const authHeader = req.headers.get('x-webhook-secret');
+  if (authHeader !== Deno.env.get('WEBHOOK_SECRET')) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  const { entryId, platform, success, postUrl, error } = await req.json();
+
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+
+  // Get current entry
+  const { data: entry } = await supabase
+    .from('entries')
+    .select('publish_status')
+    .eq('id', entryId)
+    .single();
+
+  // Update per-platform status
+  const publishStatus = entry?.publish_status || {};
+  publishStatus[platform] = {
+    status: success ? 'published' : 'failed',
+    url: postUrl || null,
+    error: error || null,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Check if all platforms are done
+  const allDone = Object.values(publishStatus).every(
+    (s: any) => s.status === 'published' || s.status === 'failed',
+  );
+
+  await supabase
+    .from('entries')
+    .update({
+      publish_status: publishStatus,
+      published_at: allDone ? new Date().toISOString() : null,
+    })
+    .eq('id', entryId);
+
+  return new Response(JSON.stringify({ ok: true }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+});
+```
+
+**Security:**
+
+- Shared secret in `x-webhook-secret` header
+- Zapier configured with secret in webhook URL or headers
+- Edge Function validates before processing
+
+#### Report Scheduling
+
+Reports are generated **on-demand** (user clicks "Generate Report"), not auto-scheduled. This avoids serverless cron complexity for a small team.
+
+Optional future enhancement: Supabase pg_cron can trigger Edge Functions on a schedule if auto-generation is needed.
+
+---
+
+### A2. Multi-Platform Publishing Status Schema
+
+When an entry targets multiple platforms, track each platform's publish status independently.
+
+**Schema Change:**
+
+```sql
+-- Replace simple published_urls/publish_errors with structured status
+ALTER TABLE entries ADD COLUMN publish_status JSONB DEFAULT '{}';
+
+-- Example value:
+-- {
+--   "Instagram": {"status": "published", "url": "https://...", "error": null, "timestamp": "..."},
+--   "Facebook": {"status": "failed", "url": null, "error": "Rate limited", "timestamp": "..."},
+--   "LinkedIn": {"status": "pending", "url": null, "error": null, "timestamp": null}
+-- }
+```
+
+**TypeScript Interface:**
+
+```typescript
+interface PlatformPublishStatus {
+  status: 'pending' | 'publishing' | 'published' | 'failed';
+  url: string | null;
+  error: string | null;
+  timestamp: string | null;
+}
+
+interface Entry {
+  // ... existing fields
+  publishStatus: Record<string, PlatformPublishStatus>;
+}
+```
+
+**State Transitions:**
+
+```
+Entry Created → publishStatus: {} (empty)
+                    ↓
+User clicks "Publish" → publishStatus: { "Instagram": { status: "publishing" }, ... }
+                    ↓
+Zapier callback (success) → publishStatus: { "Instagram": { status: "published", url: "..." } }
+Zapier callback (failure) → publishStatus: { "Instagram": { status: "failed", error: "..." } }
+```
+
+**UI Display:**
+
+- Show per-platform status badges on entry cards
+- Aggregate status: "Published" (all done), "Partial" (some failed), "Publishing" (in progress)
+- Click to expand and see per-platform details
+
+---
+
+### A3. Analytics CSV Import Format
+
+**Required Columns:**
+
+| Column        | Type       | Required    | Description                               |
+| ------------- | ---------- | ----------- | ----------------------------------------- |
+| `entry_id`    | UUID       | Recommended | Direct match to entry                     |
+| `date`        | YYYY-MM-DD | Yes         | Post date (fallback matching)             |
+| `platform`    | string     | Yes         | Platform name (Instagram, Facebook, etc.) |
+| `impressions` | number     | No          | Total impressions                         |
+| `reach`       | number     | No          | Unique accounts reached                   |
+| `engagements` | number     | No          | Total engagements                         |
+| `likes`       | number     | No          | Like/reaction count                       |
+| `comments`    | number     | No          | Comment count                             |
+| `shares`      | number     | No          | Share/repost count                        |
+| `saves`       | number     | No          | Save/bookmark count                       |
+| `clicks`      | number     | No          | Link clicks                               |
+| `video_views` | number     | No          | Video view count                          |
+
+**Matching Logic:**
+
+1. If `entry_id` provided → direct match
+2. Else match by `date` + `platform`
+3. If multiple entries match → flag as ambiguous, show in import summary
+
+**Handling Missing Data:**
+
+- Missing numeric columns → store as `null`, display as "-" in UI
+- Unknown columns → ignore (logged in import summary)
+- Duplicate rows → last value wins, logged as warning
+
+**Storage:**
+
+```sql
+-- Store in Entry.analytics JSONB field
+-- Example:
+-- {
+--   "Instagram": { "impressions": 1500, "reach": 1200, "engagements": 89, ... },
+--   "Facebook": { "impressions": 800, "reach": 600, "engagements": 45, ... }
+-- }
+```
+
+---
+
+### A4. Per-Phase Acceptance Criteria
+
+#### Phase 1: Foundation
+
+| Feature                 | Acceptance Criteria                                                                                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Duplicate Entry         | Click "Clone" on entry → new entry form opens with all fields pre-filled except date → save creates new entry with new ID                                   |
+| Quick-Create from Ideas | Click "Create Entry" on idea card → entry form opens with title as caption, links/attachments carried over → save creates entry AND marks idea as converted |
+| Draft Auto-Save         | Start editing entry → wait 30s → close browser → reopen → "Resume draft?" prompt appears → click Yes → form restored                                        |
+| Simple Approval Toggle  | Click approve button on entry → `approved` becomes true, `approvedBy` and `approvedAt` populated → UI shows approved state                                  |
+| Streamlined Kanban      | Kanban shows 4 columns (Draft, Ready for Review, Approved, Published) → drag entry between columns → status updates correctly                               |
+
+#### Phase 2: Analytics & Engagement
+
+| Feature             | Acceptance Criteria                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Analytics Dashboard | Navigate to Analytics → see summary cards (total posts, avg engagement, reach) → change time period → numbers update           |
+| Platform Comparison | Analytics shows bar chart → each platform has bar → click platform → dashboard filters to that platform                        |
+| Engagement Log      | Navigate to Engagement → fill quick-log form → submit → activity appears in list → filter by platform → list filters correctly |
+| Engagement Goals    | Set weekly goal in settings → log activities → progress bar updates → new week starts → progress resets                        |
+
+#### Phase 3: Publishing & Repurposing
+
+| Feature           | Acceptance Criteria                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| Zapier Webhook    | Configure webhook URL in settings → click "Test" → Zapier receives test payload                           |
+| Manual Publish    | Click "Publish Now" on approved entry → Zapier webhook fires → entry shows "Publishing" status            |
+| Publish Callback  | Zapier calls callback URL → entry status updates to "Published" with post URL within 60s                  |
+| Post Again        | Click "Post Again" on published entry → form opens pre-filled → save creates new entry linked to original |
+| Evergreen Library | Toggle "Evergreen" on entry → filter "Evergreen only" → only evergreen entries shown                      |
+
+#### Phase 4: Planning & Visibility
+
+| Feature            | Acceptance Criteria                                                                                   |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| Week View          | Toggle to Week view → see 7 days as columns → navigate previous/next week → entries display correctly |
+| Drag-and-Drop      | Drag entry to different date on calendar → drop → entry date updates → calendar reflects change       |
+| Content Gaps       | Set target "1 post per day" → view calendar → empty days show gap indicator                           |
+| Upcoming Deadlines | Dashboard shows "Due soon" panel → entries due in 7 days appear → grouped by urgency                  |
+
+#### Phase 5: Reporting & Influencers
+
+| Feature              | Acceptance Criteria                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| Page Metrics         | Enter monthly metrics for platform → save → view historical chart → data appears correctly        |
+| Monthly Report       | Click "Generate Report" → select month → report preview shows with all sections populated         |
+| PDF Export           | Click "Export PDF" on report → PDF downloads → opens correctly with charts and branding           |
+| Influencer Directory | Add influencer with details → appears in list → filter by tag → influencer shown/hidden correctly |
+| Campaign Linking     | Select influencer as collaborator on entry → save → influencer profile shows linked entry         |
+
+#### Phase 6: Polish
+
+| Feature            | Acceptance Criteria                                                                                   |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| Global Search      | Press `/` → search modal opens → type query → results from entries, ideas, influencers appear grouped |
+| Keyboard Shortcuts | Press `?` → shortcuts help modal opens → press `N` → new entry form opens                             |
+| Dark Mode          | Toggle dark mode → all UI elements switch to dark theme → preference persists on reload               |
+| Mobile             | View on phone → sidebar collapses → core actions accessible → touch targets adequate size             |
+
+---
+
+### A5. Access Control Model
+
+For a 2-5 person team with informal processes, minimal role-based access:
+
+**Roles:**
+
+| Role       | Capabilities                                                   |
+| ---------- | -------------------------------------------------------------- |
+| **Admin**  | All features + user management + settings                      |
+| **Editor** | All content features (entries, ideas, engagement, influencers) |
+| **Viewer** | Read-only access (future, not implemented in Phase 1-6)        |
+
+**Current Implementation:**
+
+- `user_profiles.is_admin` - boolean flag for admin access
+- `user_profiles.is_approver` - boolean flag for approval capability
+- `user_profiles.features` - array of enabled feature keys
+
+**Supabase RLS Policies:**
+
+- All authenticated users can read entries, ideas, engagement data
+- All authenticated users can create/edit their own content
+- Admins can modify all content and manage users
+
+**Rationale:** Small team, high trust environment. Complex permissions add friction without benefit. Revisit if team grows beyond 10 people.
+
+---
+
+## Resolved Questions
+
+1. **Zapier plan limits** - 750 tasks/month available. At 5-15 posts/week across 6 platforms, worst case ~360 tasks/month for publishing. Sufficient headroom.
+2. **Historical data** - Start fresh with manual import option for historical metrics via CSV.
+3. **Report branding** - No specific requirements yet, will iterate. Use Population Matters logo and ocean/aqua color scheme.
+
 ## Open Questions
 
-1. **Zapier plan limits** - How many zaps/tasks available? May affect publishing frequency
-2. **Platform API access** - Which platforms does your Zapier plan support for posting?
-3. **Historical data** - Import existing content/metrics, or start fresh?
-4. **User accounts** - Will all 2-5 team members have individual logins?
-5. **Report branding** - Any specific design requirements for PDF reports?
+1. **Platform API access** - Which platforms does your Zapier plan support for posting?
+2. **User accounts** - Will all 2-5 team members have individual logins?
 
 ---
 
