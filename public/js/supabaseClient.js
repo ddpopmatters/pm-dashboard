@@ -21,9 +21,15 @@ async function initSupabase() {
   if (supabase) return supabase;
 
   try {
-    // Wait for SDK to load
-    if (window.supabaseReady) {
-      await window.supabaseReady;
+    // Wait for SDK to load (poll for window.supabase)
+    let attempts = 0;
+    while (!window.supabase && attempts < 50) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      attempts++;
+    }
+
+    if (!window.supabase) {
+      throw new Error('Supabase SDK failed to load from CDN');
     }
 
     const { createClient } = window.supabase;
