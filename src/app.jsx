@@ -2694,6 +2694,225 @@ function EntryModal({
   );
 }
 
+// Sidebar Navigation Component - matches PM Productivity Tool style
+function Sidebar({
+  currentView,
+  onNavigate,
+  currentUser,
+  currentUserEmail,
+  currentUserAvatar,
+  profileInitials,
+  onProfileClick,
+  onSignOut,
+  canUseCalendar,
+  canUseKanban,
+  canUseApprovals,
+  canUseIdeas,
+  canUseLinkedIn,
+  canUseTesting,
+  currentUserIsAdmin,
+  outstandingCount,
+}) {
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', enabled: true },
+    { id: 'calendar', label: 'Calendar', icon: 'calendar', enabled: canUseCalendar },
+    { id: 'kanban', label: 'Kanban', icon: 'columns', enabled: canUseKanban },
+    {
+      id: 'approvals',
+      label: 'Approvals',
+      icon: 'check-circle',
+      enabled: canUseApprovals,
+      badge: outstandingCount,
+    },
+    { id: 'ideas', label: 'Ideas', icon: 'lightbulb', enabled: canUseIdeas },
+    { id: 'linkedin', label: 'LinkedIn', icon: 'linkedin', enabled: canUseLinkedIn },
+    { id: 'testing', label: 'Testing', icon: 'flask', enabled: canUseTesting },
+    { id: 'admin', label: 'Admin', icon: 'settings', enabled: currentUserIsAdmin },
+  ].filter((item) => item.enabled);
+
+  const iconMap = {
+    'layout-dashboard': (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="7" height="7" rx="1" strokeWidth="2" />
+        <rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="2" />
+        <rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="2" />
+        <rect x="14" y="14" width="7" height="7" rx="1" strokeWidth="2" />
+      </svg>
+    ),
+    calendar: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="18" rx="2" strokeWidth="2" />
+        <line x1="16" y1="2" x2="16" y2="6" strokeWidth="2" />
+        <line x1="8" y1="2" x2="8" y2="6" strokeWidth="2" />
+        <line x1="3" y1="10" x2="21" y2="10" strokeWidth="2" />
+      </svg>
+    ),
+    columns: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="5" height="18" rx="1" strokeWidth="2" />
+        <rect x="10" y="3" width="5" height="18" rx="1" strokeWidth="2" />
+        <rect x="17" y="3" width="5" height="18" rx="1" strokeWidth="2" />
+      </svg>
+    ),
+    'check-circle': (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" strokeWidth="2" />
+        <path d="M9 12l2 2 4-4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+    lightbulb: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          d="M9 18h6M10 22h4M12 2v1M4.22 4.22l.707.707M1 12h1M4.22 19.78l.707-.707M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+    linkedin: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6ZM2 9h4v12H2ZM4 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+    flask: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          d="M9 3h6M10 3v5.5l-4 6v4a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-4l-4-6V3"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+    settings: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3" strokeWidth="2" />
+        <path
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
+          strokeWidth="2"
+        />
+      </svg>
+    ),
+    plus: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <line x1="12" y1="5" x2="12" y2="19" strokeWidth="2" strokeLinecap="round" />
+        <line x1="5" y1="12" x2="19" y2="12" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    ),
+  };
+
+  return (
+    <div className="w-64 bg-white flex flex-col h-screen fixed left-0 top-0 z-40 border-r border-ocean-100 shadow-sm">
+      {/* Logo/Header */}
+      <div className="p-6 border-b border-ocean-100">
+        <div className="flex items-center gap-3">
+          <img
+            src="https://www.wikicorporates.org/mediawiki/images/thumb/d/db/Population-Matters-2020.png/250px-Population-Matters-2020.png"
+            alt="Population Matters"
+            className="h-10 w-10 object-contain"
+          />
+          <div>
+            <h1 className="heading-font text-lg text-ocean-900">Content Hub</h1>
+            <p className="text-xs text-ocean-600">Dashboard</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Items */}
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        {menuItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onNavigate(item.id)}
+            className={cx(
+              'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all group',
+              currentView === item.id
+                ? 'bg-ocean-500 text-white shadow-lg'
+                : 'text-ocean-900 hover:bg-ocean-50',
+            )}
+          >
+            <div className="relative flex items-center justify-center">
+              {/* Hover Circle - Behind Icon */}
+              <div
+                className={cx(
+                  'absolute w-10 h-10 rounded-full transition-all duration-300',
+                  currentView === item.id
+                    ? 'scale-0 opacity-0'
+                    : 'scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100',
+                )}
+                style={{ backgroundColor: '#0CFFFF' }}
+              />
+              <span className="relative z-10">{iconMap[item.icon]}</span>
+            </div>
+            <span className="font-heading text-sm tracking-wide">{item.label}</span>
+            {item.badge > 0 && (
+              <span className="ml-auto text-xs font-semibold bg-aqua-400 text-ocean-900 rounded-full px-2 py-0.5">
+                {item.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {/* Add New Item - Special Button */}
+      {canUseCalendar && (
+        <div className="p-4 border-t border-ocean-100">
+          <button
+            onClick={() => onNavigate('form')}
+            className={cx(
+              'w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-left transition-all font-semibold',
+              currentView === 'form'
+                ? 'bg-ocean-600 text-white shadow-lg'
+                : 'bg-ocean-500 text-white hover:bg-ocean-600 shadow-md',
+            )}
+          >
+            {iconMap.plus}
+            <span className="font-heading text-sm tracking-wide">Add Content</span>
+          </button>
+        </div>
+      )}
+
+      {/* User Profile Section */}
+      <div className="p-4 border-t border-ocean-100">
+        <button
+          onClick={onProfileClick}
+          className="w-full flex items-center gap-3 p-3 rounded-xl bg-ocean-50 hover:bg-ocean-100 transition-colors text-left"
+        >
+          {currentUserAvatar ? (
+            <img
+              src={currentUserAvatar}
+              alt={currentUser || currentUserEmail || 'Profile'}
+              className="w-10 h-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-ocean-500 flex items-center justify-center text-white font-bold text-sm">
+              {profileInitials}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-sm text-ocean-900 truncate">
+              {currentUser || currentUserEmail}
+            </div>
+            <div className="text-xs text-ocean-600">View profile</div>
+          </div>
+        </button>
+        <button
+          onClick={onSignOut}
+          className="w-full mt-2 text-xs text-graystone-500 hover:text-ocean-700 transition-colors"
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ContentDashboard() {
   // Destructure stable method references to avoid re-renders when loading/error state changes
   const { get: apiGet, post: apiPost, put: apiPut, del: apiDel } = useApi();
@@ -2715,7 +2934,7 @@ function ContentDashboard() {
   const [currentUserHasPassword, setCurrentUserHasPassword] = useState(false);
   const [authStatus, setAuthStatus] = useState('loading');
   const [authError, setAuthError] = useState('');
-  const [currentView, setCurrentView] = useState('menu');
+  const [currentView, setCurrentView] = useState('dashboard');
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -3050,18 +3269,18 @@ function ContentDashboard() {
 
   useEffect(() => {
     if (currentView === 'form' && !canUseCalendar) {
-      setCurrentView('menu');
+      setCurrentView('dashboard');
     } else if (currentView === 'approvals' && !canUseApprovals) {
-      setCurrentView('menu');
+      setCurrentView('dashboard');
     } else if (currentView === 'admin' && !currentUserIsAdmin) {
-      setCurrentView('menu');
+      setCurrentView('dashboard');
     } else if (currentView === 'plan') {
       const canUsePlan = PLAN_TAB_ORDER.some((tab) => {
         const needed = PLAN_TAB_FEATURES[tab];
         return !needed || hasFeature(needed);
       });
       if (!canUsePlan) {
-        setCurrentView('menu');
+        setCurrentView('dashboard');
       }
     }
   }, [currentView, hasFeature, currentUserIsAdmin, canUseCalendar, canUseApprovals]);
@@ -4755,7 +4974,7 @@ function ContentDashboard() {
       setCurrentUserHasPassword(false);
       setAuthStatus('login');
       resetLoginFields();
-      setCurrentView('menu');
+      setCurrentView('dashboard');
       closeEntry();
       setUserList([]);
       setAccessModalUser(null);
@@ -4963,277 +5182,839 @@ function ContentDashboard() {
     );
   }
 
+  // Handle sidebar navigation
+  const handleSidebarNavigate = useCallback(
+    (view) => {
+      if (view === 'form') {
+        setCurrentView('form');
+        setPlanTab('plan');
+        closeEntry();
+        try {
+          window.location.hash = '#create';
+        } catch {}
+      } else {
+        setCurrentView(view);
+        try {
+          window.location.hash = `#${view}`;
+        } catch {}
+      }
+    },
+    [closeEntry],
+  );
+
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      {syncQueue.length ? (
-        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <span className="font-semibold">Sync pending.</span> {syncQueue.length} update
-              {syncQueue.length === 1 ? '' : 's'} waiting to send.
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={retryAllSync}>
-                Retry all
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setSyncQueue([])}>
-                Dismiss
-              </Button>
-            </div>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-amber-800">
-            {syncQueue.slice(0, 3).map((item) => (
-              <span key={item.id} className="rounded-full bg-amber-100 px-3 py-1">
-                {item.label}
-                {item.attempts > 1 ? ` (x${item.attempts})` : ''}
-              </span>
-            ))}
-            {syncQueue.length > 3 ? (
-              <span className="rounded-full bg-amber-100 px-3 py-1">
-                +{syncQueue.length - 3} more
-              </span>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-      <div className="mb-6 flex justify-end">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={handleProfileMenuToggle}
-            className="flex items-center gap-2 rounded-full border border-graystone-200 bg-white px-3 py-1.5 text-sm font-semibold text-graystone-700 shadow-sm transition hover:border-ocean-200"
-          >
-            {currentUserAvatar ? (
-              <img
-                src={currentUserAvatar}
-                alt={currentUser || currentUserEmail || 'Profile'}
-                className="h-8 w-8 rounded-full object-cover"
-              />
-            ) : (
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ocean-600 text-xs font-semibold text-white">
-                {profileInitials}
-              </span>
-            )}
-            <span className="hidden sm:inline">{currentUser || currentUserEmail}</span>
-            <ChevronDownIcon className="h-4 w-4 text-graystone-400" />
-          </button>
-          {profileMenuOpen ? (
-            <div
-              ref={profileMenuRef}
-              className="absolute right-0 z-50 mt-3 w-72 max-w-xs rounded-3xl border border-graystone-200 bg-white p-4 shadow-2xl"
-            >
-              <form className="space-y-4" onSubmit={handleProfileSave}>
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 overflow-hidden rounded-full border border-graystone-200 bg-aqua-50">
-                    {avatarPreview ? (
-                      <img
-                        src={avatarPreview}
-                        alt="Avatar preview"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-ocean-700">
-                        {profileInitials}
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-ocean-800">
-                      {currentUser || 'Your profile'}
-                    </div>
-                    <div className="text-[11px] text-graystone-500">
-                      {currentUserEmail || 'No email'}
-                    </div>
-                  </div>
+    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#cfebf8' }}>
+      {/* Sidebar */}
+      <Sidebar
+        currentView={currentView}
+        onNavigate={handleSidebarNavigate}
+        currentUser={currentUser}
+        currentUserEmail={currentUserEmail}
+        currentUserAvatar={currentUserAvatar}
+        profileInitials={profileInitials}
+        onProfileClick={handleProfileMenuToggle}
+        onSignOut={handleSignOut}
+        canUseCalendar={canUseCalendar}
+        canUseKanban={canUseKanban}
+        canUseApprovals={canUseApprovals}
+        canUseIdeas={canUseIdeas}
+        canUseLinkedIn={canUseLinkedIn}
+        canUseTesting={canUseTesting}
+        currentUserIsAdmin={currentUserIsAdmin}
+        outstandingCount={outstandingCount}
+      />
+
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto ml-64" style={{ backgroundColor: '#cfebf8' }}>
+        <div className="container mx-auto p-8 max-w-7xl">
+          {/* Sync Queue Toast */}
+          {syncQueue.length ? (
+            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span className="font-semibold">Sync pending.</span> {syncQueue.length} update
+                  {syncQueue.length === 1 ? '' : 's'} waiting to send.
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs text-graystone-600" htmlFor="profile-name">
-                    Display name
-                  </Label>
-                  <Input
-                    id="profile-name"
-                    value={profileFormName}
-                    onChange={(event) => setProfileFormName(event.target.value)}
-                    className="w-full rounded-2xl border border-graystone-200 px-3 py-2 text-sm focus:border-ocean-500 focus:ring-2 focus:ring-aqua-200"
-                  />
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={retryAllSync}>
+                    Retry all
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSyncQueue([])}>
+                    Dismiss
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs text-graystone-600">Profile photo</Label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="cursor-pointer rounded-full border border-graystone-200 px-3 py-1 text-xs font-semibold text-ocean-700 shadow-sm transition hover:border-ocean-300">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleAvatarFileChange}
-                      />
-                      Upload photo
-                    </label>
-                    {avatarPreview ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setProfileAvatarDraft('')}
-                      >
-                        Remove photo
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-                {profileError ? (
-                  <div className="rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-700">
-                    {profileError}
-                  </div>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs text-amber-800">
+                {syncQueue.slice(0, 3).map((item) => (
+                  <span key={item.id} className="rounded-full bg-amber-100 px-3 py-1">
+                    {item.label}
+                    {item.attempts > 1 ? ` (x${item.attempts})` : ''}
+                  </span>
+                ))}
+                {syncQueue.length > 3 ? (
+                  <span className="rounded-full bg-amber-100 px-3 py-1">
+                    +{syncQueue.length - 3} more
+                  </span>
                 ) : null}
-                {profileStatus ? (
-                  <div className="rounded-2xl bg-emerald-50 px-4 py-2 text-xs text-emerald-700">
-                    {profileStatus}
-                  </div>
-                ) : null}
-                <div className="flex flex-col gap-2">
-                  <Button type="submit" disabled={profileSaving}>
-                    {profileSaving ? 'Saving...' : 'Save profile'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setProfileMenuOpen(false);
-                      setChangePasswordOpen(true);
-                    }}
-                  >
-                    Change password
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setProfileMenuOpen(false);
-                      handleSignOut();
-                    }}
-                  >
-                    Sign out
-                  </Button>
-                </div>
-              </form>
+              </div>
             </div>
           ) : null}
-        </div>
-      </div>
-      {currentView === 'menu' && (
-        <>
-          <div className="mb-6 flex flex-col gap-4 text-ocean-900 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="heading-font inline-flex items-center gap-2 text-sm font-semibold text-black">
-                <span
-                  className="inline-block h-3 w-3 rounded-full bg-[#00F5FF]"
-                  aria-hidden="true"
-                />
-                Signed in as
+
+          {/* Profile Modal */}
+          {profileMenuOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+              <div
+                ref={profileMenuRef}
+                className="w-80 max-w-sm rounded-3xl border border-graystone-200 bg-white p-6 shadow-2xl"
+              >
+                <form className="space-y-4" onSubmit={handleProfileSave}>
+                  <div className="flex items-center gap-3">
+                    <div className="h-14 w-14 overflow-hidden rounded-full border border-graystone-200 bg-aqua-50">
+                      {avatarPreview ? (
+                        <img
+                          src={avatarPreview}
+                          alt="Avatar preview"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-lg font-semibold text-ocean-700">
+                          {profileInitials}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-base font-semibold text-ocean-800">
+                        {currentUser || 'Your profile'}
+                      </div>
+                      <div className="text-xs text-graystone-500">
+                        {currentUserEmail || 'No email'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-graystone-600" htmlFor="profile-name">
+                      Display name
+                    </Label>
+                    <Input
+                      id="profile-name"
+                      value={profileFormName}
+                      onChange={(event) => setProfileFormName(event.target.value)}
+                      className="w-full rounded-xl border border-graystone-200 px-3 py-2 text-sm focus:border-ocean-500 focus:ring-2 focus:ring-aqua-200"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-graystone-600">Profile photo</Label>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="cursor-pointer rounded-full border border-graystone-200 px-3 py-1 text-xs font-semibold text-ocean-700 shadow-sm transition hover:border-ocean-300">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleAvatarFileChange}
+                        />
+                        Upload photo
+                      </label>
+                      {avatarPreview ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setProfileAvatarDraft('')}
+                        >
+                          Remove photo
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                  {profileError ? (
+                    <div className="rounded-xl bg-rose-50 px-4 py-2 text-xs text-rose-700">
+                      {profileError}
+                    </div>
+                  ) : null}
+                  {profileStatus ? (
+                    <div className="rounded-xl bg-emerald-50 px-4 py-2 text-xs text-emerald-700">
+                      {profileStatus}
+                    </div>
+                  ) : null}
+                  <div className="flex flex-col gap-2 pt-2">
+                    <Button type="submit" disabled={profileSaving}>
+                      {profileSaving ? 'Saving...' : 'Save profile'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setChangePasswordOpen(true);
+                      }}
+                    >
+                      Change password
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={() => setProfileMenuOpen(false)}>
+                      Close
+                    </Button>
+                  </div>
+                </form>
               </div>
-              <span className="heading-font inline-flex items-center rounded-full bg-aqua-100 px-4 py-2 text-sm font-semibold text-ocean-700">
-                {currentUser}
-              </span>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {canUseApprovals && (
-                <>
+          )}
+
+          {/* Dashboard View */}
+          {(currentView === 'menu' || currentView === 'dashboard') && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* Dashboard Header */}
+              <div className="gradient-header rounded-2xl p-8 text-white shadow-xl mb-8">
+                <h1 className="heading-font text-3xl font-bold mb-2">Content Dashboard</h1>
+                <p className="text-ocean-100">
+                  Plan, approve, and ship social content in one place.
+                </p>
+              </div>
+
+              {/* Stats Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+                {canUseApprovals && (
                   <button
                     type="button"
                     onClick={() => outstandingCount > 0 && setApprovalsModalOpen(true)}
                     disabled={outstandingCount === 0}
-                    className="heading-font inline-flex items-center gap-2 rounded-full border border-[#0F9DDE]/30 bg-aqua-100/80 px-4 py-2 text-sm font-semibold text-ocean-700 transition hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(15,157,222,0.35)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0F9DDE]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#CFEBF8] disabled:translate-y-0 disabled:shadow-none disabled:opacity-60"
+                    className="bg-white rounded-xl border border-ocean-100 shadow-sm p-5 text-left transition card-hover group"
                   >
-                    <span
-                      className="inline-block h-3 w-3 rounded-full bg-[#00F5FF]"
-                      aria-hidden="true"
-                    />
-                    {outstandingCount} awaiting approval
+                    <div className="text-xs font-semibold text-graystone-600 uppercase mb-1">
+                      Awaiting Approval
+                    </div>
+                    <div className="stat-glow inline-flex items-center justify-center">
+                      <div className="stat-value text-3xl font-bold text-ocean-900">
+                        {outstandingCount}
+                      </div>
+                    </div>
                   </button>
-                  {unreadMentionsCount > 0 ? (
-                    <span className="heading-font inline-flex items-center gap-2 rounded-full bg-aqua-100 px-4 py-2 text-sm font-semibold text-ocean-700">
-                      <span
-                        className="inline-block h-3 w-3 rounded-full bg-[#00F5FF]"
-                        aria-hidden="true"
-                      />
-                      {unreadMentionsCount} new mentions
-                    </span>
-                  ) : null}
-                </>
-              )}
-              <Button
-                variant="outline"
-                className="heading-font text-sm normal-case"
-                onClick={() => setGuidelinesOpen(true)}
-              >
-                Guidelines
-              </Button>
-              <NotificationBell
-                notifications={userNotifications}
-                unreadCount={unreadNotifications.length}
-                onOpenItem={(note) => {
-                  openEntry(note.entryId);
-                  markNotificationsAsReadForEntry(note.entryId, currentUser);
-                }}
-              />
-            </div>
-          </div>
-
-          <header className="mb-10">
-            <div className="border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
-              <div className="flex items-center gap-4">
-                <img
-                  src="https://www.wikicorporates.org/mediawiki/images/thumb/d/db/Population-Matters-2020.png/250px-Population-Matters-2020.png"
-                  alt="Population Matters"
-                  className="h-12 w-12 object-contain"
-                />
-                <h1 className="heading-font flex items-center gap-2 text-3xl font-semibold text-black md:text-4xl">
-                  <span
-                    className="inline-block h-3 w-3 rounded-full bg-[#00F5FF]"
-                    aria-hidden="true"
-                  />
-                  Content Dashboard
-                </h1>
-              </div>
-              <p className="mt-3 max-w-2xl text-base text-graystone-600">
-                Plan, approve, and ship social content in one place. Track production status, stay
-                on top of approvals, and keep a clean trail of who owns what.
-              </p>
-            </div>
-          </header>
-
-          {menuHasContent ? (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-              {canUseCalendar && (
-                <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
-                  <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
-                    <span
-                      className={cx(
-                        'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
-                        menuMotionActive
-                          ? 'translate-x-0 opacity-100 rotate-180'
-                          : 'translate-x-6 opacity-0',
-                      )}
-                      style={{ transitionDelay: '80ms' }}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={cx(
-                        'transform transition-all duration-700 ease-out',
-                        menuMotionActive ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
-                      )}
-                      style={{ transitionDelay: '160ms' }}
-                    >
-                      Create Content
-                    </span>
+                )}
+                {canUseApprovals && unreadMentionsCount > 0 && (
+                  <div className="bg-white rounded-xl border border-ocean-100 shadow-sm p-5 text-left">
+                    <div className="text-xs font-semibold text-graystone-600 uppercase mb-1">
+                      New Mentions
+                    </div>
+                    <div className="stat-glow inline-flex items-center justify-center">
+                      <div className="stat-value text-3xl font-bold text-ocean-900">
+                        {unreadMentionsCount}
+                      </div>
+                    </div>
                   </div>
+                )}
+                <div className="bg-white rounded-xl border border-ocean-100 shadow-sm p-5 text-left">
+                  <div className="text-xs font-semibold text-graystone-600 uppercase mb-1">
+                    Total Entries
+                  </div>
+                  <div className="stat-glow inline-flex items-center justify-center">
+                    <div className="stat-value text-3xl font-bold text-ocean-900">
+                      {entries.length}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setGuidelinesOpen(true)}
+                  className="bg-white rounded-xl border border-ocean-100 shadow-sm p-5 text-left transition card-hover"
+                >
+                  <div className="text-xs font-semibold text-graystone-600 uppercase mb-1">
+                    Quick Actions
+                  </div>
+                  <div className="text-sm font-medium text-ocean-700">Open Guidelines</div>
+                </button>
+              </div>
+
+              {/* Feature Cards Grid */}
+              {menuHasContent ? (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+                  {canUseCalendar && (
+                    <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
+                      <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
+                        <span
+                          className={cx(
+                            'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100 rotate-180'
+                              : 'translate-x-6 opacity-0',
+                          )}
+                          style={{ transitionDelay: '80ms' }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className={cx(
+                            'transform transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100'
+                              : 'translate-x-4 opacity-0',
+                          )}
+                          style={{ transitionDelay: '160ms' }}
+                        >
+                          Create Content
+                        </span>
+                      </div>
+                      <p className="text-sm text-graystone-600">
+                        Capture briefs, assign approvers, and log the assets your team needs to
+                        produce next.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setCurrentView('form');
+                          setPlanTab('plan');
+                          closeEntry();
+                          try {
+                            window.location.hash = '#create';
+                          } catch {}
+                        }}
+                        className="mt-auto"
+                      >
+                        Open form
+                      </Button>
+                    </div>
+                  )}
+                  {canUseCalendar && (
+                    <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
+                      <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
+                        <span
+                          className={cx(
+                            'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100 rotate-180'
+                              : 'translate-x-6 opacity-0',
+                          )}
+                          style={{ transitionDelay: '120ms' }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className={cx(
+                            'transform transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100'
+                              : 'translate-x-4 opacity-0',
+                          )}
+                          style={{ transitionDelay: '200ms' }}
+                        >
+                          Calendar
+                        </span>
+                      </div>
+                      <p className="text-sm text-graystone-600">
+                        Review what is booked each day, approve content, and tidy up anything
+                        sitting in trash.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setCurrentView('plan');
+                          setPlanTab('plan');
+                          closeEntry();
+                        }}
+                        className="mt-auto"
+                      >
+                        View calendar
+                      </Button>
+                    </div>
+                  )}
+                  {canUseKanban && (
+                    <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
+                      <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
+                        <span
+                          className={cx(
+                            'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100 rotate-180'
+                              : 'translate-x-6 opacity-0',
+                          )}
+                          style={{ transitionDelay: '160ms' }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className={cx(
+                            'transform transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100'
+                              : 'translate-x-4 opacity-0',
+                          )}
+                          style={{ transitionDelay: '240ms' }}
+                        >
+                          Production Kanban
+                        </span>
+                      </div>
+                      <p className="text-sm text-graystone-600">
+                        Move work from draft to scheduled with status-based swimlanes.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setCurrentView('plan');
+                          setPlanTab('kanban');
+                          closeEntry();
+                        }}
+                        className="mt-auto"
+                      >
+                        View board
+                      </Button>
+                    </div>
+                  )}
+                  {canUseLinkedIn && (
+                    <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
+                      <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
+                        <span
+                          className={cx(
+                            'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100 rotate-180'
+                              : 'translate-x-6 opacity-0',
+                          )}
+                          style={{ transitionDelay: '200ms' }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className={cx(
+                            'transform transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100'
+                              : 'translate-x-4 opacity-0',
+                          )}
+                          style={{ transitionDelay: '280ms' }}
+                        >
+                          LinkedIn drafts
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm text-graystone-600">
+                        Submit LinkedIn copy for review or queue posts for teammates to share.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setCurrentView('plan');
+                          setPlanTab('linkedin');
+                          closeEntry();
+                        }}
+                        className="mt-auto"
+                      >
+                        View drafts
+                      </Button>
+                    </div>
+                  )}
+                  {canUseTesting && (
+                    <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
+                      <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
+                        <span
+                          className={cx(
+                            'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100 rotate-180'
+                              : 'translate-x-6 opacity-0',
+                          )}
+                          style={{ transitionDelay: '240ms' }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className={cx(
+                            'transform transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100'
+                              : 'translate-x-4 opacity-0',
+                          )}
+                          style={{ transitionDelay: '320ms' }}
+                        >
+                          Testing Lab
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm text-graystone-600">
+                        Document hypotheses, success metrics, and frameworks you can link to briefs.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setCurrentView('plan');
+                          setPlanTab('testing');
+                          closeEntry();
+                        }}
+                        className="mt-auto"
+                      >
+                        Explore tests
+                      </Button>
+                    </div>
+                  )}
+                  {canUseApprovals && (
+                    <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
+                      <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
+                        <span
+                          className={cx(
+                            'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100 rotate-180'
+                              : 'translate-x-6 opacity-0',
+                          )}
+                          style={{ transitionDelay: '280ms' }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className={cx(
+                            'transform transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100'
+                              : 'translate-x-4 opacity-0',
+                          )}
+                          style={{ transitionDelay: '360ms' }}
+                        >
+                          Your Approvals
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm text-graystone-600">
+                        Track what still needs your sign-off and clear the queue in one pass.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setCurrentView('approvals');
+                          setPlanTab('plan');
+                          closeEntry();
+                        }}
+                        className="mt-auto"
+                      >
+                        View queue
+                      </Button>
+                    </div>
+                  )}
+                  {canUseIdeas && (
+                    <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
+                      <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
+                        <span
+                          className={cx(
+                            'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100 rotate-180'
+                              : 'translate-x-6 opacity-0',
+                          )}
+                          style={{ transitionDelay: '320ms' }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className={cx(
+                            'transform transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100'
+                              : 'translate-x-4 opacity-0',
+                          )}
+                          style={{ transitionDelay: '400ms' }}
+                        >
+                          Ideas Log
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm text-graystone-600">
+                        Capture topics, themes, and series concepts—complete with notes, links, and
+                        assets.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setCurrentView('plan');
+                          setPlanTab('ideas');
+                          closeEntry();
+                        }}
+                        className="mt-auto"
+                      >
+                        View ideas
+                      </Button>
+                    </div>
+                  )}
+                  {currentUserIsAdmin && (
+                    <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
+                      <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
+                        <span
+                          className={cx(
+                            'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100 rotate-180'
+                              : 'translate-x-6 opacity-0',
+                          )}
+                          style={{ transitionDelay: '320ms' }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className={cx(
+                            'transform transition-all duration-700 ease-out',
+                            menuMotionActive
+                              ? 'translate-x-0 opacity-100'
+                              : 'translate-x-4 opacity-0',
+                          )}
+                          style={{ transitionDelay: '360ms' }}
+                        >
+                          Admin tools
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm text-graystone-600">
+                        View recent audit events and verify server connectivity.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setCurrentView('admin');
+                          closeEntry();
+                        }}
+                        className="mt-auto"
+                      >
+                        View admin
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-3xl border border-aqua-200 bg-white p-8 text-sm text-graystone-600 shadow-[0_0_35px_rgba(15,157,222,0.2)]">
+                  You don't have any modules assigned yet. Ask an administrator to grant access to
+                  specific areas of the dashboard.
+                </div>
+              )}
+              {userNotifications.length > 0 && (
+                <Card className="mt-8 shadow-xl">
+                  <CardHeader>
+                    <CardTitle className="text-lg text-ocean-900">Notifications</CardTitle>
+                    <p className="mt-2 text-sm text-graystone-500">
+                      Mentions and approval assignments for your content.
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {userNotifications.slice(0, 8).map((note) => (
+                        <button
+                          key={note.id}
+                          onClick={() => {
+                            openEntry(note.entryId);
+                            markNotificationsAsReadForEntry(note.entryId, currentUser);
+                          }}
+                          className={cx(
+                            'w-full rounded-xl border px-4 py-3 text-left text-sm transition',
+                            note.read
+                              ? 'border-graystone-200 bg-white hover:border-aqua-300 hover:bg-aqua-50/50'
+                              : 'border-aqua-300 bg-aqua-50 hover:border-aqua-400',
+                          )}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-medium text-graystone-800">{note.message}</span>
+                            <span className="text-xs text-graystone-500">
+                              {new Date(note.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {currentView === 'form' && canUseCalendar && (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setCurrentView('dashboard');
+                      setPlanTab('plan');
+                      closeEntry();
+                    }}
+                    className="self-start"
+                  >
+                    Dashboard
+                  </Button>
+                  <h2 className="text-2xl font-semibold text-ocean-700">Create Content</h2>
                   <p className="text-sm text-graystone-600">
-                    Capture briefs, assign approvers, and log the assets your team needs to produce
-                    next.
+                    Submit a brief and it will appear on the calendar instantly.
                   </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCurrentView('plan');
+                      setPlanTab('plan');
+                      closeEntry();
+                    }}
+                  >
+                    View calendar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleSignOut}
+                    className="heading-font text-sm normal-case"
+                  >
+                    Switch user
+                  </Button>
+                  <NotificationBell
+                    notifications={userNotifications}
+                    unreadCount={unreadNotifications.length}
+                    onOpenItem={(note) => {
+                      if (note.entryId) {
+                        openEntry(note.entryId);
+                      }
+                      markNotificationsAsReadForEntry(note.entryId, currentUser);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1.8fr)_minmax(260px,1fr)]">
+                <div className="w-full">
+                  <EntryForm
+                    onSubmit={addEntry}
+                    existingEntries={entries.filter((entry) => !entry.deletedAt)}
+                    testingFrameworks={testingFrameworks}
+                    onPreviewAssetType={setPendingAssetType}
+                    guidelines={guidelines}
+                    currentUser={currentUser}
+                    currentUserEmail={currentUserEmail}
+                    approverOptions={approverOptions}
+                  />
+                </div>
+                <div className="flex w-full flex-col gap-6">
+                  <div className="rounded-3xl border border-aqua-200 bg-white px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-black px-4 py-2 text-sm font-semibold text-graystone-800">
+                        <CalendarIcon className="h-4 w-4 text-ocean-600" />
+                        {monthLabel}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setMonthCursor(
+                              new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1),
+                            )
+                          }
+                        >
+                          Prev
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setMonthCursor(
+                              new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1),
+                            )
+                          }
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-graystone-500">
+                      This selector only updates the Month at a glance calendar.
+                    </p>
+                  </div>
+                  <MiniCalendar
+                    monthCursor={monthCursor}
+                    entries={monthEntries}
+                    onPreviewEntry={(entry) => {
+                      setPreviewEntryId(entry?.id || '');
+                      setPreviewEntryContext(entry?.id ? 'form' : 'default');
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentView === 'plan' && (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setCurrentView('dashboard');
+                      setPlanTab('plan');
+                      closeEntry();
+                    }}
+                  >
+                    Dashboard
+                  </Button>
+                  <div className="flex flex-wrap items-center gap-2 rounded-3xl border border-aqua-200 bg-aqua-50 p-1 text-ocean-600">
+                    {canUseCalendar && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setPlanTab('plan')}
+                          className={cx(
+                            'rounded-2xl px-4 py-2 text-sm transition',
+                            planTab === 'plan'
+                              ? 'bg-ocean-500 text-white hover:bg-ocean-600'
+                              : 'text-ocean-600 hover:bg-aqua-100',
+                          )}
+                        >
+                          Calendar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setPlanTab('trash')}
+                          className={cx(
+                            'rounded-2xl px-4 py-2 text-sm transition',
+                            planTab === 'trash'
+                              ? 'bg-ocean-500 text-white hover:bg-ocean-600'
+                              : 'text-ocean-600 hover:bg-aqua-100',
+                          )}
+                        >
+                          Trash
+                        </Button>
+                      </>
+                    )}
+                    {canUseKanban && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setPlanTab('kanban')}
+                        className={cx(
+                          'rounded-2xl px-4 py-2 text-sm transition',
+                          planTab === 'kanban'
+                            ? 'bg-ocean-500 text-white hover:bg-ocean-600'
+                            : 'text-ocean-600 hover:bg-aqua-100',
+                        )}
+                      >
+                        Kanban
+                      </Button>
+                    )}
+                    {canUseIdeas && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setPlanTab('ideas')}
+                        className={cx(
+                          'rounded-2xl px-4 py-2 text-sm transition',
+                          planTab === 'ideas'
+                            ? 'bg-ocean-500 text-white hover:bg-ocean-600'
+                            : 'text-ocean-600 hover:bg-aqua-100',
+                        )}
+                      >
+                        Ideas
+                      </Button>
+                    )}
+                    {canUseLinkedIn && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setPlanTab('linkedin')}
+                        className={cx(
+                          'rounded-2xl px-4 py-2 text-sm transition',
+                          planTab === 'linkedin'
+                            ? 'bg-ocean-500 text-white hover:bg-ocean-600'
+                            : 'text-ocean-600 hover:bg-aqua-100',
+                        )}
+                      >
+                        LinkedIn
+                      </Button>
+                    )}
+                    {canUseTesting && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setPlanTab('testing')}
+                        className={cx(
+                          'rounded-2xl px-4 py-2 text-sm transition',
+                          planTab === 'testing'
+                            ? 'bg-ocean-500 text-white hover:bg-ocean-600'
+                            : 'text-ocean-600 hover:bg-aqua-100',
+                        )}
+                      >
+                        Testing Lab
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
                   <Button
                     onClick={() => {
+                      if (!canUseCalendar) return;
                       setCurrentView('form');
                       setPlanTab('plan');
                       closeEntry();
@@ -5241,1055 +6022,519 @@ function ContentDashboard() {
                         window.location.hash = '#create';
                       } catch {}
                     }}
-                    className="mt-auto"
+                    className="gap-2"
+                    disabled={!canUseCalendar}
                   >
-                    Open form
+                    <PlusIcon className="h-4 w-4 text-white" />
+                    Create content
                   </Button>
                 </div>
-              )}
-              {canUseCalendar && (
-                <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
-                  <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
-                    <span
-                      className={cx(
-                        'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
-                        menuMotionActive
-                          ? 'translate-x-0 opacity-100 rotate-180'
-                          : 'translate-x-6 opacity-0',
-                      )}
-                      style={{ transitionDelay: '120ms' }}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={cx(
-                        'transform transition-all duration-700 ease-out',
-                        menuMotionActive ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
-                      )}
-                      style={{ transitionDelay: '200ms' }}
-                    >
-                      Calendar
-                    </span>
-                  </div>
-                  <p className="text-sm text-graystone-600">
-                    Review what is booked each day, approve content, and tidy up anything sitting in
-                    trash.
-                  </p>
-                  <Button
-                    onClick={() => {
-                      setCurrentView('plan');
-                      setPlanTab('plan');
-                      closeEntry();
-                    }}
-                    className="mt-auto"
-                  >
-                    View calendar
-                  </Button>
-                </div>
-              )}
-              {canUseKanban && (
-                <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
-                  <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
-                    <span
-                      className={cx(
-                        'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
-                        menuMotionActive
-                          ? 'translate-x-0 opacity-100 rotate-180'
-                          : 'translate-x-6 opacity-0',
-                      )}
-                      style={{ transitionDelay: '160ms' }}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={cx(
-                        'transform transition-all duration-700 ease-out',
-                        menuMotionActive ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
-                      )}
-                      style={{ transitionDelay: '240ms' }}
-                    >
-                      Production Kanban
-                    </span>
-                  </div>
-                  <p className="text-sm text-graystone-600">
-                    Move work from draft to scheduled with status-based swimlanes.
-                  </p>
-                  <Button
-                    onClick={() => {
-                      setCurrentView('plan');
-                      setPlanTab('kanban');
-                      closeEntry();
-                    }}
-                    className="mt-auto"
-                  >
-                    View board
-                  </Button>
-                </div>
-              )}
-              {canUseLinkedIn && (
-                <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
-                  <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
-                    <span
-                      className={cx(
-                        'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
-                        menuMotionActive
-                          ? 'translate-x-0 opacity-100 rotate-180'
-                          : 'translate-x-6 opacity-0',
-                      )}
-                      style={{ transitionDelay: '200ms' }}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={cx(
-                        'transform transition-all duration-700 ease-out',
-                        menuMotionActive ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
-                      )}
-                      style={{ transitionDelay: '280ms' }}
-                    >
-                      LinkedIn drafts
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm text-graystone-600">
-                    Submit LinkedIn copy for review or queue posts for teammates to share.
-                  </p>
-                  <Button
-                    onClick={() => {
-                      setCurrentView('plan');
-                      setPlanTab('linkedin');
-                      closeEntry();
-                    }}
-                    className="mt-auto"
-                  >
-                    View drafts
-                  </Button>
-                </div>
-              )}
-              {canUseTesting && (
-                <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
-                  <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
-                    <span
-                      className={cx(
-                        'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
-                        menuMotionActive
-                          ? 'translate-x-0 opacity-100 rotate-180'
-                          : 'translate-x-6 opacity-0',
-                      )}
-                      style={{ transitionDelay: '240ms' }}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={cx(
-                        'transform transition-all duration-700 ease-out',
-                        menuMotionActive ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
-                      )}
-                      style={{ transitionDelay: '320ms' }}
-                    >
-                      Testing Lab
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm text-graystone-600">
-                    Document hypotheses, success metrics, and frameworks you can link to briefs.
-                  </p>
-                  <Button
-                    onClick={() => {
-                      setCurrentView('plan');
-                      setPlanTab('testing');
-                      closeEntry();
-                    }}
-                    className="mt-auto"
-                  >
-                    Explore tests
-                  </Button>
-                </div>
-              )}
-              {canUseApprovals && (
-                <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
-                  <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
-                    <span
-                      className={cx(
-                        'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
-                        menuMotionActive
-                          ? 'translate-x-0 opacity-100 rotate-180'
-                          : 'translate-x-6 opacity-0',
-                      )}
-                      style={{ transitionDelay: '280ms' }}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={cx(
-                        'transform transition-all duration-700 ease-out',
-                        menuMotionActive ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
-                      )}
-                      style={{ transitionDelay: '360ms' }}
-                    >
-                      Your Approvals
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm text-graystone-600">
-                    Track what still needs your sign-off and clear the queue in one pass.
-                  </p>
-                  <Button
-                    onClick={() => {
-                      setCurrentView('approvals');
-                      setPlanTab('plan');
-                      closeEntry();
-                    }}
-                    className="mt-auto"
-                  >
-                    View queue
-                  </Button>
-                </div>
-              )}
-              {canUseIdeas && (
-                <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
-                  <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
-                    <span
-                      className={cx(
-                        'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
-                        menuMotionActive
-                          ? 'translate-x-0 opacity-100 rotate-180'
-                          : 'translate-x-6 opacity-0',
-                      )}
-                      style={{ transitionDelay: '320ms' }}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={cx(
-                        'transform transition-all duration-700 ease-out',
-                        menuMotionActive ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
-                      )}
-                      style={{ transitionDelay: '400ms' }}
-                    >
-                      Ideas Log
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm text-graystone-600">
-                    Capture topics, themes, and series concepts—complete with notes, links, and
-                    assets.
-                  </p>
-                  <Button
-                    onClick={() => {
-                      setCurrentView('plan');
-                      setPlanTab('ideas');
-                      closeEntry();
-                    }}
-                    className="mt-auto"
-                  >
-                    View ideas
-                  </Button>
-                </div>
-              )}
-              {currentUserIsAdmin && (
-                <div className="flex min-h-full flex-col items-start gap-4 border border-[#0F9DDE]/40 bg-white p-8 text-left text-ocean-900 shadow-[0_0_35px_rgba(15,157,222,0.3)]">
-                  <div className="heading-font flex items-center gap-3 text-2xl font-semibold text-black">
-                    <span
-                      className={cx(
-                        'inline-block h-3 w-3 transform rounded-full bg-[#00F5FF] transition-all duration-700 ease-out',
-                        menuMotionActive
-                          ? 'translate-x-0 opacity-100 rotate-180'
-                          : 'translate-x-6 opacity-0',
-                      )}
-                      style={{ transitionDelay: '320ms' }}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={cx(
-                        'transform transition-all duration-700 ease-out',
-                        menuMotionActive ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
-                      )}
-                      style={{ transitionDelay: '360ms' }}
-                    >
-                      Admin tools
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm text-graystone-600">
-                    View recent audit events and verify server connectivity.
-                  </p>
-                  <Button
-                    onClick={() => {
-                      setCurrentView('admin');
-                      closeEntry();
-                    }}
-                    className="mt-auto"
-                  >
-                    View admin
-                  </Button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-3xl border border-aqua-200 bg-white p-8 text-sm text-graystone-600 shadow-[0_0_35px_rgba(15,157,222,0.2)]">
-              You don't have any modules assigned yet. Ask an administrator to grant access to
-              specific areas of the dashboard.
-            </div>
-          )}
-          {userNotifications.length > 0 && (
-            <Card className="mt-8 shadow-xl">
-              <CardHeader>
-                <CardTitle className="text-lg text-ocean-900">Notifications</CardTitle>
-                <p className="mt-2 text-sm text-graystone-500">
-                  Mentions and approval assignments for your content.
-                </p>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {userNotifications.slice(0, 8).map((note) => (
-                    <button
-                      key={note.id}
-                      onClick={() => {
-                        openEntry(note.entryId);
-                        markNotificationsAsReadForEntry(note.entryId, currentUser);
-                      }}
-                      className={cx(
-                        'w-full rounded-xl border px-4 py-3 text-left text-sm transition',
-                        note.read
-                          ? 'border-graystone-200 bg-white hover:border-aqua-300 hover:bg-aqua-50/50'
-                          : 'border-aqua-300 bg-aqua-50 hover:border-aqua-400',
-                      )}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-medium text-graystone-800">{note.message}</span>
-                        <span className="text-xs text-graystone-500">
-                          {new Date(note.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
-
-      {currentView === 'form' && canUseCalendar && (
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setCurrentView('menu');
-                  setPlanTab('plan');
-                  closeEntry();
-                }}
-                className="self-start"
-              >
-                Back to menu
-              </Button>
-              <h2 className="text-2xl font-semibold text-ocean-700">Create Content</h2>
-              <p className="text-sm text-graystone-600">
-                Submit a brief and it will appear on the calendar instantly.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setCurrentView('plan');
-                  setPlanTab('plan');
-                  closeEntry();
-                }}
-              >
-                View calendar
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={handleSignOut}
-                className="heading-font text-sm normal-case"
-              >
-                Switch user
-              </Button>
-              <NotificationBell
-                notifications={userNotifications}
-                unreadCount={unreadNotifications.length}
-                onOpenItem={(note) => {
-                  if (note.entryId) {
-                    openEntry(note.entryId);
-                  }
-                  markNotificationsAsReadForEntry(note.entryId, currentUser);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.8fr)_minmax(260px,1fr)]">
-            <div className="w-full">
-              <EntryForm
-                onSubmit={addEntry}
-                existingEntries={entries.filter((entry) => !entry.deletedAt)}
-                testingFrameworks={testingFrameworks}
-                onPreviewAssetType={setPendingAssetType}
-                guidelines={guidelines}
-                currentUser={currentUser}
-                currentUserEmail={currentUserEmail}
-                approverOptions={approverOptions}
-              />
-            </div>
-            <div className="flex w-full flex-col gap-6">
-              <div className="rounded-3xl border border-aqua-200 bg-white px-4 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-black px-4 py-2 text-sm font-semibold text-graystone-800">
-                    <CalendarIcon className="h-4 w-4 text-ocean-600" />
-                    {monthLabel}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setMonthCursor(
-                          new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1),
-                        )
-                      }
-                    >
-                      Prev
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setMonthCursor(
-                          new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1),
-                        )
-                      }
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-                <p className="mt-2 text-xs text-graystone-500">
-                  This selector only updates the Month at a glance calendar.
-                </p>
               </div>
-              <MiniCalendar
-                monthCursor={monthCursor}
-                entries={monthEntries}
-                onPreviewEntry={(entry) => {
-                  setPreviewEntryId(entry?.id || '');
-                  setPreviewEntryContext(entry?.id ? 'form' : 'default');
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
-      {currentView === 'plan' && (
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setCurrentView('menu');
-                  setPlanTab('plan');
-                  closeEntry();
-                }}
-              >
-                Back to menu
-              </Button>
-              <div className="flex flex-wrap items-center gap-2 rounded-3xl border border-aqua-200 bg-aqua-50 p-1 text-ocean-600">
-                {canUseCalendar && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setPlanTab('plan')}
-                      className={cx(
-                        'rounded-2xl px-4 py-2 text-sm transition',
-                        planTab === 'plan'
-                          ? 'bg-ocean-500 text-white hover:bg-ocean-600'
-                          : 'text-ocean-600 hover:bg-aqua-100',
-                      )}
-                    >
-                      Calendar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setPlanTab('trash')}
-                      className={cx(
-                        'rounded-2xl px-4 py-2 text-sm transition',
-                        planTab === 'trash'
-                          ? 'bg-ocean-500 text-white hover:bg-ocean-600'
-                          : 'text-ocean-600 hover:bg-aqua-100',
-                      )}
-                    >
-                      Trash
-                    </Button>
-                  </>
-                )}
-                {canUseKanban && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setPlanTab('kanban')}
-                    className={cx(
-                      'rounded-2xl px-4 py-2 text-sm transition',
-                      planTab === 'kanban'
-                        ? 'bg-ocean-500 text-white hover:bg-ocean-600'
-                        : 'text-ocean-600 hover:bg-aqua-100',
-                    )}
-                  >
-                    Kanban
-                  </Button>
-                )}
-                {canUseIdeas && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setPlanTab('ideas')}
-                    className={cx(
-                      'rounded-2xl px-4 py-2 text-sm transition',
-                      planTab === 'ideas'
-                        ? 'bg-ocean-500 text-white hover:bg-ocean-600'
-                        : 'text-ocean-600 hover:bg-aqua-100',
-                    )}
-                  >
-                    Ideas
-                  </Button>
-                )}
-                {canUseLinkedIn && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setPlanTab('linkedin')}
-                    className={cx(
-                      'rounded-2xl px-4 py-2 text-sm transition',
-                      planTab === 'linkedin'
-                        ? 'bg-ocean-500 text-white hover:bg-ocean-600'
-                        : 'text-ocean-600 hover:bg-aqua-100',
-                    )}
-                  >
-                    LinkedIn
-                  </Button>
-                )}
-                {canUseTesting && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setPlanTab('testing')}
-                    className={cx(
-                      'rounded-2xl px-4 py-2 text-sm transition',
-                      planTab === 'testing'
-                        ? 'bg-ocean-500 text-white hover:bg-ocean-600'
-                        : 'text-ocean-600 hover:bg-aqua-100',
-                    )}
-                  >
-                    Testing Lab
-                  </Button>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => {
-                  if (!canUseCalendar) return;
-                  setCurrentView('form');
-                  setPlanTab('plan');
-                  closeEntry();
-                  try {
-                    window.location.hash = '#create';
-                  } catch {}
-                }}
-                className="gap-2"
-                disabled={!canUseCalendar}
-              >
-                <PlusIcon className="h-4 w-4 text-white" />
-                Create content
-              </Button>
-            </div>
-          </div>
-
-          {(() => {
-            switch (planTab) {
-              case 'plan':
-                if (!canUseCalendar) return null;
-                return (
-                  <CalendarView
-                    entries={entries}
-                    ideas={ideas}
-                    onApprove={toggleApprove}
-                    onDelete={softDelete}
-                    onOpenEntry={openEntry}
-                    onImportPerformance={() => setPerformanceImportOpen(true)}
-                    assetGoals={assetGoals}
-                    onGoalsChange={setAssetGoals}
-                  />
-                );
-              case 'trash':
-                if (!canUseCalendar) return null;
-                return (
-                  <Card className="shadow-xl">
-                    <CardHeader>
-                      <CardTitle className="text-lg text-ocean-900">
-                        Trash (30-day retention)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {trashed.length === 0 ? (
-                        <p className="text-sm text-graystone-500">Nothing in the trash.</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {trashed.map((entry) => (
-                            <div
-                              key={entry.id}
-                              className="rounded-xl border border-graystone-200 bg-white px-4 py-3 shadow-sm"
-                            >
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Badge variant="outline">{entry.assetType}</Badge>
-                                  <span className="text-sm font-medium text-graystone-700">
-                                    {new Date(entry.date).toLocaleDateString()}
-                                  </span>
-                                  <span className="text-xs text-graystone-500">
-                                    Deleted{' '}
-                                    {entry.deletedAt
-                                      ? new Date(entry.deletedAt).toLocaleString()
-                                      : ''}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => restore(entry.id)}
-                                  >
-                                    <RotateCcwIcon className="h-4 w-4 text-graystone-600" />
-                                    Restore
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() => hardDelete(entry.id)}
-                                  >
-                                    <TrashIcon className="h-4 w-4 text-white" />
-                                    Delete forever
-                                  </Button>
-                                </div>
-                              </div>
-                              {entry.caption && (
-                                <p className="mt-2 line-clamp-2 text-sm text-graystone-600">
-                                  {entry.caption}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              case 'kanban':
-                if (!canUseKanban) return null;
-                return (
-                  <KanbanView
-                    entries={entries}
-                    onOpenEntry={openEntry}
-                    onUpdateStatus={updateWorkflowStatus}
-                  />
-                );
-              case 'ideas':
-                if (!canUseIdeas) return null;
-                return (
-                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                    <IdeaForm onSubmit={addIdea} currentUser={currentUser} />
-                    <IdeasBoard ideas={ideas} onDelete={deleteIdea} />
-                  </div>
-                );
-              case 'linkedin':
-                if (!canUseLinkedIn) return null;
-                return (
-                  <LinkedInView
-                    submissions={linkedinSubmissions}
-                    currentUser={currentUser}
-                    approverOptions={approverOptions}
-                    onSubmit={addLinkedInSubmission}
-                    onStatusChange={updateLinkedInStatus}
-                  />
-                );
-              case 'testing':
-                if (!canUseTesting) return null;
-                return (
-                  <TestingView
-                    frameworks={testingFrameworks}
-                    selectedFrameworkId={selectedFrameworkId}
-                    selectedFramework={selectedFramework}
-                    selectedFrameworkEntries={selectedFrameworkEntries}
-                    frameworkEntryCounts={frameworkEntryCounts}
-                    onAddFramework={addTestingFrameworkEntry}
-                    onDeleteFramework={deleteTestingFramework}
-                    onSelectFramework={setSelectedFrameworkId}
-                    onOpenEntry={openEntry}
-                  />
-                );
-              default:
-                return null;
-            }
-          })()}
-        </div>
-      )}
-
-      {currentView === 'approvals' && canUseApprovals && (
-        <ApprovalsView
-          approvals={outstandingApprovals}
-          outstandingCount={outstandingCount}
-          unreadMentionsCount={unreadMentionsCount}
-          canUseCalendar={canUseCalendar}
-          onApprove={toggleApprove}
-          onOpenEntry={openEntry}
-          onBackToMenu={() => {
-            setCurrentView('menu');
-            setPlanTab('plan');
-            closeEntry();
-          }}
-          onGoToCalendar={() => {
-            if (!canUseCalendar) return;
-            setCurrentView('plan');
-            setPlanTab('plan');
-          }}
-          onCreateContent={() => {
-            setCurrentView('form');
-            setPlanTab('plan');
-            closeEntry();
-            try {
-              window.location.hash = '#create';
-            } catch {}
-          }}
-          onSwitchUser={handleSignOut}
-        />
-      )}
-      {currentView === 'admin' && currentUserIsAdmin && (
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => setCurrentView('menu')} className="self-start">
-                Back to menu
-              </Button>
-              <h2 className="text-2xl font-semibold text-ocean-700">Admin tools</h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (window.api && window.api.enabled) {
-                    apiGet('/api/health').catch(() => {});
-                  }
-                }}
-              >
-                Ping server
-              </Button>
-              <Button
-                onClick={() => {
-                  (async () => {
-                    try {
-                      if (window.api && window.api.enabled) {
-                        const json = await apiGet('/api/audit?limit=200');
-                        setAdminAudits(Array.isArray(json) ? json : []);
-                      } else {
-                        const raw = storageAvailable
-                          ? window.localStorage.getItem('pm-content-audit-log')
-                          : '[]';
-                        const local = raw ? JSON.parse(raw) : [];
-                        setAdminAudits(Array.isArray(local) ? local : []);
-                      }
-                    } catch {}
-                  })();
-                }}
-              >
-                Refresh audits
-              </Button>
-            </div>
-          </div>
-
-          <Card className="shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-lg text-ocean-900">Recent audit events</CardTitle>
-              <p className="mt-2 text-sm text-graystone-500">
-                Pulled from the server when connected; local fallback otherwise.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {adminAudits.length === 0 ? (
-                  <p className="text-sm text-graystone-600">No audit events.</p>
-                ) : (
-                  adminAudits.slice(0, 200).map((row) => (
-                    <div
-                      key={row.id}
-                      className="flex items-center justify-between rounded-xl border border-graystone-200 bg-white px-3 py-2 text-sm"
-                    >
-                      <div className="flex flex-col">
-                        <div className="font-medium text-ocean-800">{row.action || 'event'}</div>
-                        <div className="text-[11px] text-graystone-600">
-                          {row.user || 'Unknown'} · {row.entryId || '—'}
-                        </div>
-                      </div>
-                      <div className="text-[11px] text-graystone-500">
-                        {row.ts ? new Date(row.ts).toLocaleString() : ''}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-lg text-ocean-900">Approver directory</CardTitle>
-              <p className="mt-2 text-sm text-graystone-500">
-                Approvers are managed via the user roster. Enable the role on a teammate to list
-                them here.
-              </p>
-            </CardHeader>
-            <CardContent>
-              {approverOptions.length ? (
-                <div className="flex flex-wrap gap-2">
-                  {approverOptions.map((name) => (
-                    <span
-                      key={name}
-                      className="rounded-full bg-aqua-100 px-3 py-1 text-xs font-semibold text-ocean-700"
-                    >
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-graystone-500">
-                  No approvers configured yet. Mark a user as an approver to add them.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-lg text-ocean-900">User roster</CardTitle>
-              <p className="mt-2 text-sm text-graystone-500">
-                Add new users (first + last + email); they’ll be emailed when created.
-              </p>
-            </CardHeader>
-            <CardContent>
-              {userAdminError ? (
-                <div className="mb-3 rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-700">
-                  {userAdminError}
-                </div>
-              ) : null}
-              {userAdminSuccess ? (
-                <div className="mb-3 rounded-2xl bg-emerald-50 px-4 py-2 text-xs text-emerald-700">
-                  {userAdminSuccess}
-                </div>
-              ) : null}
-              <div className="space-y-2">
-                {userList.length ? (
-                  userList.map((user) => (
-                    <div
-                      key={user.id || user.email || user.name}
-                      className="rounded-xl border border-graystone-200 bg-white px-3 py-3 text-sm text-graystone-700"
-                    >
-                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div>
-                          <div className="font-medium text-graystone-900">{user.name}</div>
-                          <div className="text-[11px] text-graystone-500">
-                            {user.email || 'No email'} ·{' '}
-                            {user.status === 'disabled'
-                              ? 'Disabled'
-                              : user.invitePending || user.status === 'pending'
-                                ? 'Invite pending'
-                                : 'Active'}
-                          </div>
-                          <div className="mt-1 flex flex-wrap gap-2 text-[10px] font-semibold uppercase text-graystone-500">
-                            {user.isAdmin ? (
-                              <span className="rounded-full bg-ocean-50 px-2 py-0.5 text-ocean-700">
-                                Admin
-                              </span>
-                            ) : null}
-                            {user.isApprover ? (
-                              <span className="rounded-full bg-aqua-50 px-2 py-0.5 text-ocean-700">
-                                Approver
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => toggleApproverRole(user)}
-                          >
-                            {user.isApprover ? 'Remove approver' : 'Make approver'}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setAccessModalUser(user)}
-                          >
-                            Access
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => removeUser(user)}>
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-graystone-500">No users configured yet.</p>
-                )}
-              </div>
-              <div className="mt-4 grid gap-2 md:grid-cols-3">
-                <Input
-                  placeholder="First name"
-                  value={newUserFirst}
-                  onChange={(event) => setNewUserFirst(event.target.value)}
-                  className="px-3 py-2"
-                />
-                <Input
-                  placeholder="Last name"
-                  value={newUserLast}
-                  onChange={(event) => setNewUserLast(event.target.value)}
-                  className="px-3 py-2"
-                />
-                <Input
-                  placeholder="Email"
-                  type="email"
-                  value={newUserEmail}
-                  onChange={(event) => setNewUserEmail(event.target.value)}
-                  className="px-3 py-2"
-                />
-              </div>
-              <div className="mt-3">
-                <div className="text-xs font-semibold text-graystone-600">Grant access to</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {FEATURE_OPTIONS.map((option) => {
-                    const enabled = newUserFeatures.includes(option.key);
+              {(() => {
+                switch (planTab) {
+                  case 'plan':
+                    if (!canUseCalendar) return null;
                     return (
-                      <label
-                        key={option.key}
-                        className={cx(
-                          'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold transition',
-                          enabled
-                            ? 'border-aqua-200 bg-aqua-100 text-ocean-700'
-                            : 'border-graystone-200 bg-white text-graystone-600 hover:border-graystone-400',
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-graystone-300 text-aqua-500 focus:ring-aqua-300"
-                          checked={enabled}
-                          onChange={() => toggleNewUserFeature(option.key)}
-                        />
-                        <span>{option.label}</span>
-                      </label>
+                      <CalendarView
+                        entries={entries}
+                        ideas={ideas}
+                        onApprove={toggleApprove}
+                        onDelete={softDelete}
+                        onOpenEntry={openEntry}
+                        onImportPerformance={() => setPerformanceImportOpen(true)}
+                        assetGoals={assetGoals}
+                        onGoalsChange={setAssetGoals}
+                      />
                     );
-                  })}
+                  case 'trash':
+                    if (!canUseCalendar) return null;
+                    return (
+                      <Card className="shadow-xl">
+                        <CardHeader>
+                          <CardTitle className="text-lg text-ocean-900">
+                            Trash (30-day retention)
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {trashed.length === 0 ? (
+                            <p className="text-sm text-graystone-500">Nothing in the trash.</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {trashed.map((entry) => (
+                                <div
+                                  key={entry.id}
+                                  className="rounded-xl border border-graystone-200 bg-white px-4 py-3 shadow-sm"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Badge variant="outline">{entry.assetType}</Badge>
+                                      <span className="text-sm font-medium text-graystone-700">
+                                        {new Date(entry.date).toLocaleDateString()}
+                                      </span>
+                                      <span className="text-xs text-graystone-500">
+                                        Deleted{' '}
+                                        {entry.deletedAt
+                                          ? new Date(entry.deletedAt).toLocaleString()
+                                          : ''}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => restore(entry.id)}
+                                      >
+                                        <RotateCcwIcon className="h-4 w-4 text-graystone-600" />
+                                        Restore
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => hardDelete(entry.id)}
+                                      >
+                                        <TrashIcon className="h-4 w-4 text-white" />
+                                        Delete forever
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  {entry.caption && (
+                                    <p className="mt-2 line-clamp-2 text-sm text-graystone-600">
+                                      {entry.caption}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  case 'kanban':
+                    if (!canUseKanban) return null;
+                    return (
+                      <KanbanView
+                        entries={entries}
+                        onOpenEntry={openEntry}
+                        onUpdateStatus={updateWorkflowStatus}
+                      />
+                    );
+                  case 'ideas':
+                    if (!canUseIdeas) return null;
+                    return (
+                      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        <IdeaForm onSubmit={addIdea} currentUser={currentUser} />
+                        <IdeasBoard ideas={ideas} onDelete={deleteIdea} />
+                      </div>
+                    );
+                  case 'linkedin':
+                    if (!canUseLinkedIn) return null;
+                    return (
+                      <LinkedInView
+                        submissions={linkedinSubmissions}
+                        currentUser={currentUser}
+                        approverOptions={approverOptions}
+                        onSubmit={addLinkedInSubmission}
+                        onStatusChange={updateLinkedInStatus}
+                      />
+                    );
+                  case 'testing':
+                    if (!canUseTesting) return null;
+                    return (
+                      <TestingView
+                        frameworks={testingFrameworks}
+                        selectedFrameworkId={selectedFrameworkId}
+                        selectedFramework={selectedFramework}
+                        selectedFrameworkEntries={selectedFrameworkEntries}
+                        frameworkEntryCounts={frameworkEntryCounts}
+                        onAddFramework={addTestingFrameworkEntry}
+                        onDeleteFramework={deleteTestingFramework}
+                        onSelectFramework={setSelectedFrameworkId}
+                        onOpenEntry={openEntry}
+                      />
+                    );
+                  default:
+                    return null;
+                }
+              })()}
+            </div>
+          )}
+
+          {currentView === 'approvals' && canUseApprovals && (
+            <ApprovalsView
+              approvals={outstandingApprovals}
+              outstandingCount={outstandingCount}
+              unreadMentionsCount={unreadMentionsCount}
+              canUseCalendar={canUseCalendar}
+              onApprove={toggleApprove}
+              onOpenEntry={openEntry}
+              onBackToMenu={() => {
+                setCurrentView('dashboard');
+                setPlanTab('plan');
+                closeEntry();
+              }}
+              onGoToCalendar={() => {
+                if (!canUseCalendar) return;
+                setCurrentView('plan');
+                setPlanTab('plan');
+              }}
+              onCreateContent={() => {
+                setCurrentView('form');
+                setPlanTab('plan');
+                closeEntry();
+                try {
+                  window.location.hash = '#create';
+                } catch {}
+              }}
+              onSwitchUser={handleSignOut}
+            />
+          )}
+          {currentView === 'admin' && currentUserIsAdmin && (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setCurrentView('dashboard')}
+                    className="self-start"
+                  >
+                    Dashboard
+                  </Button>
+                  <h2 className="text-2xl font-semibold text-ocean-700">Admin tools</h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (window.api && window.api.enabled) {
+                        apiGet('/api/health').catch(() => {});
+                      }
+                    }}
+                  >
+                    Ping server
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      (async () => {
+                        try {
+                          if (window.api && window.api.enabled) {
+                            const json = await apiGet('/api/audit?limit=200');
+                            setAdminAudits(Array.isArray(json) ? json : []);
+                          } else {
+                            const raw = storageAvailable
+                              ? window.localStorage.getItem('pm-content-audit-log')
+                              : '[]';
+                            const local = raw ? JSON.parse(raw) : [];
+                            setAdminAudits(Array.isArray(local) ? local : []);
+                          }
+                        } catch {}
+                      })();
+                    }}
+                  >
+                    Refresh audits
+                  </Button>
                 </div>
               </div>
-              <div className="mt-3 flex items-center gap-2">
-                <label className="inline-flex items-center gap-2 text-xs font-semibold text-graystone-600">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-graystone-300 text-aqua-500 focus:ring-aqua-300"
-                    checked={newUserIsApprover}
-                    onChange={(event) => setNewUserIsApprover(event.target.checked)}
-                  />
-                  Approver
-                </label>
-                <span className="text-[11px] text-graystone-500">
-                  Approvers appear in the approvals picker and receive notifications.
-                </span>
+
+              <Card className="shadow-xl">
+                <CardHeader>
+                  <CardTitle className="text-lg text-ocean-900">Recent audit events</CardTitle>
+                  <p className="mt-2 text-sm text-graystone-500">
+                    Pulled from the server when connected; local fallback otherwise.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {adminAudits.length === 0 ? (
+                      <p className="text-sm text-graystone-600">No audit events.</p>
+                    ) : (
+                      adminAudits.slice(0, 200).map((row) => (
+                        <div
+                          key={row.id}
+                          className="flex items-center justify-between rounded-xl border border-graystone-200 bg-white px-3 py-2 text-sm"
+                        >
+                          <div className="flex flex-col">
+                            <div className="font-medium text-ocean-800">
+                              {row.action || 'event'}
+                            </div>
+                            <div className="text-[11px] text-graystone-600">
+                              {row.user || 'Unknown'} · {row.entryId || '—'}
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-graystone-500">
+                            {row.ts ? new Date(row.ts).toLocaleString() : ''}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-xl">
+                <CardHeader>
+                  <CardTitle className="text-lg text-ocean-900">Approver directory</CardTitle>
+                  <p className="mt-2 text-sm text-graystone-500">
+                    Approvers are managed via the user roster. Enable the role on a teammate to list
+                    them here.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {approverOptions.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {approverOptions.map((name) => (
+                        <span
+                          key={name}
+                          className="rounded-full bg-aqua-100 px-3 py-1 text-xs font-semibold text-ocean-700"
+                        >
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-graystone-500">
+                      No approvers configured yet. Mark a user as an approver to add them.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-xl">
+                <CardHeader>
+                  <CardTitle className="text-lg text-ocean-900">User roster</CardTitle>
+                  <p className="mt-2 text-sm text-graystone-500">
+                    Add new users (first + last + email); they’ll be emailed when created.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {userAdminError ? (
+                    <div className="mb-3 rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-700">
+                      {userAdminError}
+                    </div>
+                  ) : null}
+                  {userAdminSuccess ? (
+                    <div className="mb-3 rounded-2xl bg-emerald-50 px-4 py-2 text-xs text-emerald-700">
+                      {userAdminSuccess}
+                    </div>
+                  ) : null}
+                  <div className="space-y-2">
+                    {userList.length ? (
+                      userList.map((user) => (
+                        <div
+                          key={user.id || user.email || user.name}
+                          className="rounded-xl border border-graystone-200 bg-white px-3 py-3 text-sm text-graystone-700"
+                        >
+                          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <div className="font-medium text-graystone-900">{user.name}</div>
+                              <div className="text-[11px] text-graystone-500">
+                                {user.email || 'No email'} ·{' '}
+                                {user.status === 'disabled'
+                                  ? 'Disabled'
+                                  : user.invitePending || user.status === 'pending'
+                                    ? 'Invite pending'
+                                    : 'Active'}
+                              </div>
+                              <div className="mt-1 flex flex-wrap gap-2 text-[10px] font-semibold uppercase text-graystone-500">
+                                {user.isAdmin ? (
+                                  <span className="rounded-full bg-ocean-50 px-2 py-0.5 text-ocean-700">
+                                    Admin
+                                  </span>
+                                ) : null}
+                                {user.isApprover ? (
+                                  <span className="rounded-full bg-aqua-50 px-2 py-0.5 text-ocean-700">
+                                    Approver
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => toggleApproverRole(user)}
+                              >
+                                {user.isApprover ? 'Remove approver' : 'Make approver'}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setAccessModalUser(user)}
+                              >
+                                Access
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => removeUser(user)}>
+                                Remove
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-graystone-500">No users configured yet.</p>
+                    )}
+                  </div>
+                  <div className="mt-4 grid gap-2 md:grid-cols-3">
+                    <Input
+                      placeholder="First name"
+                      value={newUserFirst}
+                      onChange={(event) => setNewUserFirst(event.target.value)}
+                      className="px-3 py-2"
+                    />
+                    <Input
+                      placeholder="Last name"
+                      value={newUserLast}
+                      onChange={(event) => setNewUserLast(event.target.value)}
+                      className="px-3 py-2"
+                    />
+                    <Input
+                      placeholder="Email"
+                      type="email"
+                      value={newUserEmail}
+                      onChange={(event) => setNewUserEmail(event.target.value)}
+                      className="px-3 py-2"
+                    />
+                  </div>
+                  <div className="mt-3">
+                    <div className="text-xs font-semibold text-graystone-600">Grant access to</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {FEATURE_OPTIONS.map((option) => {
+                        const enabled = newUserFeatures.includes(option.key);
+                        return (
+                          <label
+                            key={option.key}
+                            className={cx(
+                              'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold transition',
+                              enabled
+                                ? 'border-aqua-200 bg-aqua-100 text-ocean-700'
+                                : 'border-graystone-200 bg-white text-graystone-600 hover:border-graystone-400',
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-graystone-300 text-aqua-500 focus:ring-aqua-300"
+                              checked={enabled}
+                              onChange={() => toggleNewUserFeature(option.key)}
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-graystone-600">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-graystone-300 text-aqua-500 focus:ring-aqua-300"
+                        checked={newUserIsApprover}
+                        onChange={(event) => setNewUserIsApprover(event.target.checked)}
+                      />
+                      Approver
+                    </label>
+                    <span className="text-[11px] text-graystone-500">
+                      Approvers appear in the approvals picker and receive notifications.
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Button
+                      onClick={addUser}
+                      disabled={!newUserFirst.trim() || !newUserLast.trim() || !newUserEmail.trim()}
+                    >
+                      Add user
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          <EntryPreviewModal
+            open={Boolean(previewEntry)}
+            entry={previewEntry}
+            onClose={closePreview}
+            onEdit={handlePreviewEdit}
+            currentUser={currentUser}
+            currentUserEmail={currentUserEmail}
+            reviewMode={previewIsReviewMode}
+            canApprove={previewCanApprove}
+            onApprove={toggleApprove}
+            onUpdate={upsert}
+            onNotifyMentions={handleMentionNotifications}
+            onCommentAdded={handleCommentActivity}
+            approverOptions={approverOptions}
+            users={mentionUsers}
+          />
+          {viewingSnapshot ? (
+            <EntryModal
+              entry={viewingSnapshot}
+              currentUser={currentUser}
+              currentUserEmail={currentUserEmail}
+              onClose={closeEntry}
+              onApprove={toggleApprove}
+              onDelete={softDelete}
+              onSave={upsert}
+              onUpdate={upsert}
+              onNotifyMentions={handleMentionNotifications}
+              onCommentAdded={handleCommentActivity}
+              testingFrameworks={testingFrameworks}
+              approverOptions={approverOptions}
+              users={mentionUsers}
+            />
+          ) : null}
+          {canUseApprovals && (
+            <ApprovalsModal
+              open={approvalsModalOpen}
+              onClose={() => setApprovalsModalOpen(false)}
+              approvals={outstandingApprovals}
+              onOpenEntry={(id) => {
+                setApprovalsModalOpen(false);
+                openEntry(id);
+              }}
+              onApprove={(id) => toggleApprove(id)}
+            />
+          )}
+          {currentUserIsAdmin && (
+            <AccessModal
+              open={Boolean(accessModalUser)}
+              user={accessModalUser}
+              features={accessModalUser?.features || DEFAULT_FEATURES}
+              onClose={() => setAccessModalUser(null)}
+              onSave={handleAccessSave}
+            />
+          )}
+          <ChangePasswordModal
+            open={changePasswordOpen}
+            requiresCurrent={currentUserHasPassword}
+            onClose={() => setChangePasswordOpen(false)}
+            onSubmit={handleChangePassword}
+          />
+          {syncToast ? (
+            <div className="fixed bottom-6 right-6 z-50 max-w-xs">
+              <div
+                className={cx(
+                  'rounded-2xl border px-4 py-3 text-sm shadow-xl',
+                  syncToast.tone === 'success'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                    : 'border-amber-200 bg-amber-50 text-amber-900',
+                )}
+              >
+                {syncToast.message}
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Button
-                  onClick={addUser}
-                  disabled={!newUserFirst.trim() || !newUserLast.trim() || !newUserEmail.trim()}
-                >
-                  Add user
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          ) : null}
+          <GuidelinesModal
+            open={guidelinesOpen}
+            guidelines={guidelines}
+            onClose={() => setGuidelinesOpen(false)}
+            onSave={handleGuidelinesSave}
+          />
+          <PerformanceImportModal
+            open={performanceImportOpen}
+            onClose={() => setPerformanceImportOpen(false)}
+            onImport={importPerformanceDataset}
+          />
         </div>
-      )}
-      <EntryPreviewModal
-        open={Boolean(previewEntry)}
-        entry={previewEntry}
-        onClose={closePreview}
-        onEdit={handlePreviewEdit}
-        currentUser={currentUser}
-        currentUserEmail={currentUserEmail}
-        reviewMode={previewIsReviewMode}
-        canApprove={previewCanApprove}
-        onApprove={toggleApprove}
-        onUpdate={upsert}
-        onNotifyMentions={handleMentionNotifications}
-        onCommentAdded={handleCommentActivity}
-        approverOptions={approverOptions}
-        users={mentionUsers}
-      />
-      {viewingSnapshot ? (
-        <EntryModal
-          entry={viewingSnapshot}
-          currentUser={currentUser}
-          currentUserEmail={currentUserEmail}
-          onClose={closeEntry}
-          onApprove={toggleApprove}
-          onDelete={softDelete}
-          onSave={upsert}
-          onUpdate={upsert}
-          onNotifyMentions={handleMentionNotifications}
-          onCommentAdded={handleCommentActivity}
-          testingFrameworks={testingFrameworks}
-          approverOptions={approverOptions}
-          users={mentionUsers}
-        />
-      ) : null}
-      {canUseApprovals && (
-        <ApprovalsModal
-          open={approvalsModalOpen}
-          onClose={() => setApprovalsModalOpen(false)}
-          approvals={outstandingApprovals}
-          onOpenEntry={(id) => {
-            setApprovalsModalOpen(false);
-            openEntry(id);
-          }}
-          onApprove={(id) => toggleApprove(id)}
-        />
-      )}
-      {currentUserIsAdmin && (
-        <AccessModal
-          open={Boolean(accessModalUser)}
-          user={accessModalUser}
-          features={accessModalUser?.features || DEFAULT_FEATURES}
-          onClose={() => setAccessModalUser(null)}
-          onSave={handleAccessSave}
-        />
-      )}
-      <ChangePasswordModal
-        open={changePasswordOpen}
-        requiresCurrent={currentUserHasPassword}
-        onClose={() => setChangePasswordOpen(false)}
-        onSubmit={handleChangePassword}
-      />
-      {syncToast ? (
-        <div className="fixed bottom-6 right-6 z-50 max-w-xs">
-          <div
-            className={cx(
-              'rounded-2xl border px-4 py-3 text-sm shadow-xl',
-              syncToast.tone === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-                : 'border-amber-200 bg-amber-50 text-amber-900',
-            )}
-          >
-            {syncToast.message}
-          </div>
-        </div>
-      ) : null}
-      <GuidelinesModal
-        open={guidelinesOpen}
-        guidelines={guidelines}
-        onClose={() => setGuidelinesOpen(false)}
-        onSave={handleGuidelinesSave}
-      />
-      <PerformanceImportModal
-        open={performanceImportOpen}
-        onClose={() => setPerformanceImportOpen(false)}
-        onImport={importPerformanceDataset}
-      />
+      </div>
     </div>
   );
 }

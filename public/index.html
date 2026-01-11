@@ -64,8 +64,10 @@
         min-height: 100vh;
         font-family: 'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Arial, sans-serif;
         letter-spacing: -0.01em;
-        word-break: break-word;
-        overflow-wrap: anywhere;
+        word-break: normal;
+        overflow-wrap: break-word;
+        hyphens: auto;
+        overflow-x: hidden;
       }
 
       h1,
@@ -97,6 +99,7 @@
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
+        line-clamp: 2;
         overflow: hidden;
       }
 
@@ -104,6 +107,7 @@
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 3;
+        line-clamp: 3;
         overflow: hidden;
       }
 
@@ -133,10 +137,113 @@
       .select-control::-ms-expand {
         display: none;
       }
+
+      /* Custom Scrollbar - matches PM Productivity Tool */
+      ::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 10px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #4ac9da;
+        border-radius: 10px;
+        border: 3px solid #f1f5f9;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #1fb1c7;
+      }
+
+      /* Animation utilities */
+      .animate-in {
+        animation: animateIn 0.5s ease-out forwards;
+      }
+
+      .fade-in {
+        opacity: 0;
+      }
+
+      .slide-in-from-bottom-4 {
+        transform: translateY(1rem);
+      }
+
+      @keyframes animateIn {
+        from {
+          opacity: 0;
+          transform: translateY(1rem);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Stat card hover glow effect */
+      .stat-glow {
+        position: relative;
+      }
+
+      .stat-glow::before {
+        content: '';
+        position: absolute;
+        width: 43px;
+        height: 43px;
+        background-color: #0cffff;
+        border-radius: 50%;
+        transform: scale(0);
+        opacity: 0;
+        transition: all 0.3s ease;
+        z-index: 0;
+      }
+
+      .stat-glow:hover::before {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      .stat-glow .stat-value {
+        position: relative;
+        z-index: 1;
+      }
+
+      /* Gradient header style */
+      .gradient-header {
+        background: linear-gradient(to right, #11607d, #0e4d63);
+      }
+
+      /* Card hover lift effect */
+      .card-hover {
+        transition: all 0.2s ease;
+      }
+
+      .card-hover:hover {
+        box-shadow: 0 10px 25px rgba(17, 96, 125, 0.15);
+        transform: translateY(-2px);
+      }
+
+      /* Pill button style */
+      .btn-pill {
+        border-radius: 9999px;
+        border: 1px solid #000;
+        background-color: #fff;
+        padding: 0.5rem 1rem;
+        box-shadow: 0 0 20px rgba(15, 157, 222, 0.2);
+        transition: all 0.2s ease;
+      }
+
+      .btn-pill:hover {
+        background-color: #000;
+        color: #fff;
+      }
     </style>
   </head>
   <body class="antialiased text-ocean-900">
-    <div id="root" class="py-10"></div>
+    <div id="root"></div>
     <noscript>
       <div
         class="mx-auto max-w-2xl rounded-3xl border border-aqua-200 bg-white px-6 py-5 text-sm text-graystone-700"
