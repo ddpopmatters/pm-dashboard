@@ -1,0 +1,218 @@
+import React from 'react';
+import { Card, CardHeader, CardContent, CardTitle, Badge, Button } from '../../components/ui';
+import { CheckCircleIcon, LoaderIcon, PlusIcon } from '../../components/common';
+import { cx } from '../../lib/utils';
+import { CHECKLIST_ITEMS } from '../../constants';
+import type { Entry } from '../../types/models';
+
+interface ApprovalEntryCardProps {
+  entry: Entry;
+  onApprove?: (id: string) => void;
+  onOpenEntry?: (id: string) => void;
+}
+
+/**
+ * ApprovalEntryCard - Displays a single approval entry with actions
+ */
+const ApprovalEntryCard: React.FC<ApprovalEntryCardProps> = ({ entry, onApprove, onOpenEntry }) => {
+  return (
+    <div
+      key={entry.id}
+      className="rounded-xl border border-graystone-200 bg-white px-4 py-4 shadow-sm transition hover:border-aqua-400"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{entry.assetType}</Badge>
+            <span className="text-sm font-semibold text-graystone-800">
+              {new Date(entry.date).toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                weekday: 'short',
+              })}
+            </span>
+            <span className="max-w-[140px] truncate rounded-full bg-aqua-100 px-2 py-1 text-xs font-medium text-ocean-700">
+              {entry.statusDetail}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs text-graystone-500">
+            <span>Requested by {entry.author || 'Unknown'}</span>
+            {entry.approvers?.length ? <span>Approvers: {entry.approvers.join(', ')}</span> : null}
+          </div>
+          {entry.caption && (
+            <p className="line-clamp-3 text-sm text-graystone-700">{entry.caption}</p>
+          )}
+          {(entry.campaign || entry.contentPillar || entry.testingFrameworkName) && (
+            <div className="flex flex-wrap items-center gap-1 text-[11px] text-graystone-500">
+              {entry.campaign ? (
+                <span className="max-w-[140px] truncate rounded-full bg-aqua-100 px-2 py-0.5 text-ocean-700">
+                  {entry.campaign}
+                </span>
+              ) : null}
+              {entry.contentPillar ? (
+                <span className="rounded-full bg-graystone-100 px-2 py-0.5 text-graystone-700">
+                  {entry.contentPillar}
+                </span>
+              ) : null}
+              {entry.testingFrameworkName ? (
+                <span className="max-w-[160px] truncate rounded-full bg-ocean-500/10 px-2 py-0.5 text-ocean-700">
+                  Test: {entry.testingFrameworkName}
+                </span>
+              ) : null}
+            </div>
+          )}
+          {entry.checklist && (
+            <div className="flex flex-wrap gap-2 text-xs text-graystone-500">
+              {Object.entries(entry.checklist).map(([key, value]) => {
+                const itemDef = CHECKLIST_ITEMS.find((item) => item.key === key);
+                if (!itemDef) return null;
+                return (
+                  <span
+                    key={key}
+                    className={cx(
+                      'inline-flex items-center gap-1 rounded-full px-2 py-1',
+                      value
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-graystone-100 text-graystone-500',
+                    )}
+                  >
+                    {value ? (
+                      <CheckCircleIcon className="h-3 w-3 text-emerald-600" />
+                    ) : (
+                      <LoaderIcon className="h-3 w-3 animate-none text-graystone-400" />
+                    )}
+                    {itemDef.label}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onApprove?.(entry.id)}
+            className="gap-2"
+          >
+            <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
+            Mark approved
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onOpenEntry?.(entry.id)}
+            className="gap-2"
+          >
+            Open detail
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export interface ApprovalsViewProps {
+  /** Array of entries pending approval for the current user */
+  approvals: Entry[];
+  /** Number of outstanding approvals */
+  outstandingCount: number;
+  /** Number of unread mentions */
+  unreadMentionsCount: number;
+  /** Whether the user can access the calendar */
+  canUseCalendar: boolean;
+  /** Callback when approving an entry (receives entry id) */
+  onApprove: (id: string) => void;
+  /** Callback when opening an entry detail (receives entry id) */
+  onOpenEntry: (id: string) => void;
+  /** Callback to navigate back to menu */
+  onBackToMenu: () => void;
+  /** Callback to navigate to calendar */
+  onGoToCalendar: () => void;
+  /** Callback to navigate to create content form */
+  onCreateContent: () => void;
+  /** Callback to switch user/sign out */
+  onSwitchUser: () => void;
+}
+
+/**
+ * ApprovalsView - Displays the approvals queue for the current user
+ */
+export function ApprovalsView({
+  approvals = [],
+  outstandingCount = 0,
+  unreadMentionsCount = 0,
+  canUseCalendar = true,
+  onApprove,
+  onOpenEntry,
+  onBackToMenu,
+  onGoToCalendar,
+  onCreateContent,
+  onSwitchUser,
+}: ApprovalsViewProps): React.ReactElement {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="ghost" onClick={onBackToMenu}>
+            Back to menu
+          </Button>
+          <Button variant="ghost" onClick={onGoToCalendar} disabled={!canUseCalendar}>
+            Go to calendar
+          </Button>
+          <Badge variant="outline" className="text-xs">
+            {outstandingCount} waiting
+          </Badge>
+          {unreadMentionsCount > 0 && (
+            <Badge variant="outline" className="bg-ocean-500/10 text-xs text-ocean-700">
+              {unreadMentionsCount} mentions
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={onCreateContent} className="gap-2">
+            <PlusIcon className="h-4 w-4 text-white" />
+            Create content
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={onSwitchUser}
+            className="heading-font text-sm normal-case"
+          >
+            Switch user
+          </Button>
+        </div>
+      </div>
+
+      <Card className="shadow-xl">
+        <CardHeader>
+          <CardTitle className="text-lg text-ocean-900">Your Approvals</CardTitle>
+          <p className="mt-2 text-sm text-graystone-500">
+            Items assigned to you that still need approval. Click an item to review, comment, or
+            approve.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {approvals.length === 0 ? (
+            <p className="text-sm text-graystone-500">
+              Everything looks good. Nothing needs your approval right now.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {approvals.map((entry) => (
+                <ApprovalEntryCard
+                  key={entry.id}
+                  entry={entry}
+                  onApprove={onApprove}
+                  onOpenEntry={onOpenEntry}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default ApprovalsView;

@@ -10,7 +10,7 @@
     "lint": "eslint \"{src,functions,tools}/**/*.{js,jsx,ts,tsx,mjs}\"",
     "lint:strict": "eslint \"{src,functions,tools}/**/*.{js,jsx,ts,tsx,mjs}\" --max-warnings=0",
     "format": "prettier -w \"**/*.{js,jsx,ts,tsx,mjs,css,html,json,md}\"",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p src/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
