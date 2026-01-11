@@ -5082,6 +5082,26 @@ function ContentDashboard() {
     }
   };
 
+  // Handle sidebar navigation - must be defined before conditional returns
+  const handleSidebarNavigate = useCallback(
+    (view) => {
+      if (view === 'form') {
+        setCurrentView('form');
+        setPlanTab('plan');
+        closeEntry();
+        try {
+          window.location.hash = '#create';
+        } catch {}
+      } else {
+        setCurrentView(view);
+        try {
+          window.location.hash = `#${view}`;
+        } catch {}
+      }
+    },
+    [closeEntry],
+  );
+
   if (authStatus === 'invite') {
     return (
       <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-4 py-16 text-ocean-900">
@@ -5181,26 +5201,6 @@ function ContentDashboard() {
       </div>
     );
   }
-
-  // Handle sidebar navigation
-  const handleSidebarNavigate = useCallback(
-    (view) => {
-      if (view === 'form') {
-        setCurrentView('form');
-        setPlanTab('plan');
-        closeEntry();
-        try {
-          window.location.hash = '#create';
-        } catch {}
-      } else {
-        setCurrentView(view);
-        try {
-          window.location.hash = `#${view}`;
-        } catch {}
-      }
-    },
-    [closeEntry],
-  );
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#cfebf8' }}>
