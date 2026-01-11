@@ -934,14 +934,66 @@ async function listAudit(params = {}) {
 }
 
 // ============================================
-// NOTIFICATIONS (simplified - use Supabase Edge Functions for email)
+// NOTIFICATIONS
 // ============================================
 
+// Validate Teams webhook URL for security
+function isValidTeamsWebhook(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    // Only allow Microsoft domains for Teams webhooks
+    return (
+      host.endsWith('.office.com') ||
+      host.endsWith('.office365.com') ||
+      host.endsWith('.webhook.office.com') ||
+      host === 'outlook.office.com'
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function notify(payload) {
-  // For Teams webhooks, we'd need a Supabase Edge Function
-  // This is a placeholder that logs the notification
-  Logger.debug('Notification requested:', payload);
-  return { ok: true, results: { message: 'Notifications require Edge Function setup' } };
+  const results = {};
+
+  // Teams webhook notification
+  if (payload.teamsWebhookUrl && typeof payload.teamsWebhookUrl === 'string') {
+    if (!isValidTeamsWebhook(payload.teamsWebhookUrl)) {
+      Logger.error('Invalid Teams webhook URL', 'notify');
+      results.teams = 'rejected';
+    } else {
+      try {
+        const response = await fetch(payload.teamsWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            '@type': 'MessageCard',
+            '@context': 'http://schema.org/extensions',
+            summary: payload.subject || 'PM Dashboard Notification',
+            themeColor: '11607d',
+            title: payload.subject || 'PM Dashboard',
+            text: payload.message || 'Notification',
+          }),
+        });
+        results.teams = response.ok ? 'sent' : `http_${response.status}`;
+        Logger.debug('Teams notification sent:', results.teams);
+      } catch (error) {
+        Logger.error(error, 'notify - Teams webhook');
+        results.teams = 'error';
+      }
+    }
+  }
+
+  // Email notifications require a backend (Supabase Edge Function)
+  // This is not implemented for static hosting
+  if (payload.to || payload.approvers) {
+    Logger.debug('Email notifications require Edge Function setup');
+    results.email = 'not_configured';
+  }
+
+  return { ok: true, results };
 }
 
 // ============================================
