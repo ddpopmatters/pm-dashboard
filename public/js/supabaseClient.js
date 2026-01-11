@@ -507,10 +507,16 @@ async function getCurrentUser() {
       .from('user_profiles')
       .select('*')
       .eq('auth_user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (error) {
       Logger.error(error, 'getCurrentUser');
+      return null;
+    }
+
+    // No profile exists yet - this is OK, ensureUserProfile will create one
+    if (!data) {
+      Logger.debug('No user profile found for auth user', user.id);
       return null;
     }
 
@@ -789,11 +795,15 @@ async function ensureUserProfile(authUser, name) {
 
   try {
     // Check if profile exists
-    const { data: existing } = await supabaseClient
+    const { data: existing, error: selectError } = await supabaseClient
       .from('user_profiles')
       .select('*')
       .eq('auth_user_id', authUser.id)
-      .single();
+      .maybeSingle();
+
+    if (selectError) {
+      Logger.error(selectError, 'ensureUserProfile - checking existing');
+    }
 
     if (existing) return existing;
 
