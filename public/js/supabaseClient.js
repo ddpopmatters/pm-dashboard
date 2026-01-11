@@ -15,10 +15,10 @@ const Logger = {
 };
 
 // Supabase client
-let supabase = null;
+let supabaseClient = null;
 
 async function initSupabase() {
-  if (supabase) return supabase;
+  if (supabaseClient) return supabaseClient;
 
   try {
     // Wait for SDK to load (poll for window.supabase)
@@ -33,7 +33,7 @@ async function initSupabase() {
     }
 
     const { createClient } = window.supabase;
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
@@ -42,7 +42,7 @@ async function initSupabase() {
     });
 
     Logger.debug('Supabase client initialized');
-    return supabase;
+    return supabaseClient;
   } catch (error) {
     Logger.error(error, 'Failed to initialize Supabase');
     return null;
@@ -52,10 +52,10 @@ async function initSupabase() {
 // Get current user email
 async function getCurrentUserEmail() {
   await initSupabase();
-  if (!supabase) return null;
+  if (!supabaseClient) return null;
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabaseClient.auth.getUser();
   return user?.email || window.__currentUserEmail || null;
 }
 
@@ -65,7 +65,7 @@ async function getCurrentUserEmail() {
 
 async function listEntries(params = {}) {
   await initSupabase();
-  if (!supabase) return [];
+  if (!supabaseClient) return [];
 
   try {
     let query = supabase
@@ -92,13 +92,13 @@ async function listEntries(params = {}) {
 
 async function createEntry(entry) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     const userEmail = await getCurrentUserEmail();
     const dbEntry = mapEntryToDb(entry, userEmail);
 
-    const { data, error } = await supabase.from('entries').insert(dbEntry).select().single();
+    const { data, error } = await supabaseClient.from('entries').insert(dbEntry).select().single();
 
     if (error) throw error;
 
@@ -112,7 +112,7 @@ async function createEntry(entry) {
 
 async function updateEntry(id, patch) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     const dbPatch = {};
@@ -163,11 +163,11 @@ async function updateEntry(id, patch) {
 
 async function deleteEntry(id, options = {}) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     if (options.hard) {
-      const { error } = await supabase.from('entries').delete().eq('id', id);
+      const { error } = await supabaseClient.from('entries').delete().eq('id', id);
       if (error) throw error;
     } else {
       // Soft delete
@@ -192,10 +192,10 @@ async function deleteEntry(id, options = {}) {
 
 async function listIdeas(params = {}) {
   await initSupabase();
-  if (!supabase) return [];
+  if (!supabaseClient) return [];
 
   try {
-    let query = supabase.from('ideas').select('*').order('created_at', { ascending: false });
+    let query = supabaseClient.from('ideas').select('*').order('created_at', { ascending: false });
 
     if (params.month) {
       query = query.eq('target_month', params.month);
@@ -213,13 +213,13 @@ async function listIdeas(params = {}) {
 
 async function createIdea(idea) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     const userEmail = await getCurrentUserEmail();
     const dbIdea = mapIdeaToDb(idea, userEmail);
 
-    const { data, error } = await supabase.from('ideas').insert(dbIdea).select().single();
+    const { data, error } = await supabaseClient.from('ideas').insert(dbIdea).select().single();
 
     if (error) throw error;
     return { id: data.id, ok: true };
@@ -231,7 +231,7 @@ async function createIdea(idea) {
 
 async function updateIdea(id, patch) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     const dbPatch = {};
@@ -244,7 +244,7 @@ async function updateIdea(id, patch) {
     if (patch.targetDate !== undefined) dbPatch.target_date = patch.targetDate;
     if (patch.targetMonth !== undefined) dbPatch.target_month = patch.targetMonth;
 
-    const { error } = await supabase.from('ideas').update(dbPatch).eq('id', id);
+    const { error } = await supabaseClient.from('ideas').update(dbPatch).eq('id', id);
     if (error) throw error;
 
     return { ok: true };
@@ -256,10 +256,10 @@ async function updateIdea(id, patch) {
 
 async function deleteIdea(id) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
-    const { error } = await supabase.from('ideas').delete().eq('id', id);
+    const { error } = await supabaseClient.from('ideas').delete().eq('id', id);
     if (error) throw error;
     return { ok: true };
   } catch (error) {
@@ -274,7 +274,7 @@ async function deleteIdea(id) {
 
 async function listLinkedIn(params = {}) {
   await initSupabase();
-  if (!supabase) return [];
+  if (!supabaseClient) return [];
 
   try {
     let query = supabase
@@ -300,7 +300,7 @@ async function listLinkedIn(params = {}) {
 
 async function createLinkedIn(submission) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     const userEmail = await getCurrentUserEmail();
@@ -322,7 +322,7 @@ async function createLinkedIn(submission) {
 
 async function updateLinkedIn(id, patch) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     const dbPatch = {};
@@ -337,7 +337,10 @@ async function updateLinkedIn(id, patch) {
     if (patch.attachments !== undefined) dbPatch.attachments = patch.attachments;
     if (patch.targetDate !== undefined) dbPatch.target_date = patch.targetDate;
 
-    const { error } = await supabase.from('linkedin_submissions').update(dbPatch).eq('id', id);
+    const { error } = await supabaseClient
+      .from('linkedin_submissions')
+      .update(dbPatch)
+      .eq('id', id);
     if (error) throw error;
 
     return { ok: true };
@@ -349,10 +352,10 @@ async function updateLinkedIn(id, patch) {
 
 async function deleteLinkedIn(id) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
-    const { error } = await supabase.from('linkedin_submissions').delete().eq('id', id);
+    const { error } = await supabaseClient.from('linkedin_submissions').delete().eq('id', id);
     if (error) throw error;
     return { ok: true };
   } catch (error) {
@@ -367,7 +370,7 @@ async function deleteLinkedIn(id) {
 
 async function listTestingFrameworks() {
   await initSupabase();
-  if (!supabase) return [];
+  if (!supabaseClient) return [];
 
   try {
     const { data, error } = await supabase
@@ -385,7 +388,7 @@ async function listTestingFrameworks() {
 
 async function createTestingFramework(framework) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     const { data, error } = await supabase
@@ -404,10 +407,10 @@ async function createTestingFramework(framework) {
 
 async function updateTestingFramework(id, patch) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
-    const { error } = await supabase.from('testing_frameworks').update(patch).eq('id', id);
+    const { error } = await supabaseClient.from('testing_frameworks').update(patch).eq('id', id);
     if (error) throw error;
     return { ok: true };
   } catch (error) {
@@ -418,10 +421,10 @@ async function updateTestingFramework(id, patch) {
 
 async function deleteTestingFramework(id) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
-    const { error } = await supabase.from('testing_frameworks').delete().eq('id', id);
+    const { error } = await supabaseClient.from('testing_frameworks').delete().eq('id', id);
     if (error) throw error;
     return { ok: true };
   } catch (error) {
@@ -436,7 +439,7 @@ async function deleteTestingFramework(id) {
 
 async function getGuidelines() {
   await initSupabase();
-  if (!supabase) return null;
+  if (!supabaseClient) return null;
 
   try {
     const { data, error } = await supabase
@@ -455,11 +458,11 @@ async function getGuidelines() {
 
 async function saveGuidelines(guidelines) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     const dbGuidelines = mapGuidelinesToDb(guidelines);
-    const { error } = await supabase.from('guidelines').upsert(dbGuidelines);
+    const { error } = await supabaseClient.from('guidelines').upsert(dbGuidelines);
     if (error) throw error;
     return { ok: true };
   } catch (error) {
@@ -474,7 +477,7 @@ async function saveGuidelines(guidelines) {
 
 async function listUsers() {
   await initSupabase();
-  if (!supabase) return [];
+  if (!supabaseClient) return [];
 
   try {
     const { data, error } = await supabase
@@ -502,12 +505,12 @@ async function listUsers() {
 
 async function getCurrentUser() {
   await initSupabase();
-  if (!supabase) return null;
+  if (!supabaseClient) return null;
 
   try {
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await supabaseClient.auth.getUser();
     if (!user) return null;
 
     const { data, error } = await supabase
@@ -542,7 +545,7 @@ async function getCurrentUser() {
 
 async function createUser(userData) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     const { data, error } = await supabase
@@ -568,7 +571,7 @@ async function createUser(userData) {
 
 async function updateUser(id, patch) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     const dbPatch = {};
@@ -604,10 +607,10 @@ async function updateUser(id, patch) {
 
 async function deleteUser(id) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
-    const { error } = await supabase.from('user_profiles').delete().eq('id', id);
+    const { error } = await supabaseClient.from('user_profiles').delete().eq('id', id);
     if (error) throw error;
     return { ok: true };
   } catch (error) {
@@ -618,12 +621,12 @@ async function deleteUser(id) {
 
 async function updateProfile(patch) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await supabaseClient.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
     const dbPatch = {};
@@ -648,7 +651,7 @@ async function updateProfile(patch) {
 
 async function listApprovers() {
   await initSupabase();
-  if (!supabase) return [];
+  if (!supabaseClient) return [];
 
   try {
     const { data, error } = await supabase
@@ -672,10 +675,10 @@ async function listApprovers() {
 // Sign up with email and password
 async function signUp({ email, password, name }) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await supabaseClient.auth.signUp({
       email,
       password,
       options: {
@@ -710,10 +713,10 @@ async function signUp({ email, password, name }) {
 // Sign in with email and password
 async function login({ email, password }) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) throw error;
 
     window.__currentUserEmail = data.user?.email;
@@ -731,10 +734,10 @@ async function login({ email, password }) {
 // Sign in with magic link (passwordless)
 async function signInWithMagicLink({ email }) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabaseClient.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: window.location.origin + window.location.pathname,
@@ -752,12 +755,12 @@ async function signInWithMagicLink({ email }) {
 // Get current session
 async function getSession() {
   await initSupabase();
-  if (!supabase) return null;
+  if (!supabaseClient) return null;
 
   try {
     const {
       data: { session },
-    } = await supabase.auth.getSession();
+    } = await supabaseClient.auth.getSession();
     return session;
   } catch (error) {
     Logger.error(error, 'getSession');
@@ -767,10 +770,10 @@ async function getSession() {
 
 // Listen for auth state changes
 function onAuthStateChange(callback) {
-  if (!supabase) {
+  if (!supabaseClient) {
     initSupabase().then(() => {
-      if (supabase) {
-        supabase.auth.onAuthStateChange((event, session) => {
+      if (supabaseClient) {
+        supabaseClient.auth.onAuthStateChange((event, session) => {
           window.__currentUserEmail = session?.user?.email || null;
           callback(event, session);
         });
@@ -781,7 +784,7 @@ function onAuthStateChange(callback) {
 
   const {
     data: { subscription },
-  } = supabase.auth.onAuthStateChange((event, session) => {
+  } = supabaseClient.auth.onAuthStateChange((event, session) => {
     window.__currentUserEmail = session?.user?.email || null;
     callback(event, session);
   });
@@ -831,10 +834,10 @@ async function ensureUserProfile(authUser, name) {
 
 async function logout() {
   await initSupabase();
-  if (!supabase) return;
+  if (!supabaseClient) return;
 
   try {
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     window.__currentUserEmail = null;
     window.__currentUserName = null;
     return { ok: true };
@@ -853,10 +856,10 @@ async function acceptInvite({ token, password }) {
 
 async function changePassword({ currentPassword, newPassword }) {
   await initSupabase();
-  if (!supabase) throw new Error('Supabase not initialized');
+  if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
     if (error) throw error;
     return { ok: true };
   } catch (error) {
@@ -871,12 +874,12 @@ async function changePassword({ currentPassword, newPassword }) {
 
 async function logActivity(actionType, targetType, targetId, targetTitle) {
   await initSupabase();
-  if (!supabase) return;
+  if (!supabaseClient) return;
 
   try {
     const userEmail = await getCurrentUserEmail();
 
-    await supabase.from('activity_log').insert({
+    await supabaseClient.from('activity_log').insert({
       action_type: actionType,
       target_type: targetType,
       target_id: targetId,
@@ -900,7 +903,7 @@ async function logAudit(event) {
 
 async function listAudit(params = {}) {
   await initSupabase();
-  if (!supabase) return [];
+  if (!supabaseClient) return [];
 
   try {
     let query = supabase
@@ -1102,7 +1105,7 @@ function mapGuidelinesToDb(guidelines) {
 (async () => {
   try {
     await initSupabase();
-    const enabled = supabase !== null;
+    const enabled = supabaseClient !== null;
 
     if (typeof window !== 'undefined') {
       window.api = Object.freeze({
