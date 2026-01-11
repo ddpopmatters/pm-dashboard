@@ -58,7 +58,7 @@ async function listEntries(params = {}) {
   if (!supabaseClient) return [];
 
   try {
-    let query = supabase
+    let query = supabaseClient
       .from('entries')
       .select('*')
       .is('deleted_at', null)
@@ -134,7 +134,7 @@ async function updateEntry(id, patch) {
     if (patch.approvedAt !== undefined) dbPatch.approved_at = patch.approvedAt;
     if (patch.deletedAt !== undefined) dbPatch.deleted_at = patch.deletedAt;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('entries')
       .update(dbPatch)
       .eq('id', id)
@@ -161,7 +161,7 @@ async function deleteEntry(id, options = {}) {
       if (error) throw error;
     } else {
       // Soft delete
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from('entries')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id);
@@ -267,7 +267,7 @@ async function listLinkedIn(params = {}) {
   if (!supabaseClient) return [];
 
   try {
-    let query = supabase
+    let query = supabaseClient
       .from('linkedin_submissions')
       .select('*')
       .order('created_at', { ascending: false });
@@ -296,7 +296,7 @@ async function createLinkedIn(submission) {
     const userEmail = await getCurrentUserEmail();
     const dbSubmission = mapLinkedInToDb(submission, userEmail);
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('linkedin_submissions')
       .insert(dbSubmission)
       .select()
@@ -363,7 +363,7 @@ async function listTestingFrameworks() {
   if (!supabaseClient) return [];
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('testing_frameworks')
       .select('*')
       .order('created_at', { ascending: false });
@@ -381,7 +381,7 @@ async function createTestingFramework(framework) {
   if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('testing_frameworks')
       .insert(framework)
       .select()
@@ -432,7 +432,7 @@ async function getGuidelines() {
   if (!supabaseClient) return null;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('guidelines')
       .select('*')
       .eq('id', 'default')
@@ -470,7 +470,7 @@ async function listUsers() {
   if (!supabaseClient) return [];
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('user_profiles')
       .select('*')
       .order('name', { ascending: true });
@@ -503,7 +503,7 @@ async function getCurrentUser() {
     } = await supabaseClient.auth.getUser();
     if (!user) return null;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('user_profiles')
       .select('*')
       .eq('auth_user_id', user.id)
@@ -538,7 +538,7 @@ async function createUser(userData) {
   if (!supabaseClient) throw new Error('Supabase not initialized');
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('user_profiles')
       .insert({
         email: userData.email,
@@ -572,7 +572,7 @@ async function updateUser(id, patch) {
     if (patch.isApprover !== undefined) dbPatch.is_approver = patch.isApprover;
     if (patch.avatarUrl !== undefined) dbPatch.avatar_url = patch.avatarUrl;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('user_profiles')
       .update(dbPatch)
       .eq('id', id)
@@ -623,7 +623,7 @@ async function updateProfile(patch) {
     if (patch.name !== undefined) dbPatch.name = patch.name;
     if (patch.avatarUrl !== undefined) dbPatch.avatar_url = patch.avatarUrl;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('user_profiles')
       .update(dbPatch)
       .eq('auth_user_id', user.id)
@@ -644,7 +644,7 @@ async function listApprovers() {
   if (!supabaseClient) return [];
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('user_profiles')
       .select('email, name')
       .eq('is_approver', true)
@@ -785,11 +785,11 @@ function onAuthStateChange(callback) {
 // Ensure user profile exists in user_profiles table
 async function ensureUserProfile(authUser, name) {
   await initSupabase();
-  if (!supabase || !authUser) return null;
+  if (!supabaseClient || !authUser) return null;
 
   try {
     // Check if profile exists
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseClient
       .from('user_profiles')
       .select('*')
       .eq('auth_user_id', authUser.id)
@@ -798,7 +798,7 @@ async function ensureUserProfile(authUser, name) {
     if (existing) return existing;
 
     // Create new profile
-    const { data: newProfile, error } = await supabase
+    const { data: newProfile, error } = await supabaseClient
       .from('user_profiles')
       .insert({
         auth_user_id: authUser.id,
@@ -896,7 +896,7 @@ async function listAudit(params = {}) {
   if (!supabaseClient) return [];
 
   try {
-    let query = supabase
+    let query = supabaseClient
       .from('activity_log')
       .select('*')
       .order('created_at', { ascending: false })
