@@ -44,7 +44,8 @@ export type EntryStatus = 'Pending' | 'Approved' | 'Draft' | 'Published';
 /**
  * Workflow/Kanban status
  */
-export type WorkflowStatus = 'Draft' | 'Scheduled' | 'In Review' | 'Approved' | 'Published';
+// Streamlined 4-status workflow
+export type WorkflowStatus = 'Draft' | 'Ready for Review' | 'Approved' | 'Published';
 
 /**
  * Entry model - represents a content calendar entry

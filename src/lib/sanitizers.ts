@@ -7,6 +7,7 @@ import {
   CONTENT_PILLARS,
   CHECKLIST_ITEMS,
   KANBAN_STATUSES,
+  LEGACY_STATUS_MAP,
   IDEA_TYPES,
   LINKEDIN_TYPES,
   LINKEDIN_STATUSES,
@@ -181,14 +182,16 @@ export const sanitizeEntry = (entry: unknown): Entry | null => {
     previewUrl: raw.previewUrl ? String(raw.previewUrl) : '',
     createdAt,
     updatedAt,
-    workflowStatus:
-      typeof raw.workflowStatus === 'string' && isInArray(KANBAN_STATUSES, raw.workflowStatus)
-        ? raw.workflowStatus
-        : status === 'Approved'
-          ? 'Approved'
-          : raw.statusDetail === 'Scheduled'
-            ? 'Scheduled'
-            : 'Draft',
+    workflowStatus: (() => {
+      const rawStatus = typeof raw.workflowStatus === 'string' ? raw.workflowStatus : '';
+      // If it's already a valid new status, use it
+      if (isInArray(KANBAN_STATUSES, rawStatus)) return rawStatus;
+      // Migrate legacy statuses
+      if (rawStatus && LEGACY_STATUS_MAP[rawStatus]) return LEGACY_STATUS_MAP[rawStatus];
+      // Fall back to deriving from status
+      if (status === 'Approved') return 'Approved';
+      return 'Draft';
+    })(),
     statusDetail: typeof raw.statusDetail === 'string' ? raw.statusDetail : '',
     aiFlags: Array.isArray(raw.aiFlags) ? (raw.aiFlags as string[]) : [],
     aiScore:
@@ -238,6 +241,9 @@ export const sanitizeIdea = (raw: unknown): Idea | null => {
     createdAt,
     targetDate,
     targetMonth,
+    convertedToEntryId:
+      typeof data.convertedToEntryId === 'string' ? data.convertedToEntryId : undefined,
+    convertedAt: typeof data.convertedAt === 'string' ? data.convertedAt : undefined,
   };
 };
 
@@ -392,7 +398,7 @@ export const determineWorkflowStatus = ({
   const hasApprovers = Array.isArray(approvers) && approvers.length > 0;
   const needsVisual =
     assetType && assetType !== 'No asset' && !(previewUrl && String(previewUrl).trim());
-  if (hasApprovers || needsVisual) return 'Approval required';
+  if (hasApprovers || needsVisual) return 'Ready for Review';
   return 'Draft';
 };
 

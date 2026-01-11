@@ -6,16 +6,22 @@ export type AssetType = (typeof ASSET_TYPES)[number];
 export const IDEA_TYPES = ['Topic', 'Theme', 'Series', 'Campaign', 'Other'] as const;
 export type IdeaType = (typeof IDEA_TYPES)[number];
 
-export const KANBAN_STATUSES = [
-  'Draft',
-  'Approval required',
-  'Awaiting brand approval',
-  'Awaiting SME approval',
-  'Awaiting visual',
-  'Approved',
-  'Scheduled',
-] as const;
+// Streamlined Kanban with 4 statuses (simplified from 7)
+export const KANBAN_STATUSES = ['Draft', 'Ready for Review', 'Approved', 'Published'] as const;
 export type KanbanStatus = (typeof KANBAN_STATUSES)[number];
+
+// Legacy status mapping for migration
+export const LEGACY_STATUS_MAP: Record<string, KanbanStatus> = {
+  Draft: 'Draft',
+  'Approval required': 'Ready for Review',
+  'Awaiting brand approval': 'Ready for Review',
+  'Awaiting SME approval': 'Ready for Review',
+  'Awaiting visual': 'Ready for Review',
+  'In Review': 'Ready for Review',
+  Approved: 'Approved',
+  Scheduled: 'Approved',
+  Published: 'Published',
+};
 
 export const LINKEDIN_STATUSES = ['Draft', 'Needs review', 'Approved', 'Shared'] as const;
 export type LinkedInStatus = (typeof LINKEDIN_STATUSES)[number];

@@ -24,28 +24,43 @@ const mapWorkflowStatusToDb = (status: string | undefined): string => {
   switch (status) {
     case 'Draft':
     case 'Approved':
-    case 'Scheduled':
     case 'Published':
       return status;
-    case 'In Review':
+    // New streamlined status maps to In Review
+    case 'Ready for Review':
       return 'In Review';
-    // Map app-specific statuses to DB values
+    // Legacy statuses for backward compatibility
+    case 'In Review':
     case 'Approval required':
     case 'Awaiting brand approval':
     case 'Awaiting SME approval':
     case 'Awaiting visual':
       return 'In Review';
+    case 'Scheduled':
+      return 'Approved'; // Scheduled is now part of Approved
     default:
       return 'Draft';
   }
 };
 
 /**
- * Map DB workflow status back to app values.
+ * Map DB workflow status back to app values (streamlined 4-status system).
  */
 const mapWorkflowStatusFromDb = (status: string | undefined): string => {
-  // DB values map directly - app will display based on status_detail for finer granularity
-  return status || 'Draft';
+  if (!status) return 'Draft';
+  switch (status) {
+    case 'Draft':
+      return 'Draft';
+    case 'In Review':
+      return 'Ready for Review';
+    case 'Approved':
+    case 'Scheduled':
+      return 'Approved';
+    case 'Published':
+      return 'Published';
+    default:
+      return 'Draft';
+  }
 };
 
 /**

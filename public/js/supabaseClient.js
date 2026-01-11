@@ -233,6 +233,9 @@ async function updateIdea(id, patch) {
     if (patch.inspiration !== undefined) dbPatch.inspiration = patch.inspiration;
     if (patch.targetDate !== undefined) dbPatch.target_date = patch.targetDate;
     if (patch.targetMonth !== undefined) dbPatch.target_month = patch.targetMonth;
+    if (patch.convertedToEntryId !== undefined)
+      dbPatch.converted_to_entry_id = patch.convertedToEntryId;
+    if (patch.convertedAt !== undefined) dbPatch.converted_at = patch.convertedAt;
 
     const { error } = await supabaseClient.from('ideas').update(dbPatch).eq('id', id);
     if (error) throw error;
@@ -1071,6 +1074,8 @@ function mapIdeaToApp(row) {
     targetDate: row.target_date,
     targetMonth: row.target_month,
     createdAt: row.created_at,
+    convertedToEntryId: row.converted_to_entry_id || undefined,
+    convertedAt: row.converted_at || undefined,
   };
 }
 

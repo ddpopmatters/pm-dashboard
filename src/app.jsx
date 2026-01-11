@@ -170,6 +170,10 @@ const DEFAULT_USER_RECORDS = DEFAULT_USERS.map(normalizeUserValue);
 
 // Storage key alias for user storage
 const USER_STORAGE_KEY = STORAGE_KEYS.USER;
+// Storage key for draft entry auto-save
+const DRAFT_ENTRY_STORAGE_KEY = STORAGE_KEYS.DRAFT_ENTRY;
+// Auto-save interval in milliseconds (30 seconds)
+const DRAFT_AUTO_SAVE_INTERVAL = 30000;
 
 const PLATFORM_ALIAS_MAP = (() => {
   const map = {};
@@ -1550,6 +1554,8 @@ function EntryModal({
   const [timelineEntries, setTimelineEntries] = useState([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineError, setTimelineError] = useState('');
+  const [showDraftRecovery, setShowDraftRecovery] = useState(false);
+  const [savedDraftInfo, setSavedDraftInfo] = useState(null);
   const { get: apiGet } = useApi();
   const frameworkOptions = Array.isArray(testingFrameworks) ? testingFrameworks : [];
   const frameworkMap = useMemo(() => {
@@ -1619,6 +1625,69 @@ function EntryModal({
       setTimelineOpen(false);
     }
   }, [modalReady, timelineOpen]);
+
+  // Check for saved draft on modal open
+  useEffect(() => {
+    if (!sanitizedEntry?.id || !storageAvailable) return;
+    try {
+      const stored = window.localStorage.getItem(DRAFT_ENTRY_STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      // Only prompt if draft is for this entry and has meaningful changes
+      if (parsed?.entryId === sanitizedEntry.id && parsed?.draft && parsed?.savedAt) {
+        setSavedDraftInfo(parsed);
+        setShowDraftRecovery(true);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, [sanitizedEntry?.id]);
+
+  // Ref to hold latest draft for stable auto-save interval
+  const draftRef = useRef(draft);
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  // Auto-save draft to localStorage every 30 seconds (stable interval)
+  useEffect(() => {
+    if (!sanitizedEntry?.id || !storageAvailable) return;
+    const interval = setInterval(() => {
+      const currentDraft = draftRef.current;
+      if (!currentDraft?.id) return;
+      try {
+        const draftData = {
+          entryId: currentDraft.id,
+          draft: currentDraft,
+          savedAt: new Date().toISOString(),
+        };
+        window.localStorage.setItem(DRAFT_ENTRY_STORAGE_KEY, JSON.stringify(draftData));
+      } catch {
+        // Ignore storage errors
+      }
+    }, DRAFT_AUTO_SAVE_INTERVAL);
+    return () => clearInterval(interval);
+  }, [sanitizedEntry?.id]); // Only restart interval when entry changes
+
+  // Helper to clear saved draft
+  const clearSavedDraft = useCallback(() => {
+    if (!storageAvailable) return;
+    try {
+      window.localStorage.removeItem(DRAFT_ENTRY_STORAGE_KEY);
+    } catch {
+      // Ignore errors
+    }
+    setShowDraftRecovery(false);
+    setSavedDraftInfo(null);
+  }, []);
+
+  // Restore draft from localStorage
+  const restoreSavedDraft = useCallback(() => {
+    if (savedDraftInfo?.draft) {
+      setDraft(savedDraftInfo.draft);
+    }
+    setShowDraftRecovery(false);
+  }, [savedDraftInfo]);
 
   if (!modalReady) return null;
 
@@ -1694,6 +1763,7 @@ function EntryModal({
     if (next.status === 'Approved') {
       next = normalizeEntry({ ...next, status: 'Pending', approvedAt: undefined });
     }
+    clearSavedDraft();
     onSave(next);
     onClose();
   };
@@ -2179,6 +2249,28 @@ function EntryModal({
           </div>
 
           <div className="max-h-[70vh] space-y-6 overflow-y-auto px-6 py-6">
+            {showDraftRecovery && savedDraftInfo && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <div className="text-sm text-amber-800">
+                  <span className="font-semibold">Unsaved draft found</span>
+                  <span className="mx-1">·</span>
+                  <span>Last saved {new Date(savedDraftInfo.savedAt).toLocaleString()}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={clearSavedDraft} className="text-xs">
+                    Discard
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={restoreSavedDraft}
+                    className="bg-amber-600 text-xs hover:bg-amber-700"
+                  >
+                    Restore draft
+                  </Button>
+                </div>
+              </div>
+            )}
             {showApproverContent ? (
               renderApproverContent()
             ) : (
@@ -4775,6 +4867,7 @@ function ContentDashboard() {
     const entryWithStatus = {
       ...sanitized,
       statusDetail: computeStatusDetail(sanitized),
+      _isNew: true, // Flag to indicate this needs to be created, not updated
     };
 
     setEntries((prev) => [entryWithStatus, ...prev]);
@@ -4845,16 +4938,32 @@ function ContentDashboard() {
     const entryWithStatus = {
       ...sanitized,
       statusDetail: computeStatusDetail(sanitized),
+      _isNew: true, // Flag to indicate this needs to be created, not updated
+      _sourceIdeaId: idea.id, // Track source idea for conversion persistence
     };
 
     setEntries((prev) => [entryWithStatus, ...prev]);
 
-    // Mark the idea as converted
+    // Mark the idea as converted (local state)
     setIdeas((prev) =>
       prev.map((i) =>
         i.id === idea.id ? { ...i, convertedToEntryId: newId, convertedAt: timestamp } : i,
       ),
     );
+
+    // Persist idea conversion to server
+    if (window.api?.updateIdea) {
+      try {
+        runSyncTask(`Update idea conversion (${idea.id})`, () =>
+          window.api.updateIdea(idea.id, {
+            convertedToEntryId: newId,
+            convertedAt: timestamp,
+          }),
+        ).then((ok) => {
+          if (ok) refreshIdeas();
+        });
+      } catch {}
+    }
 
     // Open the new entry for editing
     setViewingId(newId);
@@ -4927,23 +5036,56 @@ function ContentDashboard() {
       pendingApproverAlerts.forEach((entry) => notifyApproversAboutChange(entry));
     }
     if (updated?.id) {
+      // Check if this is a new entry that needs to be created
+      const existingEntry = entries.find((e) => e.id === updated.id);
+      const isNewEntry = existingEntry?._isNew;
+
       try {
-        const patch = { ...updated };
-        delete patch.id;
-        runSyncTask(`Update entry (${updated.id})`, () =>
-          window.api.updateEntry(updated.id, patch),
-        ).then((ok) => {
-          if (ok) refreshEntries();
-        });
+        const payload = { ...updated };
+        delete payload.id;
+        delete payload._isNew;
+        delete payload._sourceIdeaId;
+
+        if (isNewEntry) {
+          // Create new entry on server
+          const createPayload = {
+            ...payload,
+            id: updated.id,
+            user: currentUser,
+          };
+          runSyncTask(`Create entry (${updated.id})`, () =>
+            window.api.createEntry(createPayload),
+          ).then((ok) => {
+            if (ok) {
+              // Clear the _isNew flag after successful creation
+              setEntries((prev) =>
+                prev.map((e) => (e.id === updated.id ? { ...e, _isNew: undefined } : e)),
+              );
+              refreshEntries();
+            }
+          });
+        } else {
+          // Update existing entry
+          runSyncTask(`Update entry (${updated.id})`, () =>
+            window.api.updateEntry(updated.id, payload),
+          ).then((ok) => {
+            if (ok) refreshEntries();
+          });
+        }
       } catch {}
     }
-    appendAudit({ user: currentUser, entryId: updated?.id, action: 'entry-update' });
+    appendAudit({
+      user: currentUser,
+      entryId: updated?.id,
+      action: updated?._isNew ? 'entry-create' : 'entry-update',
+    });
   };
 
   const toggleApprove = (id) => {
     const entryRecord = entries.find((entry) => entry.id === id) || null;
     const timestamp = new Date().toISOString();
     let nextStatusForServer = null;
+    let nextWorkflowStatusForServer = null;
     setEntries((prev) =>
       prev.map((entry) => {
         if (entry.id !== id) return entry;
@@ -4955,14 +5097,9 @@ function ContentDashboard() {
           approvedAt: toggled === 'Approved' ? timestamp : undefined,
           updatedAt: timestamp,
         });
-        const workflowStatus =
-          toggled === 'Approved'
-            ? 'Approved'
-            : KANBAN_STATUSES.includes(updatedEntry.workflowStatus)
-              ? updatedEntry.workflowStatus
-              : KANBAN_STATUSES.includes(entry.workflowStatus)
-                ? entry.workflowStatus
-                : KANBAN_STATUSES[0];
+        // Streamlined workflow: Approved → 'Approved', Unapproved → 'Ready for Review'
+        const workflowStatus = toggled === 'Approved' ? 'Approved' : 'Ready for Review';
+        nextWorkflowStatusForServer = workflowStatus;
         const normalized = {
           ...updatedEntry,
           workflowStatus,
@@ -4978,6 +5115,7 @@ function ContentDashboard() {
         runSyncTask(`Update approval (${id})`, () =>
           window.api.updateEntry(id, {
             status: nextStatusForServer,
+            workflowStatus: nextWorkflowStatusForServer,
             approvedAt: nextStatusForServer === 'Approved' ? timestamp : null,
           }),
         ).then((ok) => {
@@ -5049,12 +5187,18 @@ function ContentDashboard() {
   const updateWorkflowStatus = (id, nextStatus) => {
     if (!KANBAN_STATUSES.includes(nextStatus)) return;
     const timestamp = new Date().toISOString();
+    // Sync approval status with workflow status
+    const syncedStatus =
+      nextStatus === 'Approved' || nextStatus === 'Published' ? 'Approved' : 'Pending';
     setEntries((prev) =>
       prev.map((entry) => {
         if (entry.id !== id) return entry;
         const sanitized = sanitizeEntry({
           ...entry,
           workflowStatus: nextStatus,
+          status: syncedStatus,
+          approvedAt:
+            syncedStatus === 'Approved' && !entry.approvedAt ? timestamp : entry.approvedAt,
           updatedAt: timestamp,
         });
         return {
@@ -5065,7 +5209,11 @@ function ContentDashboard() {
     );
     try {
       runSyncTask(`Update workflow (${id})`, () =>
-        window.api.updateEntry(id, { workflowStatus: nextStatus }),
+        window.api.updateEntry(id, {
+          workflowStatus: nextStatus,
+          status: syncedStatus,
+          approvedAt: syncedStatus === 'Approved' ? timestamp : undefined,
+        }),
       ).then((ok) => {
         if (ok) refreshEntries();
       });
