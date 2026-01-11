@@ -2697,6 +2697,7 @@ function EntryModal({
 // Sidebar Navigation Component - matches PM Productivity Tool style
 function Sidebar({
   currentView,
+  planTab,
   onNavigate,
   currentUser,
   currentUserEmail,
@@ -2713,6 +2714,24 @@ function Sidebar({
   currentUserIsAdmin,
   outstandingCount,
 }) {
+  // Determine which sidebar item is active based on currentView and planTab
+  const getActiveItem = () => {
+    if (currentView === 'dashboard' || currentView === 'menu') return 'dashboard';
+    if (currentView === 'approvals') return 'approvals';
+    if (currentView === 'admin') return 'admin';
+    if (currentView === 'form') return 'form';
+    if (currentView === 'plan') {
+      if (planTab === 'plan') return 'calendar';
+      if (planTab === 'kanban') return 'kanban';
+      if (planTab === 'ideas') return 'ideas';
+      if (planTab === 'linkedin') return 'linkedin';
+      if (planTab === 'testing') return 'testing';
+    }
+    return 'dashboard';
+  };
+
+  const activeItem = getActiveItem();
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', enabled: true },
     { id: 'calendar', label: 'Calendar', icon: 'calendar', enabled: canUseCalendar },
@@ -2832,7 +2851,7 @@ function Sidebar({
             onClick={() => onNavigate(item.id)}
             className={cx(
               'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all group',
-              currentView === item.id
+              activeItem === item.id
                 ? 'bg-ocean-500 text-white shadow-lg'
                 : 'text-ocean-900 hover:bg-ocean-50',
             )}
@@ -2842,7 +2861,7 @@ function Sidebar({
               <div
                 className={cx(
                   'absolute w-10 h-10 rounded-full transition-all duration-300',
-                  currentView === item.id
+                  activeItem === item.id
                     ? 'scale-0 opacity-0'
                     : 'scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100',
                 )}
@@ -5085,19 +5104,28 @@ function ContentDashboard() {
   // Handle sidebar navigation - must be defined before conditional returns
   const handleSidebarNavigate = useCallback(
     (view) => {
-      if (view === 'form') {
-        setCurrentView('form');
-        setPlanTab('plan');
-        closeEntry();
-        try {
-          window.location.hash = '#create';
-        } catch {}
-      } else {
-        setCurrentView(view);
-        try {
-          window.location.hash = `#${view}`;
-        } catch {}
-      }
+      closeEntry();
+
+      // Map sidebar items to view/tab combinations
+      const viewMap = {
+        dashboard: { view: 'dashboard', tab: 'plan' },
+        calendar: { view: 'plan', tab: 'plan' },
+        kanban: { view: 'plan', tab: 'kanban' },
+        ideas: { view: 'plan', tab: 'ideas' },
+        linkedin: { view: 'plan', tab: 'linkedin' },
+        testing: { view: 'plan', tab: 'testing' },
+        approvals: { view: 'approvals', tab: 'plan' },
+        admin: { view: 'admin', tab: 'plan' },
+        form: { view: 'form', tab: 'plan' },
+      };
+
+      const mapping = viewMap[view] || { view: 'dashboard', tab: 'plan' };
+      setCurrentView(mapping.view);
+      setPlanTab(mapping.tab);
+
+      try {
+        window.location.hash = `#${view}`;
+      } catch {}
     },
     [closeEntry],
   );
@@ -5207,6 +5235,7 @@ function ContentDashboard() {
       {/* Sidebar */}
       <Sidebar
         currentView={currentView}
+        planTab={planTab}
         onNavigate={handleSidebarNavigate}
         currentUser={currentUser}
         currentUserEmail={currentUserEmail}
