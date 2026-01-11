@@ -2991,9 +2991,10 @@ function ContentDashboard() {
           await window.api.ensureUserProfile?.(session.user);
           payload = await window.api.getCurrentUser();
         }
-      }
-      if (!payload) {
-        // Fallback to legacy API
+        // If Supabase is enabled but no session, user needs to login
+        if (!payload) throw new Error('No authenticated session');
+      } else {
+        // Fallback to legacy API only when Supabase is not available
         payload = await apiGet('/api/user');
       }
       if (!payload) throw new Error('No user payload');
