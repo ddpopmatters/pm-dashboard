@@ -1548,7 +1548,7 @@ function EntryModal({
   const [timelineEntries, setTimelineEntries] = useState([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineError, setTimelineError] = useState('');
-  const api = useApi();
+  const { get: apiGet } = useApi();
   const frameworkOptions = Array.isArray(testingFrameworks) ? testingFrameworks : [];
   const frameworkMap = useMemo(() => {
     const map = new Map();
@@ -1845,7 +1845,7 @@ function EntryModal({
         if (window.api && typeof window.api.listAudit === 'function') {
           payload = await window.api.listAudit({ entryId, limit: 200 });
         } else {
-          payload = await api.get(`/api/audit?entryId=${encodeURIComponent(entryId)}&limit=200`);
+          payload = await apiGet(`/api/audit?entryId=${encodeURIComponent(entryId)}&limit=200`);
         }
         setTimelineEntries(Array.isArray(payload) ? payload : []);
       } catch (error) {
@@ -1856,7 +1856,7 @@ function EntryModal({
         setTimelineLoading(false);
       }
     },
-    [api],
+    [apiGet],
   );
 
   const handleOpenTimeline = () => {
@@ -2695,7 +2695,8 @@ function EntryModal({
 }
 
 function ContentDashboard() {
-  const api = useApi();
+  // Destructure stable method references to avoid re-renders when loading/error state changes
+  const { get: apiGet, post: apiPost, put: apiPut, del: apiDel } = useApi();
   const [entries, setEntries] = useState([]);
   const [monthCursor, setMonthCursor] = useState(() => new Date());
   const [viewingId, setViewingId] = useState(null);
@@ -2993,7 +2994,7 @@ function ContentDashboard() {
       }
       if (!payload) {
         // Fallback to legacy API
-        payload = await api.get('/api/user');
+        payload = await apiGet('/api/user');
       }
       if (!payload) throw new Error('No user payload');
       const nextName =
@@ -3021,7 +3022,7 @@ function ContentDashboard() {
       setAuthStatus(inviteToken ? 'invite' : 'login');
       setProfileMenuOpen(false);
     }
-  }, [inviteToken, api]);
+  }, [inviteToken, apiGet]);
 
   useEffect(() => {
     hydrateCurrentUser();
@@ -3070,7 +3071,7 @@ function ContentDashboard() {
       if (window.api && window.api.enabled && window.api.notify) {
         return window.api.notify(payload);
       }
-      return api.post('/api/notify', payload);
+      return apiPost('/api/notify', payload);
     };
     runSyncTask(label, action, { requiresApi: false });
   };
@@ -3090,7 +3091,7 @@ function ContentDashboard() {
         if (window.api && window.api.enabled && window.api.changePassword) {
           return window.api.changePassword(payload);
         }
-        return api.put('/api/password', payload);
+        return apiPut('/api/password', payload);
       };
       try {
         const response = await submit();
@@ -3102,7 +3103,7 @@ function ContentDashboard() {
         throw new Error('Unable to update password.');
       }
     },
-    [setCurrentUserHasPassword, api],
+    [setCurrentUserHasPassword, apiPut],
   );
   const refreshApprovers = useCallback(async () => {
     try {
@@ -3110,7 +3111,7 @@ function ContentDashboard() {
       if (window.api && typeof window.api.listApprovers === 'function') {
         payload = await window.api.listApprovers();
       } else {
-        payload = await api.get('/api/approvers');
+        payload = await apiGet('/api/approvers');
       }
       if (Array.isArray(payload) && payload.length) {
         setApproverDirectory(
@@ -3131,7 +3132,7 @@ function ContentDashboard() {
       console.warn('Failed to load approvers', error);
       setApproverDirectory(DEFAULT_APPROVERS);
     }
-  }, [api]);
+  }, [apiGet]);
 
   useEffect(() => {
     refreshApprovers();
@@ -3206,7 +3207,7 @@ function ContentDashboard() {
       if (window.api && typeof window.api.updateProfile === 'function') {
         response = await window.api.updateProfile(payload);
       } else {
-        response = await api.put('/api/user', payload);
+        response = await apiPut('/api/user', payload);
       }
       if (response?.user) {
         setCurrentUser(response.user.name || desiredName);
@@ -4742,7 +4743,7 @@ function ContentDashboard() {
         if (window.api && typeof window.api.logout === 'function') {
           await window.api.logout();
         } else {
-          await api.del('/api/auth');
+          await apiDel('/api/auth');
         }
       } catch {}
       setCurrentUser('');
@@ -4786,7 +4787,7 @@ function ContentDashboard() {
       if (window.api && typeof window.api.login === 'function') {
         response = await window.api.login({ email: normalizedEmail, password: loginPassword });
       } else {
-        response = await api.post('/api/auth', { email: normalizedEmail, password: loginPassword });
+        response = await apiPost('/api/auth', { email: normalizedEmail, password: loginPassword });
       }
       const name =
         response?.user?.name && response.user.name.trim().length
@@ -4838,7 +4839,7 @@ function ContentDashboard() {
       if (window.api && typeof window.api.acceptInvite === 'function') {
         response = await window.api.acceptInvite({ token: inviteToken, password: invitePassword });
       } else {
-        response = await api.put('/api/auth', { token: inviteToken, password: invitePassword });
+        response = await apiPut('/api/auth', { token: inviteToken, password: invitePassword });
       }
       const name =
         response?.user?.name && response.user.name.trim().length
@@ -5964,7 +5965,7 @@ function ContentDashboard() {
                 variant="outline"
                 onClick={() => {
                   if (window.api && window.api.enabled) {
-                    api.get('/api/health').catch(() => {});
+                    apiGet('/api/health').catch(() => {});
                   }
                 }}
               >
@@ -5975,7 +5976,7 @@ function ContentDashboard() {
                   (async () => {
                     try {
                       if (window.api && window.api.enabled) {
-                        const json = await api.get('/api/audit?limit=200');
+                        const json = await apiGet('/api/audit?limit=200');
                         setAdminAudits(Array.isArray(json) ? json : []);
                       } else {
                         const raw = storageAvailable
