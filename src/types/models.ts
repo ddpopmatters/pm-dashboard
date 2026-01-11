@@ -208,3 +208,61 @@ export interface AuditEntry {
   action: string;
   meta: Record<string, unknown>;
 }
+
+/**
+ * Engagement activity types
+ */
+export type EngagementActionType = 'comment' | 'share' | 'reply' | 'like' | 'follow' | 'dm';
+
+/**
+ * Engagement activity - tracks proactive engagement with other accounts
+ */
+export interface EngagementActivity {
+  id: string;
+  platform: string;
+  accountHandle: string;
+  accountId?: string;
+  actionType: EngagementActionType;
+  note?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+/**
+ * Account types for engagement directory
+ */
+export type EngagementAccountType =
+  | 'Ally'
+  | 'Media'
+  | 'Supporter'
+  | 'Prospect'
+  | 'Influencer'
+  | 'Partner'
+  | 'Other';
+
+/**
+ * Engagement account - accounts in the engagement directory
+ */
+export interface EngagementAccount {
+  id: string;
+  handle: string;
+  platform: string;
+  displayName?: string;
+  accountType: EngagementAccountType;
+  notes?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+/**
+ * Engagement goals - weekly engagement targets
+ */
+export interface EngagementGoals {
+  weeklyComments: number;
+  weeklyShares: number;
+  weeklyReplies: number;
+  weeklyLikes: number;
+  weeklyFollows: number;
+  weeklyDms: number;
+  weekStartDay: 'monday' | 'sunday';
+}

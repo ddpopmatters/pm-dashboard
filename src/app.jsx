@@ -7,6 +7,8 @@ import { KanbanView } from './features/kanban';
 import { LinkedInView } from './features/linkedin';
 import { AdminPanel } from './features/admin';
 import { TestingView } from './features/testing';
+import { AnalyticsView } from './features/analytics/AnalyticsView';
+import { EngagementView, DEFAULT_ENGAGEMENT_GOALS } from './features/engagement/EngagementView';
 import { useApi } from './hooks/useApi';
 import {
   ALL_PLATFORMS,
@@ -2823,6 +2825,8 @@ function Sidebar({
   // Determine which sidebar item is active based on currentView and planTab
   const getActiveItem = () => {
     if (currentView === 'dashboard' || currentView === 'menu') return 'dashboard';
+    if (currentView === 'analytics') return 'analytics';
+    if (currentView === 'engagement') return 'engagement';
     if (currentView === 'approvals') return 'approvals';
     if (currentView === 'admin') return 'admin';
     if (currentView === 'form') return 'form';
@@ -2840,6 +2844,8 @@ function Sidebar({
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', enabled: true },
+    { id: 'analytics', label: 'Analytics', icon: 'bar-chart', enabled: true },
+    { id: 'engagement', label: 'Engagement', icon: 'users', enabled: true },
     { id: 'calendar', label: 'Calendar', icon: 'calendar', enabled: canUseCalendar },
     { id: 'kanban', label: 'Kanban', icon: 'columns', enabled: canUseKanban },
     {
@@ -2862,6 +2868,30 @@ function Sidebar({
         <rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="2" />
         <rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="2" />
         <rect x="14" y="14" width="7" height="7" rx="1" strokeWidth="2" />
+      </svg>
+    ),
+    'bar-chart': (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect x="3" y="12" width="4" height="9" rx="1" strokeWidth="2" />
+        <rect x="10" y="7" width="4" height="14" rx="1" strokeWidth="2" />
+        <rect x="17" y="3" width="4" height="18" rx="1" strokeWidth="2" />
+      </svg>
+    ),
+    users: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx="9" cy="7" r="4" strokeWidth="2" />
+        <path
+          d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     ),
     calendar: (
@@ -3100,6 +3130,9 @@ function ContentDashboard() {
   const [guidelinesOpen, setGuidelinesOpen] = useState(false);
   const [approverDirectory, setApproverDirectory] = useState(DEFAULT_APPROVERS);
   const [userList, setUserList] = useState(() => []);
+  const [engagementActivities, setEngagementActivities] = useState([]);
+  const [engagementAccounts, setEngagementAccounts] = useState([]);
+  const [engagementGoals, setEngagementGoals] = useState(() => DEFAULT_ENGAGEMENT_GOALS);
   const [newUserFirst, setNewUserFirst] = useState('');
   const [newUserLast, setNewUserLast] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -5417,6 +5450,8 @@ function ContentDashboard() {
       // Map sidebar items to view/tab combinations
       const viewMap = {
         dashboard: { view: 'dashboard', tab: 'plan' },
+        analytics: { view: 'analytics', tab: 'plan' },
+        engagement: { view: 'engagement', tab: 'plan' },
         calendar: { view: 'plan', tab: 'plan' },
         kanban: { view: 'plan', tab: 'kanban' },
         ideas: { view: 'plan', tab: 'ideas' },
@@ -6498,6 +6533,53 @@ function ContentDashboard() {
                     return null;
                 }
               })()}
+            </div>
+          )}
+
+          {currentView === 'analytics' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <AnalyticsView entries={entries} />
+            </div>
+          )}
+
+          {currentView === 'engagement' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <EngagementView
+                activities={engagementActivities}
+                accounts={engagementAccounts}
+                goals={engagementGoals}
+                currentUser={currentUser}
+                onAddActivity={(activity) => {
+                  const newActivity = {
+                    ...activity,
+                    id: uuid(),
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser,
+                  };
+                  setEngagementActivities((prev) => [newActivity, ...prev]);
+                }}
+                onDeleteActivity={(id) => {
+                  setEngagementActivities((prev) => prev.filter((a) => a.id !== id));
+                }}
+                onAddAccount={(account) => {
+                  const newAccount = {
+                    ...account,
+                    id: uuid(),
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser,
+                  };
+                  setEngagementAccounts((prev) => [newAccount, ...prev]);
+                }}
+                onDeleteAccount={(id) => {
+                  setEngagementAccounts((prev) => prev.filter((a) => a.id !== id));
+                }}
+                onUpdateAccount={(id, updates) => {
+                  setEngagementAccounts((prev) =>
+                    prev.map((a) => (a.id === id ? { ...a, ...updates } : a)),
+                  );
+                }}
+                onUpdateGoals={(goals) => setEngagementGoals(goals)}
+              />
             </div>
           )}
 
