@@ -16,6 +16,9 @@ export {
   CopyIcon,
   BellIcon,
   SettingsIcon,
+  ArrowUpIcon,
+  ArrowPathIcon,
+  ClockIcon,
   type IconProps,
   type SvgIconProps,
 } from './Icons';

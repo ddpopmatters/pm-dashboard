@@ -9,6 +9,15 @@ import { AdminPanel } from './features/admin';
 import { TestingView } from './features/testing';
 import { AnalyticsView } from './features/analytics/AnalyticsView';
 import { EngagementView, DEFAULT_ENGAGEMENT_GOALS } from './features/engagement/EngagementView';
+import {
+  PublishSettingsPanel,
+  DEFAULT_PUBLISH_SETTINGS,
+  triggerPublish,
+  initializePublishStatus,
+  getAggregatePublishStatus,
+  canPublish,
+  canPostAgain,
+} from './features/publishing';
 import { useApi } from './hooks/useApi';
 import {
   ALL_PLATFORMS,
@@ -111,6 +120,8 @@ import {
   RotateCcwIcon,
   PlusIcon,
   CopyIcon,
+  ArrowUpIcon,
+  ArrowPathIcon,
 } from './components/common';
 import { ChangePasswordModal } from './components/auth';
 import { PerformanceImportModal } from './features/performance';
@@ -1539,6 +1550,9 @@ function EntryModal({
   onUpdate,
   onNotifyMentions,
   onCommentAdded,
+  onPublish,
+  onPostAgain,
+  onToggleEvergreen,
   testingFrameworks = [],
   approverOptions = DEFAULT_APPROVERS,
   users = DEFAULT_USER_RECORDS,
@@ -2365,6 +2379,25 @@ function EntryModal({
                   </div>
                 </FieldRow>
 
+                <FieldRow label="Evergreen content">
+                  <div className="flex items-center gap-3">
+                    <Toggle
+                      id="modal-evergreen"
+                      ariaLabel="Mark as evergreen content"
+                      checked={draft.evergreen || false}
+                      onChange={(checked) => {
+                        update('evergreen', checked);
+                        if (onToggleEvergreen) {
+                          onToggleEvergreen(draft.id);
+                        }
+                      }}
+                    />
+                    <span className="text-sm text-graystone-600">
+                      Reusable content that can be re-posted
+                    </span>
+                  </div>
+                </FieldRow>
+
                 <FieldRow label="Platforms">
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
@@ -2693,6 +2726,26 @@ function EntryModal({
                 <Button variant="outline" onClick={handleClone} className="gap-2 text-ocean-700">
                   <CopyIcon className="h-4 w-4 text-ocean-700" />
                   Clone entry
+                </Button>
+              )}
+              {onPublish && canPublish(sanitizedEntry) && (
+                <Button
+                  variant="outline"
+                  onClick={() => onPublish(sanitizedEntry.id)}
+                  className="gap-2 text-emerald-700"
+                >
+                  <ArrowUpIcon className="h-4 w-4 text-emerald-700" />
+                  Publish now
+                </Button>
+              )}
+              {onPostAgain && canPostAgain(sanitizedEntry) && (
+                <Button
+                  variant="outline"
+                  onClick={() => onPostAgain(sanitizedEntry.id)}
+                  className="gap-2 text-ocean-700"
+                >
+                  <ArrowPathIcon className="h-4 w-4 text-ocean-700" />
+                  Post again
                 </Button>
               )}
               {canEdit && (
@@ -3126,6 +3179,14 @@ function ContentDashboard() {
     Design: 40,
     Carousel: 20,
   }));
+  const [dailyPostTarget, setDailyPostTarget] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem('pm-daily-post-target');
+      return stored ? parseInt(stored, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  });
   const [guidelines, setGuidelines] = useState(() => loadGuidelines());
   const [guidelinesOpen, setGuidelinesOpen] = useState(false);
   const [approverDirectory, setApproverDirectory] = useState(DEFAULT_APPROVERS);
@@ -3133,6 +3194,17 @@ function ContentDashboard() {
   const [engagementActivities, setEngagementActivities] = useState([]);
   const [engagementAccounts, setEngagementAccounts] = useState([]);
   const [engagementGoals, setEngagementGoals] = useState(() => DEFAULT_ENGAGEMENT_GOALS);
+  const [publishSettings, setPublishSettings] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem('pm-publish-settings');
+      return stored
+        ? { ...DEFAULT_PUBLISH_SETTINGS, ...JSON.parse(stored) }
+        : DEFAULT_PUBLISH_SETTINGS;
+    } catch {
+      return DEFAULT_PUBLISH_SETTINGS;
+    }
+  });
+  const [filterEvergreen, setFilterEvergreen] = useState(false);
   const [newUserFirst, setNewUserFirst] = useState('');
   const [newUserLast, setNewUserLast] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -3425,6 +3497,15 @@ function ContentDashboard() {
     }
   }, [planTab, hasFeature]);
 
+  // Persist publish settings to localStorage
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('pm-publish-settings', JSON.stringify(publishSettings));
+    } catch {
+      // Ignore storage errors
+    }
+  }, [publishSettings]);
+
   useEffect(() => {
     if (currentView === 'form' && !canUseCalendar) {
       setCurrentView('dashboard');
@@ -3460,6 +3541,7 @@ function ContentDashboard() {
     setFilterPlatforms([]);
     setFilterQuery('');
     setFilterOverdue(false);
+    setFilterEvergreen(false);
   }, []);
 
   const handleChangePassword = useCallback(
@@ -4448,8 +4530,17 @@ function ContentDashboard() {
     if (filterPlatforms.length) count += 1;
     if (filterQuery.trim()) count += 1;
     if (filterOverdue) count += 1;
+    if (filterEvergreen) count += 1;
     return count;
-  }, [filterType, filterStatus, filterWorkflow, filterPlatforms, filterQuery, filterOverdue]);
+  }, [
+    filterType,
+    filterStatus,
+    filterWorkflow,
+    filterPlatforms,
+    filterQuery,
+    filterOverdue,
+    filterEvergreen,
+  ]);
 
   const monthEntries = useMemo(() => {
     return entries
@@ -4465,6 +4556,7 @@ function ContentDashboard() {
           : filterPlatforms.some((platform) => entry.platforms.includes(platform)),
       )
       .filter((entry) => (!filterOverdue ? true : isApprovalOverdue(entry)))
+      .filter((entry) => (!filterEvergreen ? true : entry.evergreen))
       .filter((entry) => matchesSearch(entry))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [
@@ -4476,6 +4568,7 @@ function ContentDashboard() {
     filterWorkflow,
     filterPlatforms,
     filterOverdue,
+    filterEvergreen,
     normalizedFilterQuery,
   ]);
 
@@ -5215,6 +5308,214 @@ function ContentDashboard() {
         );
       } catch {}
     }
+  };
+
+  // Publish an entry to Zapier webhook
+  const handlePublishEntry = async (id) => {
+    const entry = entries.find((e) => e.id === id);
+    if (!entry || !canPublish(entry)) return;
+
+    // Initialize publish status for all platforms (set to 'publishing')
+    const newPublishStatus = initializePublishStatus(entry.platforms);
+    setEntries((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, publishStatus: newPublishStatus } : e)),
+    );
+
+    // Trigger the webhook
+    const result = await triggerPublish(entry, publishSettings);
+    const timestamp = new Date().toISOString();
+
+    if (result.success) {
+      // Mark all as published (with no-cors, we assume success if no error)
+      const publishedStatus = {};
+      entry.platforms.forEach((platform) => {
+        publishedStatus[platform] = {
+          status: 'published',
+          url: null, // URL would come from callback
+          error: null,
+          timestamp,
+        };
+      });
+
+      const updates = {
+        publishStatus: publishedStatus,
+        workflowStatus: 'Published',
+        publishedAt: timestamp,
+      };
+
+      setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)));
+
+      // Persist to API if available
+      if (window.api?.updateEntry) {
+        try {
+          await window.api.updateEntry(id, updates);
+        } catch (err) {
+          console.error('Failed to persist publish status:', err);
+        }
+      }
+    } else {
+      // Mark all as failed
+      const failedStatus = {};
+      entry.platforms.forEach((platform) => {
+        failedStatus[platform] = {
+          status: 'failed',
+          url: null,
+          error: result.error || 'Failed to publish',
+          timestamp,
+        };
+      });
+
+      setEntries((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, publishStatus: failedStatus } : e)),
+      );
+
+      // Persist failure status to API if available
+      if (window.api?.updateEntry) {
+        try {
+          await window.api.updateEntry(id, { publishStatus: failedStatus });
+        } catch (err) {
+          console.error('Failed to persist publish failure:', err);
+        }
+      }
+    }
+
+    appendAudit({
+      user: currentUser,
+      entryId: id,
+      action: 'entry-publish-trigger',
+    });
+  };
+
+  // Clone an entry for "Post Again"
+  const handlePostAgain = (id) => {
+    const original = entries.find((e) => e.id === id);
+    if (!original) return;
+
+    const newId = uuid();
+    const today = new Date().toISOString().split('T')[0];
+    const cloned = {
+      ...sanitizeEntry(original),
+      id: newId,
+      date: today,
+      status: 'Pending',
+      workflowStatus: 'Draft',
+      approvedAt: null,
+      publishStatus: {},
+      publishedAt: null,
+      variantOfId: original.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      _isNew: true,
+    };
+    cloned.statusDetail = computeStatusDetail(cloned);
+    setEntries((prev) => [...prev, cloned]);
+    setViewingId(newId);
+    setViewingSnapshot(cloned);
+
+    appendAudit({
+      user: currentUser,
+      entryId: newId,
+      action: 'entry-post-again',
+      meta: { originalEntryId: original.id },
+    });
+  };
+
+  // Toggle evergreen flag on entry
+  const handleToggleEvergreen = (id) => {
+    const timestamp = new Date().toISOString();
+    setEntries((prev) =>
+      prev.map((entry) => {
+        if (entry.id !== id) return entry;
+        return { ...entry, evergreen: !entry.evergreen, updatedAt: timestamp };
+      }),
+    );
+
+    const entry = entries.find((e) => e.id === id);
+    if (entry && window.api?.updateEntry) {
+      runSyncTask(`Toggle evergreen (${id})`, () =>
+        window.api.updateEntry(id, { evergreen: !entry.evergreen }),
+      );
+    }
+  };
+
+  // Change entry date via drag-and-drop
+  const handleEntryDateChange = (id, newDate) => {
+    const timestamp = new Date().toISOString();
+    setEntries((prev) =>
+      prev.map((entry) => {
+        if (entry.id !== id) return entry;
+        return { ...entry, date: newDate, updatedAt: timestamp };
+      }),
+    );
+
+    if (window.api?.updateEntry) {
+      runSyncTask(`Change date (${id})`, () => window.api.updateEntry(id, { date: newDate }));
+    }
+
+    appendAudit({
+      user: currentUser,
+      entryId: id,
+      action: 'entry-date-changed',
+      data: { newDate },
+    });
+  };
+
+  // Update daily post target for content gap flagging
+  const handleDailyPostTargetChange = (target) => {
+    setDailyPostTarget(target);
+    try {
+      window.localStorage.setItem('pm-daily-post-target', String(target));
+    } catch {
+      // Ignore localStorage errors
+    }
+  };
+
+  // Bulk date shift for multiple entries
+  const handleBulkDateShift = (entryIds, daysDelta) => {
+    const timestamp = new Date().toISOString();
+    // Use local date parsing/formatting to avoid timezone issues
+    const shiftDate = (dateStr) => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const d = new Date(year, month - 1, day);
+      d.setDate(d.getDate() + daysDelta);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    };
+
+    // Use Set for O(1) lookups instead of O(n) includes()
+    const entryIdSet = new Set(entryIds);
+
+    // Build a map of id→originalDate for API persistence (before state update)
+    const originalDates = new Map();
+    entries.forEach((e) => {
+      if (entryIdSet.has(e.id)) {
+        originalDates.set(e.id, e.date);
+      }
+    });
+
+    setEntries((prev) =>
+      prev.map((entry) => {
+        if (!entryIdSet.has(entry.id)) return entry;
+        return { ...entry, date: shiftDate(entry.date), updatedAt: timestamp };
+      }),
+    );
+
+    // Persist changes to API using precomputed map (O(n) instead of O(n^2))
+    if (window.api?.updateEntry) {
+      originalDates.forEach((originalDate, id) => {
+        runSyncTask(`Shift date (${id})`, () =>
+          window.api.updateEntry(id, { date: shiftDate(originalDate) }),
+        );
+      });
+    }
+
+    appendAudit({
+      user: currentUser,
+      action: 'bulk-date-shift',
+      data: { entryIds, daysDelta },
+    });
   };
 
   const updateWorkflowStatus = (id, nextStatus) => {
@@ -6417,6 +6718,10 @@ function ContentDashboard() {
                         onImportPerformance={() => setPerformanceImportOpen(true)}
                         assetGoals={assetGoals}
                         onGoalsChange={setAssetGoals}
+                        onEntryDateChange={handleEntryDateChange}
+                        dailyPostTarget={dailyPostTarget}
+                        onDailyPostTargetChange={handleDailyPostTargetChange}
+                        onBulkDateShift={handleBulkDateShift}
                       />
                     );
                   case 'trash':
@@ -6869,6 +7174,9 @@ function ContentDashboard() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Publishing Settings */}
+              <PublishSettingsPanel settings={publishSettings} onUpdate={setPublishSettings} />
             </div>
           )}
           <EntryPreviewModal
@@ -6900,6 +7208,9 @@ function ContentDashboard() {
               onUpdate={upsert}
               onNotifyMentions={handleMentionNotifications}
               onCommentAdded={handleCommentActivity}
+              onPublish={handlePublishEntry}
+              onPostAgain={handlePostAgain}
+              onToggleEvergreen={handleToggleEvergreen}
               testingFrameworks={testingFrameworks}
               approverOptions={approverOptions}
               users={mentionUsers}

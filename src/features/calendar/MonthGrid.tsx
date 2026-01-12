@@ -28,6 +28,10 @@ export interface MonthGridProps {
   onDelete: (id: string) => void;
   /** Callback when entry is opened */
   onOpen: (id: string) => void;
+  /** Callback when entry date is changed via drag-and-drop */
+  onDateChange?: (entryId: string, newDate: string) => void;
+  /** Daily post target for content gap indicators (0 = disabled) */
+  dailyPostTarget?: number;
 }
 
 export function MonthGrid({
@@ -38,12 +42,43 @@ export function MonthGrid({
   onApprove,
   onDelete,
   onOpen,
+  onDateChange,
+  dailyPostTarget = 0,
 }: MonthGridProps): React.ReactElement {
   const [focusedDayIndex, setFocusedDayIndex] = useState(0);
   const [focusedEntryIndex, setFocusedEntryIndex] = useState(-1);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const dayRefs = useRef<(HTMLDivElement | null)[]>([]);
   const entryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Drag-and-drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, entryId: string) => {
+    e.dataTransfer.setData('entryId', entryId);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, date: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverDate(date);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverDate(null);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent, targetDate: string) => {
+      e.preventDefault();
+      setDragOverDate(null);
+      const entryId = e.dataTransfer.getData('entryId');
+      if (entryId && onDateChange) {
+        onDateChange(entryId, targetDate);
+      }
+    },
+    [onDateChange],
+  );
 
   // Reset focus and clear refs when days change
   useEffect(() => {
@@ -207,6 +242,7 @@ export function MonthGrid({
         });
         const isSelected = selectedDay === dayIndex;
         const isFocusedDay = focusedDayIndex === dayIndex;
+        const isDragOver = dragOverDate === iso;
         return (
           <Card
             key={iso}
@@ -218,22 +254,39 @@ export function MonthGrid({
             aria-selected={isSelected}
             aria-label={`${label}, ${dayEntries.length} ${dayEntries.length === 1 ? 'item' : 'items'}`}
             onKeyDown={(e) => handleDayKeyDown(e, dayIndex, dayEntries)}
+            onDragOver={(e) => handleDragOver(e, iso)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, iso)}
             className={cx(
-              'flex h-64 flex-col bg-white outline-none',
+              'flex h-64 flex-col bg-white outline-none transition-colors',
               'focus:ring-2 focus:ring-aqua-500 focus:ring-offset-2',
               isSelected && 'ring-2 ring-ocean-500 ring-offset-2',
+              isDragOver && 'bg-aqua-100 ring-2 ring-aqua-400',
             )}
           >
             <CardHeader className="border-b border-graystone-200 py-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold text-ocean-900">{label}</CardTitle>
-                <Badge variant={dayEntries.length ? 'default' : 'secondary'}>
-                  {dayEntries.length} {dayEntries.length === 1 ? 'item' : 'items'}
-                </Badge>
+                <div className="flex items-center gap-1">
+                  {dailyPostTarget > 0 && dayEntries.length < dailyPostTarget && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      Gap
+                    </span>
+                  )}
+                  <Badge variant={dayEntries.length ? 'default' : 'secondary'}>
+                    {dayEntries.length} {dayEntries.length === 1 ? 'item' : 'items'}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="flex-1 space-y-3 overflow-y-auto">
-              {dayEntries.length === 0 && (
+              {dayEntries.length === 0 && dailyPostTarget > 0 && (
+                <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-700">
+                  <span className="font-medium">Content gap</span>
+                  <span>Need {dailyPostTarget - dayEntries.length} more</span>
+                </div>
+              )}
+              {dayEntries.length === 0 && dailyPostTarget === 0 && (
                 <p className="text-sm text-graystone-500">No items planned.</p>
               )}
               {dayEntries.map((entry, entryIndex) => {
@@ -252,6 +305,8 @@ export function MonthGrid({
                     tabIndex={isFocusedEntry ? 0 : -1}
                     role="button"
                     aria-label={`${entry.assetType}: ${entry.caption || 'Untitled'}, ${entry.status}`}
+                    draggable={!!onDateChange}
+                    onDragStart={(e) => handleDragStart(e, entry.id)}
                     onClick={() => onOpen(entry.id)}
                     onKeyDown={(e) =>
                       handleEntryKeyDown(e, dayIndex, entryIndex, dayEntries, entry.id)
@@ -260,6 +315,7 @@ export function MonthGrid({
                       'cursor-pointer rounded-xl border border-graystone-200 bg-white p-3 outline-none transition',
                       'hover:border-aqua-400 hover:bg-aqua-50',
                       'focus:ring-2 focus:ring-aqua-500 focus:ring-offset-1',
+                      onDateChange && 'cursor-grab active:cursor-grabbing',
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">

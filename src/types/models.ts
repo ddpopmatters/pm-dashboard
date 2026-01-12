@@ -48,6 +48,28 @@ export type EntryStatus = 'Pending' | 'Approved' | 'Draft' | 'Published';
 export type WorkflowStatus = 'Draft' | 'Ready for Review' | 'Approved' | 'Published';
 
 /**
+ * Platform publish status - tracks publishing state per platform
+ */
+export type PublishStatusState = 'pending' | 'publishing' | 'published' | 'failed';
+
+export interface PlatformPublishStatus {
+  status: PublishStatusState;
+  url: string | null;
+  error: string | null;
+  timestamp: string | null;
+}
+
+/**
+ * Publish settings - Zapier webhook configuration
+ */
+export interface PublishSettings {
+  webhookUrl: string;
+  webhookSecret: string;
+  perPlatformWebhooks?: Record<string, string>;
+  autoPublishOnApproval: boolean;
+}
+
+/**
  * Entry model - represents a content calendar entry
  * Includes both database fields and UI-computed fields
  */
@@ -77,6 +99,13 @@ export interface Entry {
   updatedAt: string;
   approvedAt: string | null;
   deletedAt: string | null;
+  // Publishing fields
+  evergreen?: boolean;
+  publishStatus?: Record<string, PlatformPublishStatus>;
+  publishedAt?: string | null;
+  variantOfId?: string;
+  variantIds?: string[];
+  relatedEntryIds?: string[];
   // UI-specific fields (not in database)
   url?: string;
   approvalDeadline?: string;
@@ -265,4 +294,90 @@ export interface EngagementGoals {
   weeklyFollows: number;
   weeklyDms: number;
   weekStartDay: 'monday' | 'sunday';
+}
+
+/**
+ * Page-level metrics for tracking account/page performance
+ */
+export interface PageMetrics {
+  id: string;
+  platform: string;
+  month: string; // YYYY-MM format
+  followers: number;
+  followersChange: number;
+  reach: number;
+  impressions: number;
+  profileVisits?: number;
+  engagementRate?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Influencer relationship status
+ */
+export type InfluencerStatus =
+  | 'watching'
+  | 'contacted'
+  | 'in_discussion'
+  | 'partnered'
+  | 'declined'
+  | 'past_partner';
+
+/**
+ * Influencer interaction types
+ */
+export type InfluencerInteractionType = 'outreach' | 'response' | 'meeting' | 'agreement' | 'note';
+
+/**
+ * Influencer interaction - tracks communications and interactions
+ */
+export interface InfluencerInteraction {
+  id: string;
+  date: string;
+  type: InfluencerInteractionType;
+  summary: string;
+  createdBy: string;
+}
+
+/**
+ * Influencer model - tracks influencers for potential partnerships
+ */
+export interface Influencer {
+  id: string;
+  name: string;
+  handles: Record<string, string>; // platform -> handle
+  niche?: string;
+  followerCount?: number;
+  contactInfo?: string;
+  notes?: string;
+  status: InfluencerStatus;
+  nextAction?: string;
+  nextActionDate?: string;
+  interactions: InfluencerInteraction[];
+  audienceAlignmentRating?: number; // 1-5
+  audienceAlignmentNotes?: string;
+  workAgainRating?: number; // 1-5
+  roiNotes?: string;
+  tags?: string[];
+  source?: string;
+  linkedEntryIds?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Monthly report model - generated performance summary
+ */
+export interface MonthlyReport {
+  id: string;
+  month: string; // YYYY-MM format
+  generatedAt: string;
+  generatedBy: string;
+  executiveSummary?: string;
+  highlights?: string[];
+  pageMetrics?: PageMetrics[];
+  topEntryIds?: string[];
+  notes?: string;
 }

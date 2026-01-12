@@ -207,6 +207,52 @@ export function SettingsIcon({ className = iconBase, ...props }: IconProps): Rea
   );
 }
 
+export function ArrowUpIcon({ className = iconBase, ...props }: IconProps): React.ReactElement {
+  return (
+    <SvgIcon className={className} {...props}>
+      <path
+        d="M12 19V5m0 0-7 7m7-7 7 7"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </SvgIcon>
+  );
+}
+
+export function ArrowPathIcon({ className = iconBase, ...props }: IconProps): React.ReactElement {
+  return (
+    <SvgIcon className={className} {...props}>
+      <path
+        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </SvgIcon>
+  );
+}
+
+export function ClockIcon({ className = iconBase, ...props }: IconProps): React.ReactElement {
+  return (
+    <SvgIcon className={className} {...props}>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" fill="none" />
+      <path
+        d="M12 7v5l3 3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </SvgIcon>
+  );
+}
+
 const Icons = {
   Calendar: CalendarIcon,
   ChevronDown: ChevronDownIcon,
@@ -222,6 +268,9 @@ const Icons = {
   Copy: CopyIcon,
   Bell: BellIcon,
   Settings: SettingsIcon,
+  ArrowUp: ArrowUpIcon,
+  ArrowPath: ArrowPathIcon,
+  Clock: ClockIcon,
 };
 
 export default Icons;

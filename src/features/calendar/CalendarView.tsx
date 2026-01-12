@@ -15,7 +15,29 @@ import { cx, daysInMonth, monthStartISO, monthEndISO, localMonthKey } from '../.
 import { selectBaseClasses } from '../../lib/styles';
 import { ALL_PLATFORMS, KANBAN_STATUSES } from '../../constants';
 import MonthGrid from './MonthGrid';
+import WeekGrid from './WeekGrid';
+import UpcomingDeadlines from './UpcomingDeadlines';
+import BulkDateShift from './BulkDateShift';
 import type { Entry, Idea } from '../../types/models';
+
+type CalendarViewMode = 'month' | 'week';
+
+/** Get the Sunday of the week containing the given date */
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** Get the Saturday of the week containing the given date */
+function getWeekEnd(date: Date): Date {
+  const start = getWeekStart(date);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return end;
+}
 
 const MULTI_OPTION_BASE =
   'dropdown-font flex cursor-pointer items-center gap-3 px-4 py-2 text-sm font-normal text-black transition hover:bg-black hover:text-white';
@@ -280,6 +302,14 @@ export interface CalendarViewProps {
   assetGoals: Record<string, number> | null;
   /** Callback when goals change */
   onGoalsChange: ((goals: Record<string, number>) => void) | null;
+  /** Callback when entry date is changed via drag-and-drop */
+  onEntryDateChange?: (entryId: string, newDate: string) => void;
+  /** Daily post target for content gap indicators */
+  dailyPostTarget?: number;
+  /** Callback when daily post target changes */
+  onDailyPostTargetChange?: (target: number) => void;
+  /** Callback when bulk date shift is applied */
+  onBulkDateShift?: (entryIds: string[], daysDelta: number) => void;
 }
 
 export function CalendarView({
@@ -291,9 +321,15 @@ export function CalendarView({
   onImportPerformance,
   assetGoals,
   onGoalsChange,
+  onEntryDateChange,
+  dailyPostTarget = 0,
+  onDailyPostTargetChange,
+  onBulkDateShift,
 }: CalendarViewProps): React.ReactElement {
-  // Month navigation state
+  // View mode and navigation state
+  const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [monthCursor, setMonthCursor] = useState(() => new Date());
+  const [weekCursor, setWeekCursor] = useState(() => getWeekStart(new Date()));
 
   // Filter state
   const [filterType, setFilterType] = useState('All');
@@ -302,6 +338,7 @@ export function CalendarView({
   const [filterPlatforms, setFilterPlatforms] = useState<string[]>([]);
   const [filterQuery, setFilterQuery] = useState('');
   const [filterOverdue, setFilterOverdue] = useState(false);
+  const [filterEvergreen, setFilterEvergreen] = useState(false);
 
   // Computed values
   const monthLabel = monthCursor.toLocaleDateString(undefined, {
@@ -369,12 +406,22 @@ export function CalendarView({
     if (filterPlatforms.length) count += 1;
     if (filterQuery.trim()) count += 1;
     if (filterOverdue) count += 1;
+    if (filterEvergreen) count += 1;
     return count;
-  }, [filterType, filterStatus, filterWorkflow, filterPlatforms, filterQuery, filterOverdue]);
+  }, [
+    filterType,
+    filterStatus,
+    filterWorkflow,
+    filterPlatforms,
+    filterQuery,
+    filterOverdue,
+    filterEvergreen,
+  ]);
 
-  const monthEntries = useMemo(() => {
+  // Base filtered entries (no date range filter) - used by both month and week views
+  const filteredEntries = useMemo(() => {
     return entries
-      .filter((entry) => !entry.deletedAt && entry.date >= startISO && entry.date <= endISO)
+      .filter((entry) => !entry.deletedAt)
       .filter((entry) => (filterType === 'All' ? true : entry.assetType === filterType))
       .filter((entry) => (filterStatus === 'All' ? true : entry.status === filterStatus))
       .filter((entry) =>
@@ -386,19 +433,24 @@ export function CalendarView({
           : filterPlatforms.some((platform) => entry.platforms.includes(platform)),
       )
       .filter((entry) => (!filterOverdue ? true : isApprovalOverdue(entry)))
+      .filter((entry) => (!filterEvergreen ? true : entry.evergreen))
       .filter((entry) => matchesSearch(entry))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [
     entries,
-    startISO,
-    endISO,
     filterType,
     filterStatus,
     filterWorkflow,
     filterPlatforms,
     filterOverdue,
+    filterEvergreen,
     normalizedFilterQuery,
   ]);
+
+  // Month-specific filtered entries
+  const monthEntries = useMemo(() => {
+    return filteredEntries.filter((entry) => entry.date >= startISO && entry.date <= endISO);
+  }, [filteredEntries, startISO, endISO]);
 
   const assetTypeSummary = useMemo(() => {
     const counts = monthEntries.reduce<Record<string, number>>((acc, entry) => {
@@ -433,6 +485,7 @@ export function CalendarView({
     setFilterPlatforms([]);
     setFilterQuery('');
     setFilterOverdue(false);
+    setFilterEvergreen(false);
   }, []);
 
   const goToPrevMonth = () => {
@@ -443,21 +496,102 @@ export function CalendarView({
     setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1));
   };
 
+  const goToPrevWeek = () => {
+    const prev = new Date(weekCursor);
+    prev.setDate(prev.getDate() - 7);
+    setWeekCursor(prev);
+  };
+
+  const goToNextWeek = () => {
+    const next = new Date(weekCursor);
+    next.setDate(next.getDate() + 7);
+    setWeekCursor(next);
+  };
+
+  const goToToday = () => {
+    const today = new Date();
+    setMonthCursor(new Date(today.getFullYear(), today.getMonth(), 1));
+    setWeekCursor(getWeekStart(today));
+  };
+
+  // Week date range label
+  const weekEnd = getWeekEnd(weekCursor);
+  const weekLabel = `${weekCursor.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })} - ${weekEnd.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })}`;
+
+  // Filter entries for week view (use filteredEntries, not monthEntries to avoid month boundary issues)
+  // Use local date formatting to avoid timezone issues with toISOString()
+  const formatLocalISO = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const weekStartISO = formatLocalISO(weekCursor);
+  const weekEndISO = formatLocalISO(weekEnd);
+  const weekEntries = useMemo(
+    () => filteredEntries.filter((entry) => entry.date >= weekStartISO && entry.date <= weekEndISO),
+    [filteredEntries, weekStartISO, weekEndISO],
+  );
+
   return (
     <Card className="shadow-xl">
       <CardHeader>
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle className="text-xl text-ocean-900">Calendar</CardTitle>
+            <div className="flex items-center gap-3">
+              <CardTitle className="text-xl text-ocean-900">Calendar</CardTitle>
+              {/* View mode toggle */}
+              <div className="inline-flex rounded-lg border border-graystone-200 bg-graystone-50 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('month')}
+                  className={cx(
+                    'rounded-md px-3 py-1 text-xs font-medium transition',
+                    viewMode === 'month'
+                      ? 'bg-white text-ocean-700 shadow-sm'
+                      : 'text-graystone-600 hover:text-graystone-900',
+                  )}
+                >
+                  Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('week')}
+                  className={cx(
+                    'rounded-md px-3 py-1 text-xs font-medium transition',
+                    viewMode === 'week'
+                      ? 'bg-white text-ocean-700 shadow-sm'
+                      : 'text-graystone-600 hover:text-graystone-900',
+                  )}
+                >
+                  Week
+                </button>
+              </div>
+            </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={goToPrevMonth}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={viewMode === 'month' ? goToPrevMonth : goToPrevWeek}
+              >
                 Prev
               </Button>
-              <div className="inline-flex items-center gap-2 rounded-md border border-graystone-200 bg-white px-3 py-1 text-sm font-medium text-graystone-700 shadow-sm">
+              <button
+                type="button"
+                onClick={goToToday}
+                className="inline-flex items-center gap-2 rounded-md border border-graystone-200 bg-white px-3 py-1 text-sm font-medium text-graystone-700 shadow-sm hover:bg-graystone-50"
+              >
                 <CalendarIcon className="h-4 w-4 text-graystone-500" />
-                {monthLabel}
-              </div>
-              <Button variant="outline" size="sm" onClick={goToNextMonth}>
+                {viewMode === 'month' ? monthLabel : weekLabel}
+              </button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={viewMode === 'month' ? goToNextMonth : goToNextWeek}
+              >
                 Next
               </Button>
               <Button variant="outline" size="sm" onClick={onImportPerformance}>
@@ -465,6 +599,13 @@ export function CalendarView({
               </Button>
             </div>
           </div>
+
+          {/* Bulk Date Shift panel */}
+          {onBulkDateShift && (
+            <div className="mt-4">
+              <BulkDateShift entries={entries} onShift={onBulkDateShift} />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
             <div>
@@ -547,6 +688,34 @@ export function CalendarView({
                 aria-label="Show overdue approvals only"
               />
             </div>
+            <div className="flex items-end justify-between gap-3 rounded-2xl border border-graystone-200 bg-white px-4 py-3 text-xs text-graystone-600">
+              <div>
+                <div className="font-semibold text-graystone-700">Evergreen content</div>
+                <div>Show reusable content only.</div>
+              </div>
+              <Toggle
+                checked={filterEvergreen}
+                onChange={setFilterEvergreen}
+                aria-label="Show evergreen content only"
+              />
+            </div>
+            <div className="flex items-end justify-between gap-3 rounded-2xl border border-graystone-200 bg-white px-4 py-3 text-xs text-graystone-600">
+              <div>
+                <div className="font-semibold text-graystone-700">Daily post target</div>
+                <div>Flag days with fewer posts (0 = disabled).</div>
+              </div>
+              <input
+                type="number"
+                min="0"
+                max="10"
+                value={dailyPostTarget}
+                onChange={(e) =>
+                  onDailyPostTargetChange?.(Math.max(0, parseInt(e.target.value) || 0))
+                }
+                className="w-16 rounded-full border border-graystone-300 px-3 py-1 text-center text-xs"
+                aria-label="Daily post target"
+              />
+            </div>
           </div>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-graystone-200 bg-white px-4 py-3 text-xs text-graystone-600">
@@ -621,22 +790,39 @@ export function CalendarView({
       <CardContent>
         <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(240px,0.8fr)]">
           <div>
-            <MonthGrid
-              days={days}
-              month={monthCursor.getMonth()}
-              year={monthCursor.getFullYear()}
-              entries={monthEntries}
-              onApprove={onApprove}
-              onDelete={onDelete}
-              onOpen={onOpenEntry}
+            {viewMode === 'month' ? (
+              <MonthGrid
+                days={days}
+                month={monthCursor.getMonth()}
+                year={monthCursor.getFullYear()}
+                entries={monthEntries}
+                onApprove={onApprove}
+                onDelete={onDelete}
+                onOpen={onOpenEntry}
+                onDateChange={onEntryDateChange}
+                dailyPostTarget={dailyPostTarget}
+              />
+            ) : (
+              <WeekGrid
+                weekStart={weekCursor}
+                entries={weekEntries}
+                onApprove={onApprove}
+                onDelete={onDelete}
+                onOpen={onOpenEntry}
+                onDateChange={onEntryDateChange}
+                dailyPostTarget={dailyPostTarget}
+              />
+            )}
+          </div>
+          <div className="space-y-4">
+            <UpcomingDeadlines entries={entries} onOpenEntry={onOpenEntry} />
+            <AssetRatioCard
+              summary={assetTypeSummary}
+              monthLabel={monthLabel}
+              goals={assetGoals}
+              onGoalsChange={onGoalsChange}
             />
           </div>
-          <AssetRatioCard
-            summary={assetTypeSummary}
-            monthLabel={monthLabel}
-            goals={assetGoals}
-            onGoalsChange={onGoalsChange}
-          />
         </div>
       </CardContent>
     </Card>
