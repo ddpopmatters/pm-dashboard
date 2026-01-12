@@ -2881,15 +2881,12 @@ function Sidebar({
     if (currentView === 'dashboard' || currentView === 'menu') return 'dashboard';
     if (currentView === 'analytics') return 'analytics';
     if (currentView === 'engagement') return 'engagement';
-    if (currentView === 'approvals') return 'approvals';
     if (currentView === 'admin') return 'admin';
-    if (currentView === 'form') return 'form';
+    if (currentView === 'form') return 'content';
+    // Plan view tabs: calendar, board, approvals, ideas, trash
     if (currentView === 'plan') {
-      if (planTab === 'plan') return 'calendar';
-      if (planTab === 'kanban') return 'kanban';
       if (planTab === 'ideas') return 'ideas';
-      if (planTab === 'linkedin') return 'linkedin';
-      if (planTab === 'testing') return 'testing';
+      return 'content';
     }
     return 'dashboard';
   };
@@ -2900,18 +2897,14 @@ function Sidebar({
     { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', enabled: true },
     { id: 'analytics', label: 'Analytics', icon: 'bar-chart', enabled: true },
     { id: 'engagement', label: 'Engagement', icon: 'users', enabled: true },
-    { id: 'calendar', label: 'Calendar', icon: 'calendar', enabled: canUseCalendar },
-    { id: 'kanban', label: 'Kanban', icon: 'columns', enabled: canUseKanban },
     {
-      id: 'approvals',
-      label: 'Approvals',
-      icon: 'check-circle',
-      enabled: canUseApprovals,
+      id: 'content',
+      label: 'Content',
+      icon: 'calendar',
+      enabled: canUseCalendar,
       badge: outstandingCount,
     },
     { id: 'ideas', label: 'Ideas', icon: 'lightbulb', enabled: canUseIdeas },
-    { id: 'linkedin', label: 'LinkedIn', icon: 'linkedin', enabled: canUseLinkedIn },
-    { id: 'testing', label: 'Testing', icon: 'flask', enabled: canUseTesting },
     { id: 'admin', label: 'Admin', icon: 'settings', enabled: currentUserIsAdmin },
   ].filter((item) => item.enabled);
 
@@ -3510,8 +3503,6 @@ function ContentDashboard() {
   useEffect(() => {
     if (currentView === 'form' && !canUseCalendar) {
       setCurrentView('dashboard');
-    } else if (currentView === 'approvals' && !canUseApprovals) {
-      setCurrentView('dashboard');
     } else if (currentView === 'admin' && !currentUserIsAdmin) {
       setCurrentView('dashboard');
     } else if (currentView === 'plan') {
@@ -3523,7 +3514,7 @@ function ContentDashboard() {
         setCurrentView('dashboard');
       }
     }
-  }, [currentView, hasFeature, currentUserIsAdmin, canUseCalendar, canUseApprovals]);
+  }, [currentView, hasFeature, currentUserIsAdmin, canUseCalendar]);
 
   const notifyViaServer = (payload, label = 'Send notification') => {
     if (typeof window === 'undefined' || !payload) return;
@@ -4737,8 +4728,8 @@ function ContentDashboard() {
       description: 'Track what still needs your sign-off and clear the queue in one pass.',
       cta: 'View queue',
       onClick: () => {
-        setCurrentView('approvals');
-        setPlanTab('plan');
+        setCurrentView('plan');
+        setPlanTab('approvals');
         closeEntry();
       },
     },
@@ -5754,12 +5745,8 @@ function ContentDashboard() {
         dashboard: { view: 'dashboard', tab: 'plan' },
         analytics: { view: 'analytics', tab: 'plan' },
         engagement: { view: 'engagement', tab: 'plan' },
-        calendar: { view: 'plan', tab: 'plan' },
-        kanban: { view: 'plan', tab: 'kanban' },
+        content: { view: 'plan', tab: 'plan' },
         ideas: { view: 'plan', tab: 'ideas' },
-        linkedin: { view: 'plan', tab: 'linkedin' },
-        testing: { view: 'plan', tab: 'testing' },
-        approvals: { view: 'approvals', tab: 'plan' },
         admin: { view: 'admin', tab: 'plan' },
         form: { view: 'form', tab: 'plan' },
       };
@@ -6220,7 +6207,21 @@ function ContentDashboard() {
                             : 'text-ocean-600 hover:bg-aqua-100',
                         )}
                       >
-                        Kanban
+                        Board
+                      </Button>
+                    )}
+                    {canUseApprovals && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setPlanTab('approvals')}
+                        className={cx(
+                          'rounded-2xl px-4 py-2 text-sm transition',
+                          planTab === 'approvals'
+                            ? 'bg-ocean-500 text-white hover:bg-ocean-600'
+                            : 'text-ocean-600 hover:bg-aqua-100',
+                        )}
+                      >
+                        Approvals
                       </Button>
                     )}
                     {canUseIdeas && (
@@ -6379,6 +6380,29 @@ function ContentDashboard() {
                         onUpdateStatus={updateWorkflowStatus}
                       />
                     );
+                  case 'approvals':
+                    if (!canUseApprovals) return null;
+                    return (
+                      <ApprovalsView
+                        approvals={outstandingApprovals}
+                        outstandingCount={outstandingCount}
+                        unreadMentionsCount={unreadMentionsCount}
+                        canUseCalendar={canUseCalendar}
+                        onApprove={toggleApprove}
+                        onOpenEntry={openEntry}
+                        onBackToMenu={() => setPlanTab('plan')}
+                        onGoToCalendar={() => setPlanTab('plan')}
+                        onCreateContent={() => {
+                          setCurrentView('form');
+                          setPlanTab('plan');
+                          closeEntry();
+                          try {
+                            window.location.hash = '#create';
+                          } catch {}
+                        }}
+                        onSwitchUser={handleSignOut}
+                      />
+                    );
                   case 'ideas':
                     if (!canUseIdeas) return null;
                     return (
@@ -6471,35 +6495,6 @@ function ContentDashboard() {
             </div>
           )}
 
-          {currentView === 'approvals' && canUseApprovals && (
-            <ApprovalsView
-              approvals={outstandingApprovals}
-              outstandingCount={outstandingCount}
-              unreadMentionsCount={unreadMentionsCount}
-              canUseCalendar={canUseCalendar}
-              onApprove={toggleApprove}
-              onOpenEntry={openEntry}
-              onBackToMenu={() => {
-                setCurrentView('dashboard');
-                setPlanTab('plan');
-                closeEntry();
-              }}
-              onGoToCalendar={() => {
-                if (!canUseCalendar) return;
-                setCurrentView('plan');
-                setPlanTab('plan');
-              }}
-              onCreateContent={() => {
-                setCurrentView('form');
-                setPlanTab('plan');
-                closeEntry();
-                try {
-                  window.location.hash = '#create';
-                } catch {}
-              }}
-              onSwitchUser={handleSignOut}
-            />
-          )}
           {currentView === 'admin' && currentUserIsAdmin && (
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">

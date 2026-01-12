@@ -67,32 +67,25 @@ export function TabNavigation({
 }
 
 /**
- * Default tab configuration
+ * Default tab configuration for Content view
  *
- * Use this with user permissions to generate the tabs array:
  * @example
  * const tabs = getDefaultTabs({
  *   canUseCalendar: true,
  *   canUseKanban: true,
- *   canUseIdeas: false,
- *   canUseLinkedIn: true,
- *   canUseTesting: false,
+ *   canUseApprovals: true,
  * });
  */
 export function getDefaultTabs(permissions: {
   canUseCalendar: boolean;
   canUseKanban: boolean;
-  canUseIdeas: boolean;
-  canUseLinkedIn: boolean;
-  canUseTesting: boolean;
+  canUseApprovals: boolean;
 }): TabConfig[] {
   return [
     { key: 'plan', label: 'Calendar', enabled: permissions.canUseCalendar },
+    { key: 'kanban', label: 'Board', enabled: permissions.canUseKanban },
+    { key: 'approvals', label: 'Approvals', enabled: permissions.canUseApprovals },
     { key: 'trash', label: 'Trash', enabled: permissions.canUseCalendar },
-    { key: 'kanban', label: 'Kanban', enabled: permissions.canUseKanban },
-    { key: 'ideas', label: 'Ideas', enabled: permissions.canUseIdeas },
-    { key: 'linkedin', label: 'LinkedIn', enabled: permissions.canUseLinkedIn },
-    { key: 'testing', label: 'Testing Lab', enabled: permissions.canUseTesting },
   ];
 }
 

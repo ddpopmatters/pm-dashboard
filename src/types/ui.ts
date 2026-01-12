@@ -115,9 +115,16 @@ export interface BadgeProps {
 // ============================================================================
 
 // ViewType matches currentView state values in app.jsx
-export type ViewType = 'menu' | 'form' | 'plan' | 'approvals' | 'admin';
+export type ViewType =
+  | 'menu'
+  | 'form'
+  | 'plan'
+  | 'admin'
+  | 'dashboard'
+  | 'analytics'
+  | 'engagement';
 
-export type PlanTab = 'plan' | 'trash' | 'kanban' | 'ideas' | 'linkedin' | 'testing';
+export type PlanTab = 'plan' | 'trash' | 'kanban' | 'approvals' | 'ideas' | 'linkedin' | 'testing';
 
 export interface AppShellProps {
   children: ReactNode;
