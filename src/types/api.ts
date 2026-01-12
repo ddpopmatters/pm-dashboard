@@ -6,15 +6,7 @@
  * POST/PUT/DELETE return { ok: true } or the created/updated item.
  */
 
-import type {
-  Entry,
-  Idea,
-  LinkedInSubmission,
-  TestingFramework,
-  User,
-  Guidelines,
-  Approver,
-} from './models';
+import type { Entry, Idea, TestingFramework, User, Guidelines, Approver } from './models';
 
 // ============================================================================
 // Generic API Response Types
@@ -111,27 +103,6 @@ export interface CreateIdeaRequest {
 
 // GET /api/ideas returns Idea[] directly
 export type IdeasResponse = Idea[];
-
-// ============================================================================
-// LinkedIn Types
-// ============================================================================
-
-export interface CreateLinkedInPostRequest {
-  id?: string;
-  submissionType?: string;
-  status?: string;
-  title: string;
-  postCopy?: string;
-  comments?: string;
-  owner?: string;
-  submitter?: string;
-  links?: string[];
-  attachments?: string[];
-  targetDate?: string;
-}
-
-// GET /api/linkedin returns LinkedInSubmission[] directly
-export type LinkedInResponse = LinkedInSubmission[];
 
 // ============================================================================
 // Testing Framework Types

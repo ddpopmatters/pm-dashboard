@@ -4,7 +4,6 @@ import { LoginScreen } from './components/auth/LoginScreen';
 import { CalendarView } from './features/calendar/CalendarView';
 import { ApprovalsView } from './features/approvals';
 import { KanbanView } from './features/kanban';
-import { LinkedInView } from './features/linkedin';
 import { AdminPanel } from './features/admin';
 import { TestingView } from './features/testing';
 import { AnalyticsView } from './features/analytics/AnalyticsView';
@@ -72,7 +71,6 @@ import {
   ensurePlatformCaptions,
   sanitizeEntry,
   sanitizeIdea,
-  sanitizeLinkedInSubmission,
   sanitizeTestingFramework,
   computeStatusDetail,
   getPlatformCaption,
@@ -146,8 +144,6 @@ import {
   saveEntries,
   loadIdeas,
   saveIdeas,
-  loadLinkedInSubmissions,
-  saveLinkedInSubmissions,
   loadTestingFrameworks,
   saveTestingFrameworks,
 } from './lib/storage';
@@ -2871,7 +2867,6 @@ function Sidebar({
   canUseKanban,
   canUseApprovals,
   canUseIdeas,
-  canUseLinkedIn,
   canUseTesting,
   currentUserIsAdmin,
   outstandingCount,
@@ -3124,7 +3119,6 @@ function ContentDashboard() {
   const [viewingSnapshot, setViewingSnapshot] = useState(null);
   const [notifications, setNotifications] = useState(() => loadNotifications());
   const [ideas, setIdeas] = useState(() => loadIdeas());
-  const [linkedinSubmissions, setLinkedinSubmissions] = useState(() => loadLinkedInSubmissions());
   const [testingFrameworks, setTestingFrameworks] = useState(() => loadTestingFrameworks());
   const [adminAudits, setAdminAudits] = useState([]);
   const [selectedFrameworkId, setSelectedFrameworkId] = useState('');
@@ -3265,14 +3259,12 @@ function ContentDashboard() {
   const canUseKanban = hasFeature('kanban');
   const canUseApprovals = hasFeature('approvals');
   const canUseIdeas = hasFeature('ideas');
-  const canUseLinkedIn = hasFeature('linkedin');
   const canUseTesting = hasFeature('testing');
   const menuHasContent =
     canUseCalendar ||
     canUseKanban ||
     canUseApprovals ||
     canUseIdeas ||
-    canUseLinkedIn ||
     canUseTesting ||
     currentUserIsAdmin;
   const profileInitials = useMemo(() => {
@@ -3399,13 +3391,6 @@ function ContentDashboard() {
       .listIdeas()
       .then((payload) => Array.isArray(payload) && setIdeas(payload))
       .catch(() => pushSyncToast('Unable to refresh ideas from the server.', 'warning'));
-  }, [pushSyncToast]);
-  const refreshLinkedIn = useCallback(() => {
-    if (!window.api || !window.api.enabled || !window.api.listLinkedIn) return;
-    window.api
-      .listLinkedIn()
-      .then((payload) => Array.isArray(payload) && setLinkedinSubmissions(payload))
-      .catch(() => pushSyncToast('Unable to refresh LinkedIn drafts.', 'warning'));
   }, [pushSyncToast]);
   const refreshTesting = useCallback(() => {
     if (!window.api || !window.api.enabled || !window.api.listTestingFrameworks) return;
@@ -3816,7 +3801,6 @@ function ContentDashboard() {
   useEffect(() => {
     setEntries(loadEntries());
     setIdeas(loadIdeas());
-    setLinkedinSubmissions(loadLinkedInSubmissions());
     setTestingFrameworks(loadTestingFrameworks());
   }, []);
 
@@ -3828,39 +3812,28 @@ function ContentDashboard() {
       try {
         if (window.api && window.api.enabled) {
           const wantsIdeas = canUseIdeas;
-          const wantsLinkedIn = canUseLinkedIn;
           const wantsTesting = canUseTesting;
           const wantsUsers = currentUserIsAdmin;
-          const [
-            serverEntries,
-            serverIdeas,
-            serverLinkedIn,
-            serverFrameworks,
-            serverGuidelines,
-            serverUsers,
-          ] = await Promise.all([
-            window.api.listEntries().catch(() => []),
-            wantsIdeas ? window.api.listIdeas().catch(() => []) : Promise.resolve([]),
-            wantsLinkedIn ? window.api.listLinkedIn().catch(() => []) : Promise.resolve([]),
-            wantsTesting ? window.api.listTestingFrameworks().catch(() => []) : Promise.resolve([]),
-            window.api.getGuidelines
-              ? window.api.getGuidelines().catch(() => null)
-              : Promise.resolve(null),
-            wantsUsers && window.api.listUsers
-              ? window.api.listUsers().catch(() => [])
-              : Promise.resolve([]),
-          ]);
+          const [serverEntries, serverIdeas, serverFrameworks, serverGuidelines, serverUsers] =
+            await Promise.all([
+              window.api.listEntries().catch(() => []),
+              wantsIdeas ? window.api.listIdeas().catch(() => []) : Promise.resolve([]),
+              wantsTesting
+                ? window.api.listTestingFrameworks().catch(() => [])
+                : Promise.resolve([]),
+              window.api.getGuidelines
+                ? window.api.getGuidelines().catch(() => null)
+                : Promise.resolve(null),
+              wantsUsers && window.api.listUsers
+                ? window.api.listUsers().catch(() => [])
+                : Promise.resolve([]),
+            ]);
           if (cancelled) return;
           if (Array.isArray(serverEntries)) setEntries(serverEntries);
           if (wantsIdeas) {
             if (Array.isArray(serverIdeas)) setIdeas(serverIdeas);
           } else {
             setIdeas([]);
-          }
-          if (wantsLinkedIn) {
-            if (Array.isArray(serverLinkedIn)) setLinkedinSubmissions(serverLinkedIn);
-          } else {
-            setLinkedinSubmissions([]);
           }
           if (wantsTesting) {
             if (Array.isArray(serverFrameworks)) setTestingFrameworks(serverFrameworks);
@@ -3883,7 +3856,7 @@ function ContentDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [authStatus, canUseIdeas, canUseLinkedIn, canUseTesting, currentUserIsAdmin]);
+  }, [authStatus, canUseIdeas, canUseTesting, currentUserIsAdmin]);
 
   // Also hydrate when the api client announces readiness
   useEffect(() => {
@@ -3893,13 +3866,11 @@ function ContentDashboard() {
       }
       if (e?.detail?.enabled && authStatus === 'ready') {
         const wantsIdeas = canUseIdeas;
-        const wantsLinkedIn = canUseLinkedIn;
         const wantsTesting = canUseTesting;
         const wantsUsers = currentUserIsAdmin;
         Promise.all([
           window.api.listEntries().catch(() => []),
           wantsIdeas ? window.api.listIdeas().catch(() => []) : Promise.resolve([]),
-          wantsLinkedIn ? window.api.listLinkedIn().catch(() => []) : Promise.resolve([]),
           wantsTesting ? window.api.listTestingFrameworks().catch(() => []) : Promise.resolve([]),
           window.api.getGuidelines
             ? window.api.getGuidelines().catch(() => null)
@@ -3908,57 +3879,35 @@ function ContentDashboard() {
             ? window.api.listUsers().catch(() => [])
             : Promise.resolve([]),
         ])
-          .then(
-            ([
-              serverEntries,
-              serverIdeas,
-              serverLinkedIn,
-              serverFrameworks,
-              serverGuidelines,
-              serverUsers,
-            ]) => {
-              if (Array.isArray(serverEntries)) setEntries(serverEntries);
-              if (wantsIdeas) {
-                if (Array.isArray(serverIdeas)) setIdeas(serverIdeas);
-              } else {
-                setIdeas([]);
-              }
-              if (wantsLinkedIn) {
-                if (Array.isArray(serverLinkedIn)) setLinkedinSubmissions(serverLinkedIn);
-              } else {
-                setLinkedinSubmissions([]);
-              }
-              if (wantsTesting) {
-                if (Array.isArray(serverFrameworks)) setTestingFrameworks(serverFrameworks);
-              } else {
-                setTestingFrameworks([]);
-              }
-              if (serverGuidelines) {
-                const normalized = normalizeGuidelines(serverGuidelines);
-                setGuidelines(normalized);
-                saveGuidelines(normalized);
-              }
-              if (wantsUsers) {
-                if (Array.isArray(serverUsers)) setUserList(serverUsers);
-              } else {
-                setUserList([]);
-              }
-            },
-          )
+          .then(([serverEntries, serverIdeas, serverFrameworks, serverGuidelines, serverUsers]) => {
+            if (Array.isArray(serverEntries)) setEntries(serverEntries);
+            if (wantsIdeas) {
+              if (Array.isArray(serverIdeas)) setIdeas(serverIdeas);
+            } else {
+              setIdeas([]);
+            }
+            if (wantsTesting) {
+              if (Array.isArray(serverFrameworks)) setTestingFrameworks(serverFrameworks);
+            } else {
+              setTestingFrameworks([]);
+            }
+            if (serverGuidelines) {
+              const normalized = normalizeGuidelines(serverGuidelines);
+              setGuidelines(normalized);
+              saveGuidelines(normalized);
+            }
+            if (wantsUsers) {
+              if (Array.isArray(serverUsers)) setUserList(serverUsers);
+            } else {
+              setUserList([]);
+            }
+          })
           .catch(() => {});
       }
     };
     window.addEventListener('pm-api-ready', onReady);
     return () => window.removeEventListener('pm-api-ready', onReady);
-  }, [
-    authStatus,
-    canUseIdeas,
-    canUseLinkedIn,
-    canUseTesting,
-    currentUserIsAdmin,
-    retryAllSync,
-    syncQueue.length,
-  ]);
+  }, [authStatus, canUseIdeas, canUseTesting, currentUserIsAdmin, retryAllSync, syncQueue.length]);
 
   useEffect(() => {
     setMenuMotionActive(true);
@@ -4028,10 +3977,6 @@ function ContentDashboard() {
   useEffect(() => {
     saveIdeas(ideas);
   }, [ideas]);
-
-  useEffect(() => {
-    saveLinkedInSubmissions(linkedinSubmissions);
-  }, [linkedinSubmissions]);
 
   useEffect(() => {
     saveTestingFrameworks(testingFrameworks);
@@ -4306,66 +4251,6 @@ function ContentDashboard() {
       if (ok) refreshIdeas();
     });
     appendAudit({ user: currentUser, action: 'idea-delete', meta: { id } });
-  };
-
-  const addLinkedInSubmission = (payload) => {
-    const timestamp = new Date().toISOString();
-    const sanitized = sanitizeLinkedInSubmission({
-      ...payload,
-      createdAt: timestamp,
-      submitter: payload.submitter || currentUser || 'Unknown',
-    });
-    setLinkedinSubmissions((prev) => [sanitized, ...prev]);
-    runSyncTask(`Create LinkedIn draft (${sanitized.id})`, () =>
-      window.api.createLinkedIn(sanitized),
-    ).then((ok) => {
-      if (ok) refreshLinkedIn();
-    });
-    appendAudit({
-      user: currentUser,
-      action: 'linkedin-create',
-      meta: { id: sanitized.id, title: sanitized.title },
-    });
-    if (guidelines?.teamsWebhookUrl) {
-      notifyViaServer(
-        {
-          teamsWebhookUrl: guidelines.teamsWebhookUrl,
-          message: `LinkedIn submission created by ${sanitized.submitter}: ${sanitized.title}`,
-        },
-        `Send LinkedIn notification (${sanitized.id})`,
-      );
-    }
-  };
-
-  const updateLinkedInStatus = (id, status) => {
-    if (!LINKEDIN_STATUSES.includes(status)) return;
-    const timestamp = new Date().toISOString();
-    setLinkedinSubmissions((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              status,
-              updatedAt: timestamp,
-            }
-          : item,
-      ),
-    );
-    runSyncTask(`Update LinkedIn status (${id})`, () =>
-      window.api.updateLinkedIn(id, { status, updatedAt: timestamp }),
-    ).then((ok) => {
-      if (ok) refreshLinkedIn();
-    });
-    appendAudit({ user: currentUser, action: 'linkedin-status', meta: { id, status } });
-    if (guidelines?.teamsWebhookUrl && (status === 'Approved' || status === 'Shared')) {
-      notifyViaServer(
-        {
-          teamsWebhookUrl: guidelines.teamsWebhookUrl,
-          message: `LinkedIn submission ${status.toLowerCase()}: ${id}`,
-        },
-        `Send LinkedIn status (${id})`,
-      );
-    }
   };
 
   const addTestingFrameworkEntry = (framework) => {
@@ -4654,7 +4539,6 @@ function ContentDashboard() {
 
   const outstandingCount = outstandingApprovals.length;
   const ideaCount = ideas.length;
-  const linkedinCount = linkedinSubmissions.length;
   const testingFrameworkCount = testingFrameworks.length;
 
   const userNotifications = useMemo(() => {
@@ -4697,17 +4581,6 @@ function ContentDashboard() {
       onClick: () => {
         setCurrentView('plan');
         setPlanTab('kanban');
-        closeEntry();
-      },
-    },
-    {
-      id: 'linkedin',
-      title: 'LinkedIn drafts',
-      description: 'Submit LinkedIn copy for review or queue posts for teammates to share.',
-      cta: 'View drafts',
-      onClick: () => {
-        setCurrentView('plan');
-        setPlanTab('linkedin');
         closeEntry();
       },
     },
@@ -5879,7 +5752,6 @@ function ContentDashboard() {
         canUseKanban={canUseKanban}
         canUseApprovals={canUseApprovals}
         canUseIdeas={canUseIdeas}
-        canUseLinkedIn={canUseLinkedIn}
         canUseTesting={canUseTesting}
         currentUserIsAdmin={currentUserIsAdmin}
         outstandingCount={outstandingCount}
@@ -6238,20 +6110,6 @@ function ContentDashboard() {
                         Ideas
                       </Button>
                     )}
-                    {canUseLinkedIn && (
-                      <Button
-                        variant="ghost"
-                        onClick={() => setPlanTab('linkedin')}
-                        className={cx(
-                          'rounded-2xl px-4 py-2 text-sm transition',
-                          planTab === 'linkedin'
-                            ? 'bg-ocean-500 text-white hover:bg-ocean-600'
-                            : 'text-ocean-600 hover:bg-aqua-100',
-                        )}
-                      >
-                        LinkedIn
-                      </Button>
-                    )}
                     {canUseTesting && (
                       <Button
                         variant="ghost"
@@ -6414,17 +6272,6 @@ function ContentDashboard() {
                           onCreateEntry={createEntryFromIdea}
                         />
                       </div>
-                    );
-                  case 'linkedin':
-                    if (!canUseLinkedIn) return null;
-                    return (
-                      <LinkedInView
-                        submissions={linkedinSubmissions}
-                        currentUser={currentUser}
-                        approverOptions={approverOptions}
-                        onSubmit={addLinkedInSubmission}
-                        onStatusChange={updateLinkedInStatus}
-                      />
                     );
                   case 'testing':
                     if (!canUseTesting) return null;

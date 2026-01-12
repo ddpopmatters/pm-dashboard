@@ -140,25 +140,6 @@ export interface Idea {
 }
 
 /**
- * LinkedIn submission model
- */
-export interface LinkedInSubmission {
-  id: string;
-  submissionType: string;
-  status: string;
-  title: string;
-  postCopy: string;
-  comments: string;
-  owner: string;
-  submitter: string;
-  links: string[];
-  attachments: Attachment[];
-  targetDate: string;
-  createdAt: string;
-  updatedAt?: string;
-}
-
-/**
  * Testing framework model - represents an A/B testing framework
  */
 export interface TestingFramework {

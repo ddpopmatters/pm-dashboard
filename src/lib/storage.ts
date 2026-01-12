@@ -1,19 +1,17 @@
 /**
- * Storage utilities for entries, ideas, LinkedIn submissions, and testing frameworks
+ * Storage utilities for entries, ideas, and testing frameworks
  */
 import { STORAGE_KEYS, storageAvailable, isOlderThanDays } from './utils';
 import {
   sanitizeEntry,
   sanitizeIdea,
-  sanitizeLinkedInSubmission,
   sanitizeTestingFramework,
   computeStatusDetail,
 } from './sanitizers';
-import type { Entry, Idea, LinkedInSubmission, TestingFramework } from '../types/models';
+import type { Entry, Idea, TestingFramework } from '../types/models';
 
 const ENTRIES_STORAGE_KEY = STORAGE_KEYS.ENTRIES;
 const IDEAS_STORAGE_KEY = STORAGE_KEYS.IDEAS;
-const LINKEDIN_STORAGE_KEY = STORAGE_KEYS.LINKEDIN;
 const TESTING_STORAGE_KEY = STORAGE_KEYS.TESTING;
 
 /**
@@ -88,40 +86,6 @@ export const saveIdeas = (ideas: Idea[]): void => {
     window.localStorage.setItem(IDEAS_STORAGE_KEY, JSON.stringify(ideas));
   } catch (error) {
     console.warn('Failed to persist ideas', error);
-  }
-};
-
-/**
- * Loads LinkedIn submissions from localStorage
- */
-export const loadLinkedInSubmissions = (): LinkedInSubmission[] => {
-  if (!storageAvailable) return [];
-  try {
-    const raw = window.localStorage.getItem(LINKEDIN_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? (
-          parsed
-            .map((item) => sanitizeLinkedInSubmission(item))
-            .filter(Boolean) as LinkedInSubmission[]
-        ).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-      : [];
-  } catch (error) {
-    console.warn('Failed to load LinkedIn submissions', error);
-    return [];
-  }
-};
-
-/**
- * Saves LinkedIn submissions to localStorage
- */
-export const saveLinkedInSubmissions = (items: LinkedInSubmission[]): void => {
-  if (!storageAvailable) return;
-  try {
-    window.localStorage.setItem(LINKEDIN_STORAGE_KEY, JSON.stringify(items));
-  } catch (error) {
-    console.warn('Failed to persist LinkedIn submissions', error);
   }
 };
 

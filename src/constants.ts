@@ -23,14 +23,8 @@ export const LEGACY_STATUS_MAP: Record<string, KanbanStatus> = {
   Published: 'Published',
 };
 
-export const LINKEDIN_STATUSES = ['Draft', 'Needs review', 'Approved', 'Shared'] as const;
-export type LinkedInStatus = (typeof LINKEDIN_STATUSES)[number];
-
 export const TESTING_STATUSES = ['Planned', 'In flight', 'Completed', 'Archived'] as const;
 export type TestingStatus = (typeof TESTING_STATUSES)[number];
-
-export const LINKEDIN_TYPES = ['My own account', 'Content team to me'] as const;
-export type LinkedInType = (typeof LINKEDIN_TYPES)[number];
 
 export const CAMPAIGNS = [
   'Evergreen',
@@ -105,7 +99,6 @@ export const FEATURE_OPTIONS: FeatureOption[] = [
   { key: 'kanban', label: 'Production Kanban' },
   { key: 'approvals', label: 'Approvals queue' },
   { key: 'ideas', label: 'Ideas log' },
-  { key: 'linkedin', label: 'LinkedIn drafts' },
   { key: 'testing', label: 'Testing lab' },
   { key: 'admin', label: 'Admin tools' },
 ];
@@ -115,11 +108,10 @@ export const PLAN_TAB_FEATURES: Record<string, string> = {
   trash: 'calendar',
   kanban: 'kanban',
   ideas: 'ideas',
-  linkedin: 'linkedin',
   testing: 'testing',
 };
 
-export const PLAN_TAB_ORDER = ['plan', 'kanban', 'ideas', 'linkedin', 'testing', 'trash'] as const;
+export const PLAN_TAB_ORDER = ['plan', 'kanban', 'ideas', 'testing', 'trash'] as const;
 
 export const WORKFLOW_STAGES = [
   'Briefing',

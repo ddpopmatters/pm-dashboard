@@ -9,8 +9,6 @@ import {
   KANBAN_STATUSES,
   LEGACY_STATUS_MAP,
   IDEA_TYPES,
-  LINKEDIN_TYPES,
-  LINKEDIN_STATUSES,
   TESTING_STATUSES,
   WORKFLOW_STAGES,
 } from '../constants';
@@ -23,14 +21,7 @@ import {
   extractMentions,
   serializeForComparison,
 } from './utils';
-import type {
-  Attachment,
-  Entry,
-  Idea,
-  LinkedInSubmission,
-  TestingFramework,
-  Comment,
-} from '../types/models';
+import type { Attachment, Entry, Idea, TestingFramework, Comment } from '../types/models';
 
 // Type for checklist object
 export type Checklist = Record<string, boolean>;
@@ -244,47 +235,6 @@ export const sanitizeIdea = (raw: unknown): Idea | null => {
     convertedToEntryId:
       typeof data.convertedToEntryId === 'string' ? data.convertedToEntryId : undefined,
     convertedAt: typeof data.convertedAt === 'string' ? data.convertedAt : undefined,
-  };
-};
-
-// LinkedIn submission sanitizer
-export const sanitizeLinkedInSubmission = (raw: unknown): LinkedInSubmission | null => {
-  if (!raw || typeof raw !== 'object') return null;
-  const data = raw as Record<string, unknown>;
-
-  const submissionType =
-    typeof data.submissionType === 'string' && isInArray(LINKEDIN_TYPES, data.submissionType)
-      ? data.submissionType
-      : LINKEDIN_TYPES[0];
-  const status =
-    typeof data.status === 'string' && isInArray(LINKEDIN_STATUSES, data.status)
-      ? data.status
-      : LINKEDIN_STATUSES[0];
-  const links = ensureLinksArray(data.links);
-  const attachments = ensureAttachments(data.attachments);
-  const postCopy = typeof data.postCopy === 'string' ? data.postCopy : String(data.copy || '');
-  const comments =
-    typeof data.comments === 'string' ? data.comments : String(data.callToAction || '');
-  const owner = typeof data.owner === 'string' ? data.owner.trim() : '';
-  const submitter = typeof data.submitter === 'string' ? data.submitter.trim() : '';
-  const createdAt = typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString();
-  const targetDate = data.targetDate && typeof data.targetDate === 'string' ? data.targetDate : '';
-  const titleSource = typeof data.title === 'string' ? data.title : postCopy;
-  const title = titleSource ? titleSource.trim() : 'LinkedIn draft';
-
-  return {
-    id: typeof data.id === 'string' ? data.id : uuid(),
-    submissionType,
-    status,
-    title,
-    postCopy,
-    comments,
-    owner,
-    submitter,
-    links,
-    attachments,
-    targetDate,
-    createdAt,
   };
 };
 

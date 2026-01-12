@@ -84,7 +84,6 @@ const DEFAULT_FEATURES = [
   'kanban',
   'approvals',
   'ideas',
-  'linkedin',
   'testing',
   'copy-check',
   'activity',
