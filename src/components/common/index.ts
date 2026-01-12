@@ -28,3 +28,4 @@ export {
   type NotificationBellProps,
   type NotificationItem,
 } from './NotificationBell';
+export { ExportMenu, type ExportMenuProps } from './ExportMenu';

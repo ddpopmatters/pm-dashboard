@@ -106,6 +106,7 @@ export interface Entry {
   variantOfId?: string;
   variantIds?: string[];
   relatedEntryIds?: string[];
+  collaboratorIds?: string[]; // Influencer IDs for campaign linking
   // UI-specific fields (not in database)
   url?: string;
   approvalDeadline?: string;

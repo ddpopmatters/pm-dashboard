@@ -23,18 +23,52 @@ export function buildPublishPayload(entry: Entry, callbackUrl?: string, webhookS
 }
 
 /**
+ * Validate webhook URL - warn if using HTTP with a secret
+ */
+export function validateWebhookUrl(
+  url: string,
+  hasSecret: boolean,
+): { valid: boolean; warning?: string } {
+  if (!url) return { valid: false };
+
+  try {
+    const parsed = new URL(url);
+    if (hasSecret && parsed.protocol === 'http:') {
+      return {
+        valid: true,
+        warning: 'Using HTTP with a webhook secret is insecure. Use HTTPS.',
+      };
+    }
+    return { valid: true };
+  } catch {
+    return { valid: false };
+  }
+}
+
+/**
  * Send entry to Zapier webhook for publishing
- * Note: Uses no-cors mode since Zapier doesn't support CORS.
- * This means we cannot read the response or send custom headers.
- * The webhook secret is sent in the payload body instead.
+ *
+ * IMPORTANT: Uses no-cors mode since Zapier doesn't support CORS from browsers.
+ * This means:
+ * - We cannot read the response status or body
+ * - Request will be sent but success is assumed if no network error
+ * - Use the callback URL with a Supabase Edge Function to get actual confirmation
+ *
+ * The webhook secret is sent in the payload body (not header) due to CORS.
  */
 export async function triggerPublish(
   entry: Entry,
   settings: PublishSettings,
   callbackUrl?: string,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; warning?: string }> {
   if (!settings.webhookUrl) {
     return { success: false, error: 'No webhook URL configured' };
+  }
+
+  // Validate URL and check for security issues
+  const validation = validateWebhookUrl(settings.webhookUrl, !!settings.webhookSecret);
+  if (!validation.valid) {
+    return { success: false, error: 'Invalid webhook URL' };
   }
 
   try {
@@ -50,8 +84,12 @@ export async function triggerPublish(
       mode: 'no-cors', // Zapier doesn't support CORS - response will be opaque
     });
 
-    // With no-cors we can't check response status, assume success if no error thrown
-    return { success: true };
+    // With no-cors we can't check response status
+    // The request was sent - actual success depends on callback confirmation
+    return {
+      success: true,
+      warning: validation.warning,
+    };
   } catch (error) {
     return {
       success: false,
@@ -83,7 +121,7 @@ export function initializePublishStatus(
  */
 export function getAggregatePublishStatus(
   publishStatus: Record<string, PlatformPublishStatus> | undefined,
-): 'none' | 'publishing' | 'published' | 'partial' | 'failed' {
+): 'none' | 'pending' | 'publishing' | 'published' | 'partial' | 'failed' {
   if (!publishStatus || Object.keys(publishStatus).length === 0) {
     return 'none';
   }
@@ -91,13 +129,16 @@ export function getAggregatePublishStatus(
   const statuses = Object.values(publishStatus);
   const allPublished = statuses.every((s) => s.status === 'published');
   const allFailed = statuses.every((s) => s.status === 'failed');
+  const anyPending = statuses.some((s) => s.status === 'pending');
   const anyPublishing = statuses.some((s) => s.status === 'publishing');
   const anyPublished = statuses.some((s) => s.status === 'published');
   const anyFailed = statuses.some((s) => s.status === 'failed');
 
   if (allPublished) return 'published';
   if (allFailed) return 'failed';
+  // Treat pending and publishing as in-flight states
   if (anyPublishing) return 'publishing';
+  if (anyPending) return 'pending';
   if (anyPublished && anyFailed) return 'partial';
   return 'none';
 }
@@ -110,9 +151,9 @@ export function canPublish(entry: Entry): boolean {
   if (entry.workflowStatus !== 'Approved') return false;
   // Must have platforms selected
   if (!entry.platforms || entry.platforms.length === 0) return false;
-  // Must not already be publishing or published
+  // Must not be in any active publish state
   const status = getAggregatePublishStatus(entry.publishStatus);
-  if (status === 'publishing' || status === 'published') return false;
+  if (status === 'pending' || status === 'publishing' || status === 'published') return false;
   return true;
 }
 
