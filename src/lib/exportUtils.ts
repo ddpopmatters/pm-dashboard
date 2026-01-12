@@ -1,4 +1,4 @@
-import type { Entry, Idea, Influencer, PageMetrics } from '../types/models';
+import type { Entry, Idea } from '../types/models';
 
 /**
  * Escape a value for safe CSV output
@@ -80,62 +80,6 @@ export function ideasToCSV(ideas: Idea[]): string {
 }
 
 /**
- * Convert influencers to CSV format
- */
-export function influencersToCSV(influencers: Influencer[]): string {
-  const headers = [
-    'ID',
-    'Name',
-    'Status',
-    'Niche',
-    'Primary Platform',
-    'Follower Count',
-    'Email',
-    'Tags',
-    'Created At',
-  ];
-
-  const rows = influencers.map((inf) =>
-    [
-      inf.id,
-      inf.name,
-      inf.status,
-      inf.niche,
-      inf.primaryPlatform,
-      inf.followerCount,
-      inf.email,
-      (inf.tags || []).join('; '),
-      inf.createdAt,
-    ].map(escapeCsv),
-  );
-
-  return [headers.map(escapeCsv).join(','), ...rows.map((row) => row.join(','))].join('\n');
-}
-
-/**
- * Convert page metrics to CSV format
- */
-export function pageMetricsToCSV(metrics: PageMetrics[]): string {
-  const headers = [
-    'ID',
-    'Platform',
-    'Month',
-    'Followers',
-    'Followers Change',
-    'Reach',
-    'Impressions',
-  ];
-
-  const rows = metrics.map((pm) =>
-    [pm.id, pm.platform, pm.month, pm.followers, pm.followersChange, pm.reach, pm.impressions].map(
-      escapeCsv,
-    ),
-  );
-
-  return [headers.map(escapeCsv).join(','), ...rows.map((row) => row.join(','))].join('\n');
-}
-
-/**
  * Download content as a file
  */
 export function downloadFile(content: string, filename: string, mimeType: string): void {
@@ -173,36 +117,22 @@ export interface DataBackup {
   exportedAt: string;
   entries: Entry[];
   ideas: Idea[];
-  influencers: Influencer[];
-  pageMetrics: PageMetrics[];
 }
 
-export function createDataBackup(
-  entries: Entry[],
-  ideas: Idea[],
-  influencers: Influencer[],
-  pageMetrics: PageMetrics[],
-): DataBackup {
+export function createDataBackup(entries: Entry[], ideas: Idea[]): DataBackup {
   return {
     version: '1.0',
     exportedAt: new Date().toISOString(),
     entries,
     ideas,
-    influencers,
-    pageMetrics,
   };
 }
 
 /**
  * Download full data backup as JSON
  */
-export function downloadDataBackup(
-  entries: Entry[],
-  ideas: Idea[],
-  influencers: Influencer[],
-  pageMetrics: PageMetrics[],
-): void {
-  const backup = createDataBackup(entries, ideas, influencers, pageMetrics);
+export function downloadDataBackup(entries: Entry[], ideas: Idea[]): void {
+  const backup = createDataBackup(entries, ideas);
   const date = new Date().toISOString().split('T')[0];
   downloadJSON(backup, `pm-dashboard-backup-${date}.json`);
 }
