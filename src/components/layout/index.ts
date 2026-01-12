@@ -12,3 +12,6 @@ export type { HeaderProps, ProfileMenuProps } from './Header';
 
 export { TabNavigation, getDefaultTabs } from './TabNavigation';
 export type { TabNavigationProps, TabConfig } from './TabNavigation';
+
+export { Sidebar } from './Sidebar';
+export type { SidebarProps } from './Sidebar';
