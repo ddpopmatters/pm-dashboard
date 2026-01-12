@@ -5,7 +5,6 @@ import { CalendarView } from './features/calendar/CalendarView';
 import { ApprovalsView } from './features/approvals';
 import { KanbanView } from './features/kanban';
 import { AdminPanel } from './features/admin';
-import { TestingView } from './features/testing';
 import { AnalyticsView } from './features/analytics/AnalyticsView';
 import { DashboardView } from './features/dashboard';
 import { EngagementView, DEFAULT_ENGAGEMENT_GOALS } from './features/engagement/EngagementView';
@@ -21,26 +20,16 @@ import {
 import { useApi } from './hooks/useApi';
 import {
   ALL_PLATFORMS,
-  ASSET_TYPES,
   CAMPAIGNS,
   CHECKLIST_ITEMS,
   CONTENT_PILLARS,
   DEFAULT_APPROVERS,
   DEFAULT_USERS,
   FEATURE_OPTIONS,
-  IDEA_TYPES,
   KANBAN_STATUSES,
-  LINKEDIN_STATUSES,
-  LINKEDIN_TYPES,
   PLAN_TAB_FEATURES,
   PLAN_TAB_ORDER,
-  PLATFORM_DEFAULT_LIMITS,
-  PLATFORM_IMAGES,
-  PLATFORM_PREVIEW_META,
   PLATFORM_TIPS,
-  PM_PROFILE_IMAGE,
-  TESTING_STATUSES,
-  WEEKDAY_LABELS,
   WORKFLOW_STAGES,
 } from './constants';
 import {
@@ -49,7 +38,6 @@ import {
   daysInMonth,
   monthStartISO,
   monthEndISO,
-  isoFromParts,
   isOlderThanDays,
   ensureArray,
   normalizeEmail,
@@ -57,10 +45,7 @@ import {
   storageAvailable,
   STORAGE_KEYS,
   escapeHtml,
-  ensureLinksArray,
-  ensureAttachments,
   ensurePeopleArray,
-  monthKeyFromDate,
   normalizeDateValue,
 } from './lib/utils';
 import {
@@ -71,24 +56,15 @@ import {
   ensurePlatformCaptions,
   sanitizeEntry,
   sanitizeIdea,
-  sanitizeTestingFramework,
   computeStatusDetail,
   getPlatformCaption,
   isImageMedia,
   entrySignature,
   determineWorkflowStatus,
-  APPROVER_ALERT_FIELDS,
   hasApproverRelevantChanges,
 } from './lib/sanitizers';
 import { resolveMentionCandidate, computeMentionState } from './lib/mentions';
-import {
-  entryDescriptor,
-  entryReviewLink,
-  buildEntryEmailContext,
-  buildEntryEmailHtml,
-  buildEntryEmailText,
-  buildEntryEmailPayload,
-} from './lib/email';
+import { entryDescriptor, entryReviewLink, buildEntryEmailPayload } from './lib/email';
 import { selectBaseClasses, fileInputClasses, checklistCheckboxClass } from './lib/styles';
 import {
   MultiSelect,
@@ -139,14 +115,7 @@ import {
 } from './lib/guidelines';
 import { notificationKey, loadNotifications, saveNotifications } from './lib/notifications';
 import { appendAudit } from './lib/audit';
-import {
-  loadEntries,
-  saveEntries,
-  loadIdeas,
-  saveIdeas,
-  loadTestingFrameworks,
-  saveTestingFrameworks,
-} from './lib/storage';
+import { loadEntries, saveEntries, loadIdeas, saveIdeas } from './lib/storage';
 
 const { useState, useMemo, useEffect, useCallback, useRef } = React;
 const DEFAULT_FEATURES = FEATURE_OPTIONS.map((option) => option.key);
@@ -505,7 +474,6 @@ const mergePerformanceData = (entries, dataset) => {
 function EntryForm({
   onSubmit,
   existingEntries = [],
-  testingFrameworks = [],
   onPreviewAssetType,
   guidelines = FALLBACK_GUIDELINES,
   currentUser = '',
@@ -537,7 +505,6 @@ function EntryForm({
   const [activePreviewPlatform, setActivePreviewPlatform] = useState('Main');
   const [campaign, setCampaign] = useState('');
   const [contentPillar, setContentPillar] = useState('');
-  const [testingFrameworkId, setTestingFrameworkId] = useState('');
   const [entryFormErrors, setEntryFormErrors] = useState([]);
 
   useEffect(() => {
@@ -612,7 +579,6 @@ function EntryForm({
     setActivePreviewPlatform('Main');
     setCampaign('');
     setContentPillar('');
-    setTestingFrameworkId('');
     setEntryFormErrors([]);
     onPreviewAssetType?.(null);
   };
@@ -641,7 +607,6 @@ function EntryForm({
       const value = platformCaptions[platform];
       if (value && value.trim()) cleanedCaptions[platform] = value;
     });
-    const selectedFramework = testingFrameworks.find((item) => item.id === testingFrameworkId);
     onSubmit({
       date,
       approvers,
@@ -659,8 +624,6 @@ function EntryForm({
       platformCaptions: cleanedCaptions,
       campaign: campaign || undefined,
       contentPillar: contentPillar || undefined,
-      testingFrameworkId: testingFrameworkId || undefined,
-      testingFrameworkName: selectedFramework ? selectedFramework.name : undefined,
       workflowStatus: determineWorkflowStatus({ approvers, assetType, previewUrl }),
     });
     reset();
@@ -780,31 +743,6 @@ function EntryForm({
                 <p className="text-xs text-graystone-500">
                   Let approvers know when you need a decision by (optional).
                 </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Testing framework</Label>
-                <select
-                  value={testingFrameworkId}
-                  onChange={(event) => setTestingFrameworkId(event.target.value)}
-                  className={cx(selectBaseClasses, 'w-full')}
-                >
-                  <option value="">No testing framework</option>
-                  {testingFrameworks.map((framework) => (
-                    <option key={framework.id} value={framework.id}>
-                      {framework.name}
-                    </option>
-                  ))}
-                </select>
-                {testingFrameworks.length === 0 ? (
-                  <p className="text-xs text-graystone-500">
-                    Create frameworks in the Testing Lab to link experiments.
-                  </p>
-                ) : (
-                  <p className="text-xs text-graystone-500">
-                    Attach this brief to a testing plan for reporting.
-                  </p>
-                )}
               </div>
 
               <div className="space-y-2">
@@ -1550,7 +1488,6 @@ function EntryModal({
   onPublish,
   onPostAgain,
   onToggleEvergreen,
-  testingFrameworks = [],
   approverOptions = DEFAULT_APPROVERS,
   users = DEFAULT_USER_RECORDS,
 }) {
@@ -1570,16 +1507,6 @@ function EntryModal({
   const [showDraftRecovery, setShowDraftRecovery] = useState(false);
   const [savedDraftInfo, setSavedDraftInfo] = useState(null);
   const { get: apiGet } = useApi();
-  const frameworkOptions = Array.isArray(testingFrameworks) ? testingFrameworks : [];
-  const frameworkMap = useMemo(() => {
-    const map = new Map();
-    frameworkOptions.forEach((item) => {
-      if (item && item.id) {
-        map.set(item.id, item);
-      }
-    });
-    return map;
-  }, [frameworkOptions]);
 
   useEffect(() => {
     if (!sanitizedEntry) {
@@ -1750,18 +1677,9 @@ function EntryModal({
           ? draft.workflowStatus
           : KANBAN_STATUSES[0],
     };
-    const frameworkId = normalized.testingFrameworkId ? String(normalized.testingFrameworkId) : '';
-    const framework = frameworkId ? frameworkMap.get(frameworkId) : null;
-    const next = {
-      ...normalized,
-      testingFrameworkId: frameworkId || undefined,
-      testingFrameworkName: framework
-        ? framework.name
-        : normalized.testingFrameworkName || undefined,
-    };
     return {
-      ...next,
-      statusDetail: computeStatusDetail(next),
+      ...normalized,
+      statusDetail: computeStatusDetail(normalized),
     };
   };
 
@@ -2001,9 +1919,6 @@ function EntryModal({
     draft.platformCaptions,
     effectivePreviewPlatform,
   );
-  const currentFramework = draft?.testingFrameworkId
-    ? frameworkMap.get(draft.testingFrameworkId)
-    : null;
   const analyticsByPlatform = ensureAnalytics(draft.analytics);
   const analyticsPlatforms = Object.keys(analyticsByPlatform);
   const formatMetricValue = (value) => {
@@ -2332,48 +2247,6 @@ function EntryModal({
                       </option>
                     ))}
                   </select>
-                </FieldRow>
-
-                <FieldRow label="Testing framework">
-                  <div className="space-y-2">
-                    <select
-                      value={draft.testingFrameworkId || ''}
-                      onChange={(event) => {
-                        const id = event.target.value;
-                        const framework = id ? frameworkMap.get(id) : null;
-                        setDraft((prev) => {
-                          if (!prev) return prev;
-                          return normalizeEntry({
-                            ...prev,
-                            testingFrameworkId: id || undefined,
-                            testingFrameworkName: framework ? framework.name : undefined,
-                          });
-                        });
-                      }}
-                      className={cx(selectBaseClasses, 'w-full')}
-                    >
-                      <option value="">No testing framework</option>
-                      {frameworkOptions.map((framework) => (
-                        <option key={framework.id} value={framework.id}>
-                          {framework.name}
-                        </option>
-                      ))}
-                    </select>
-                    {currentFramework ? (
-                      <p className="text-xs text-graystone-500">
-                        Tracking via &ldquo;{currentFramework.name}&rdquo;
-                        {currentFramework.status ? ` (${currentFramework.status})` : ''}.
-                      </p>
-                    ) : frameworkOptions.length === 0 ? (
-                      <p className="text-xs text-graystone-500">
-                        Create frameworks in the Testing Lab to link experiments.
-                      </p>
-                    ) : (
-                      <p className="text-xs text-graystone-500">
-                        Attach this item to a testing plan for reporting.
-                      </p>
-                    )}
-                  </div>
                 </FieldRow>
 
                 <FieldRow label="Evergreen content">
@@ -2867,7 +2740,6 @@ function Sidebar({
   canUseKanban,
   canUseApprovals,
   canUseIdeas,
-  canUseTesting,
   currentUserIsAdmin,
   outstandingCount,
 }) {
@@ -3119,9 +2991,7 @@ function ContentDashboard() {
   const [viewingSnapshot, setViewingSnapshot] = useState(null);
   const [notifications, setNotifications] = useState(() => loadNotifications());
   const [ideas, setIdeas] = useState(() => loadIdeas());
-  const [testingFrameworks, setTestingFrameworks] = useState(() => loadTestingFrameworks());
   const [adminAudits, setAdminAudits] = useState([]);
-  const [selectedFrameworkId, setSelectedFrameworkId] = useState('');
   const [currentUser, setCurrentUser] = useState('');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [currentUserAvatar, setCurrentUserAvatar] = useState('');
@@ -3259,14 +3129,8 @@ function ContentDashboard() {
   const canUseKanban = hasFeature('kanban');
   const canUseApprovals = hasFeature('approvals');
   const canUseIdeas = hasFeature('ideas');
-  const canUseTesting = hasFeature('testing');
   const menuHasContent =
-    canUseCalendar ||
-    canUseKanban ||
-    canUseApprovals ||
-    canUseIdeas ||
-    canUseTesting ||
-    currentUserIsAdmin;
+    canUseCalendar || canUseKanban || canUseApprovals || canUseIdeas || currentUserIsAdmin;
   const profileInitials = useMemo(() => {
     const base = (currentUser && currentUser.trim()) || currentUserEmail || 'U';
     const parts = base.split(/\s+/).filter(Boolean);
@@ -3391,13 +3255,6 @@ function ContentDashboard() {
       .listIdeas()
       .then((payload) => Array.isArray(payload) && setIdeas(payload))
       .catch(() => pushSyncToast('Unable to refresh ideas from the server.', 'warning'));
-  }, [pushSyncToast]);
-  const refreshTesting = useCallback(() => {
-    if (!window.api || !window.api.enabled || !window.api.listTestingFrameworks) return;
-    window.api
-      .listTestingFrameworks()
-      .then((payload) => Array.isArray(payload) && setTestingFrameworks(payload))
-      .catch(() => pushSyncToast('Unable to refresh testing frameworks.', 'warning'));
   }, [pushSyncToast]);
   const refreshUsers = useCallback(() => {
     if (!window.api || !window.api.enabled || !window.api.listUsers) return;
@@ -3801,7 +3658,6 @@ function ContentDashboard() {
   useEffect(() => {
     setEntries(loadEntries());
     setIdeas(loadIdeas());
-    setTestingFrameworks(loadTestingFrameworks());
   }, []);
 
   // If server is available, hydrate from API once authenticated; fall back to local on failure
@@ -3812,33 +3668,23 @@ function ContentDashboard() {
       try {
         if (window.api && window.api.enabled) {
           const wantsIdeas = canUseIdeas;
-          const wantsTesting = canUseTesting;
           const wantsUsers = currentUserIsAdmin;
-          const [serverEntries, serverIdeas, serverFrameworks, serverGuidelines, serverUsers] =
-            await Promise.all([
-              window.api.listEntries().catch(() => []),
-              wantsIdeas ? window.api.listIdeas().catch(() => []) : Promise.resolve([]),
-              wantsTesting
-                ? window.api.listTestingFrameworks().catch(() => [])
-                : Promise.resolve([]),
-              window.api.getGuidelines
-                ? window.api.getGuidelines().catch(() => null)
-                : Promise.resolve(null),
-              wantsUsers && window.api.listUsers
-                ? window.api.listUsers().catch(() => [])
-                : Promise.resolve([]),
-            ]);
+          const [serverEntries, serverIdeas, serverGuidelines, serverUsers] = await Promise.all([
+            window.api.listEntries().catch(() => []),
+            wantsIdeas ? window.api.listIdeas().catch(() => []) : Promise.resolve([]),
+            window.api.getGuidelines
+              ? window.api.getGuidelines().catch(() => null)
+              : Promise.resolve(null),
+            wantsUsers && window.api.listUsers
+              ? window.api.listUsers().catch(() => [])
+              : Promise.resolve([]),
+          ]);
           if (cancelled) return;
           if (Array.isArray(serverEntries)) setEntries(serverEntries);
           if (wantsIdeas) {
             if (Array.isArray(serverIdeas)) setIdeas(serverIdeas);
           } else {
             setIdeas([]);
-          }
-          if (wantsTesting) {
-            if (Array.isArray(serverFrameworks)) setTestingFrameworks(serverFrameworks);
-          } else {
-            setTestingFrameworks([]);
           }
           if (serverGuidelines) {
             const normalized = normalizeGuidelines(serverGuidelines);
@@ -3856,7 +3702,7 @@ function ContentDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [authStatus, canUseIdeas, canUseTesting, currentUserIsAdmin]);
+  }, [authStatus, canUseIdeas, currentUserIsAdmin]);
 
   // Also hydrate when the api client announces readiness
   useEffect(() => {
@@ -3866,12 +3712,10 @@ function ContentDashboard() {
       }
       if (e?.detail?.enabled && authStatus === 'ready') {
         const wantsIdeas = canUseIdeas;
-        const wantsTesting = canUseTesting;
         const wantsUsers = currentUserIsAdmin;
         Promise.all([
           window.api.listEntries().catch(() => []),
           wantsIdeas ? window.api.listIdeas().catch(() => []) : Promise.resolve([]),
-          wantsTesting ? window.api.listTestingFrameworks().catch(() => []) : Promise.resolve([]),
           window.api.getGuidelines
             ? window.api.getGuidelines().catch(() => null)
             : Promise.resolve(null),
@@ -3879,17 +3723,12 @@ function ContentDashboard() {
             ? window.api.listUsers().catch(() => [])
             : Promise.resolve([]),
         ])
-          .then(([serverEntries, serverIdeas, serverFrameworks, serverGuidelines, serverUsers]) => {
+          .then(([serverEntries, serverIdeas, serverGuidelines, serverUsers]) => {
             if (Array.isArray(serverEntries)) setEntries(serverEntries);
             if (wantsIdeas) {
               if (Array.isArray(serverIdeas)) setIdeas(serverIdeas);
             } else {
               setIdeas([]);
-            }
-            if (wantsTesting) {
-              if (Array.isArray(serverFrameworks)) setTestingFrameworks(serverFrameworks);
-            } else {
-              setTestingFrameworks([]);
             }
             if (serverGuidelines) {
               const normalized = normalizeGuidelines(serverGuidelines);
@@ -3907,7 +3746,7 @@ function ContentDashboard() {
     };
     window.addEventListener('pm-api-ready', onReady);
     return () => window.removeEventListener('pm-api-ready', onReady);
-  }, [authStatus, canUseIdeas, canUseTesting, currentUserIsAdmin, retryAllSync, syncQueue.length]);
+  }, [authStatus, canUseIdeas, currentUserIsAdmin, retryAllSync, syncQueue.length]);
 
   useEffect(() => {
     setMenuMotionActive(true);
@@ -3977,22 +3816,6 @@ function ContentDashboard() {
   useEffect(() => {
     saveIdeas(ideas);
   }, [ideas]);
-
-  useEffect(() => {
-    saveTestingFrameworks(testingFrameworks);
-  }, [testingFrameworks]);
-  useEffect(() => {
-    if (!testingFrameworks.length) {
-      if (selectedFrameworkId) setSelectedFrameworkId('');
-      return;
-    }
-    if (
-      !selectedFrameworkId ||
-      !testingFrameworks.some((framework) => framework.id === selectedFrameworkId)
-    ) {
-      setSelectedFrameworkId(testingFrameworks[0].id);
-    }
-  }, [testingFrameworks, selectedFrameworkId]);
 
   const addNotifications = (items = []) => {
     if (!items || !items.length) return;
@@ -4253,55 +4076,6 @@ function ContentDashboard() {
     appendAudit({ user: currentUser, action: 'idea-delete', meta: { id } });
   };
 
-  const addTestingFrameworkEntry = (framework) => {
-    const timestamp = new Date().toISOString();
-    const sanitized = sanitizeTestingFramework({
-      ...framework,
-      createdAt: timestamp,
-    });
-    if (!sanitized) return;
-    setTestingFrameworks((prev) => [sanitized, ...prev]);
-    setSelectedFrameworkId(sanitized.id);
-    runSyncTask(`Create testing framework (${sanitized.id})`, () =>
-      window.api.createTestingFramework(sanitized),
-    ).then((ok) => {
-      if (ok) refreshTesting();
-    });
-    appendAudit({
-      user: currentUser,
-      action: 'framework-create',
-      meta: { id: sanitized.id, name: sanitized.name },
-    });
-  };
-
-  const deleteTestingFramework = (id) => {
-    setTestingFrameworks((prev) => prev.filter((item) => item.id !== id));
-    if (!id) return;
-    if (selectedFrameworkId === id) {
-      setSelectedFrameworkId('');
-    }
-    setEntries((prev) =>
-      prev.map((entry) => {
-        if (entry.testingFrameworkId !== id) return entry;
-        const sanitized = sanitizeEntry({
-          ...entry,
-          testingFrameworkId: '',
-          testingFrameworkName: '',
-        });
-        return {
-          ...sanitized,
-          statusDetail: computeStatusDetail(sanitized),
-        };
-      }),
-    );
-    runSyncTask(`Delete testing framework (${id})`, () =>
-      window.api.deleteTestingFramework(id),
-    ).then((ok) => {
-      if (ok) refreshTesting();
-    });
-    appendAudit({ user: currentUser, action: 'framework-delete', meta: { id } });
-  };
-
   const importPerformanceDataset = (dataset) => {
     let summary = {
       totalRows: Array.isArray(dataset?.records) ? dataset.records.length : 0,
@@ -4483,39 +4257,6 @@ function ContentDashboard() {
     return items.slice().sort((a, b) => (a.targetDate || '').localeCompare(b.targetDate || ''));
   }, [ideasByMonth, monthCursor]);
 
-  const entriesByFramework = useMemo(() => {
-    const map = new Map();
-    entries.forEach((entry) => {
-      if (entry.deletedAt) return;
-      const key = entry.testingFrameworkId ? String(entry.testingFrameworkId) : '';
-      if (!key) return;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(entry);
-    });
-    const result = {};
-    map.forEach((list, key) => {
-      result[key] = list.slice().sort((a, b) => a.date.localeCompare(b.date));
-    });
-    return result;
-  }, [entries]);
-  const frameworkEntryCounts = useMemo(() => {
-    const counts = {};
-    testingFrameworks.forEach((framework) => {
-      counts[framework.id] = entriesByFramework[framework.id]
-        ? entriesByFramework[framework.id].length
-        : 0;
-    });
-    return counts;
-  }, [testingFrameworks, entriesByFramework]);
-  const selectedFramework =
-    selectedFrameworkId && testingFrameworks.length
-      ? testingFrameworks.find((framework) => framework.id === selectedFrameworkId) || null
-      : null;
-  const selectedFrameworkEntries =
-    selectedFrameworkId && entriesByFramework[selectedFrameworkId]
-      ? entriesByFramework[selectedFrameworkId]
-      : [];
-
   const trashed = useMemo(
     () =>
       entries
@@ -4539,7 +4280,6 @@ function ContentDashboard() {
 
   const outstandingCount = outstandingApprovals.length;
   const ideaCount = ideas.length;
-  const testingFrameworkCount = testingFrameworks.length;
 
   const userNotifications = useMemo(() => {
     if (!currentUser) return [];
@@ -4581,17 +4321,6 @@ function ContentDashboard() {
       onClick: () => {
         setCurrentView('plan');
         setPlanTab('kanban');
-        closeEntry();
-      },
-    },
-    {
-      id: 'testing',
-      title: 'Testing Lab',
-      description: 'Document hypotheses, success metrics, and frameworks you can link to briefs.',
-      cta: 'Explore tests',
-      onClick: () => {
-        setCurrentView('plan');
-        setPlanTab('testing');
         closeEntry();
       },
     },
@@ -5752,7 +5481,6 @@ function ContentDashboard() {
         canUseKanban={canUseKanban}
         canUseApprovals={canUseApprovals}
         canUseIdeas={canUseIdeas}
-        canUseTesting={canUseTesting}
         currentUserIsAdmin={currentUserIsAdmin}
         outstandingCount={outstandingCount}
       />
@@ -5968,7 +5696,6 @@ function ContentDashboard() {
                   <EntryForm
                     onSubmit={addEntry}
                     existingEntries={entries.filter((entry) => !entry.deletedAt)}
-                    testingFrameworks={testingFrameworks}
                     onPreviewAssetType={setPendingAssetType}
                     guidelines={guidelines}
                     currentUser={currentUser}
@@ -6108,20 +5835,6 @@ function ContentDashboard() {
                         )}
                       >
                         Ideas
-                      </Button>
-                    )}
-                    {canUseTesting && (
-                      <Button
-                        variant="ghost"
-                        onClick={() => setPlanTab('testing')}
-                        className={cx(
-                          'rounded-2xl px-4 py-2 text-sm transition',
-                          planTab === 'testing'
-                            ? 'bg-ocean-500 text-white hover:bg-ocean-600'
-                            : 'text-ocean-600 hover:bg-aqua-100',
-                        )}
-                      >
-                        Testing Lab
                       </Button>
                     )}
                   </div>
@@ -6272,21 +5985,6 @@ function ContentDashboard() {
                           onCreateEntry={createEntryFromIdea}
                         />
                       </div>
-                    );
-                  case 'testing':
-                    if (!canUseTesting) return null;
-                    return (
-                      <TestingView
-                        frameworks={testingFrameworks}
-                        selectedFrameworkId={selectedFrameworkId}
-                        selectedFramework={selectedFramework}
-                        selectedFrameworkEntries={selectedFrameworkEntries}
-                        frameworkEntryCounts={frameworkEntryCounts}
-                        onAddFramework={addTestingFrameworkEntry}
-                        onDeleteFramework={deleteTestingFramework}
-                        onSelectFramework={setSelectedFrameworkId}
-                        onOpenEntry={openEntry}
-                      />
                     );
                   default:
                     return null;
@@ -6636,7 +6334,6 @@ function ContentDashboard() {
               onPublish={handlePublishEntry}
               onPostAgain={handlePostAgain}
               onToggleEvergreen={handleToggleEvergreen}
-              testingFrameworks={testingFrameworks}
               approverOptions={approverOptions}
               users={mentionUsers}
             />

@@ -1,18 +1,12 @@
 /**
- * Storage utilities for entries, ideas, and testing frameworks
+ * Storage utilities for entries and ideas
  */
 import { STORAGE_KEYS, storageAvailable, isOlderThanDays } from './utils';
-import {
-  sanitizeEntry,
-  sanitizeIdea,
-  sanitizeTestingFramework,
-  computeStatusDetail,
-} from './sanitizers';
-import type { Entry, Idea, TestingFramework } from '../types/models';
+import { sanitizeEntry, sanitizeIdea, computeStatusDetail } from './sanitizers';
+import type { Entry, Idea } from '../types/models';
 
 const ENTRIES_STORAGE_KEY = STORAGE_KEYS.ENTRIES;
 const IDEAS_STORAGE_KEY = STORAGE_KEYS.IDEAS;
-const TESTING_STORAGE_KEY = STORAGE_KEYS.TESTING;
 
 /**
  * Loads entries from localStorage, sanitizes them, and cleans up old deleted entries
@@ -86,37 +80,5 @@ export const saveIdeas = (ideas: Idea[]): void => {
     window.localStorage.setItem(IDEAS_STORAGE_KEY, JSON.stringify(ideas));
   } catch (error) {
     console.warn('Failed to persist ideas', error);
-  }
-};
-
-/**
- * Loads testing frameworks from localStorage
- */
-export const loadTestingFrameworks = (): TestingFramework[] => {
-  if (!storageAvailable) return [];
-  try {
-    const raw = window.localStorage.getItem(TESTING_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? (
-          parsed.map((item) => sanitizeTestingFramework(item)).filter(Boolean) as TestingFramework[]
-        ).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-      : [];
-  } catch (error) {
-    console.warn('Failed to load testing frameworks', error);
-    return [];
-  }
-};
-
-/**
- * Saves testing frameworks to localStorage
- */
-export const saveTestingFrameworks = (items: TestingFramework[]): void => {
-  if (!storageAvailable) return;
-  try {
-    window.localStorage.setItem(TESTING_STORAGE_KEY, JSON.stringify(items));
-  } catch (error) {
-    console.warn('Failed to persist testing frameworks', error);
   }
 };

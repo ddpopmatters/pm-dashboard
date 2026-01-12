@@ -6,7 +6,7 @@
  * POST/PUT/DELETE return { ok: true } or the created/updated item.
  */
 
-import type { Entry, Idea, TestingFramework, User, Guidelines, Approver } from './models';
+import type { Entry, Idea, User, Guidelines, Approver } from './models';
 
 // ============================================================================
 // Generic API Response Types
@@ -103,24 +103,6 @@ export interface CreateIdeaRequest {
 
 // GET /api/ideas returns Idea[] directly
 export type IdeasResponse = Idea[];
-
-// ============================================================================
-// Testing Framework Types
-// ============================================================================
-
-export interface CreateTestingFrameworkRequest {
-  id?: string;
-  name: string;
-  hypothesis?: string;
-  audience?: string;
-  metric?: string;
-  duration?: string;
-  status?: string;
-  notes?: string;
-}
-
-// GET /api/testing-frameworks returns TestingFramework[] directly
-export type TestingFrameworksResponse = TestingFramework[];
 
 // ============================================================================
 // User Types

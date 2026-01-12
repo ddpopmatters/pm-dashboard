@@ -140,21 +140,6 @@ export interface Idea {
 }
 
 /**
- * Testing framework model - represents an A/B testing framework
- */
-export interface TestingFramework {
-  id: string;
-  name: string;
-  hypothesis: string;
-  audience: string;
-  metric: string;
-  duration: string;
-  status: string;
-  notes: string;
-  createdAt: string;
-}
-
-/**
  * Notification model
  * Matches the structure created by buildApprovalNotifications/buildMentionNotifications
  */

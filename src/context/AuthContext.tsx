@@ -79,15 +79,7 @@ declare global {
 // Constants
 // ============================================================================
 
-const DEFAULT_FEATURES = [
-  'calendar',
-  'kanban',
-  'approvals',
-  'ideas',
-  'testing',
-  'copy-check',
-  'activity',
-];
+const DEFAULT_FEATURES = ['calendar', 'kanban', 'approvals', 'ideas', 'copy-check', 'activity'];
 
 // ============================================================================
 // Context

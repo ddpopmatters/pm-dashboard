@@ -9,7 +9,6 @@ import {
   KANBAN_STATUSES,
   LEGACY_STATUS_MAP,
   IDEA_TYPES,
-  TESTING_STATUSES,
   WORKFLOW_STAGES,
 } from '../constants';
 import {
@@ -21,7 +20,7 @@ import {
   extractMentions,
   serializeForComparison,
 } from './utils';
-import type { Attachment, Entry, Idea, TestingFramework, Comment } from '../types/models';
+import type { Attachment, Entry, Idea, Comment } from '../types/models';
 
 // Type for checklist object
 export type Checklist = Record<string, boolean>;
@@ -235,37 +234,6 @@ export const sanitizeIdea = (raw: unknown): Idea | null => {
     convertedToEntryId:
       typeof data.convertedToEntryId === 'string' ? data.convertedToEntryId : undefined,
     convertedAt: typeof data.convertedAt === 'string' ? data.convertedAt : undefined,
-  };
-};
-
-// Testing framework sanitizer
-export const sanitizeTestingFramework = (raw: unknown): TestingFramework | null => {
-  if (!raw || typeof raw !== 'object') return null;
-  const data = raw as Record<string, unknown>;
-
-  const name = typeof data.name === 'string' ? data.name.trim() : '';
-  if (!name) return null;
-  const hypothesis = typeof data.hypothesis === 'string' ? data.hypothesis : '';
-  const audience = typeof data.audience === 'string' ? data.audience : '';
-  const metric = typeof data.metric === 'string' ? data.metric : '';
-  const duration = typeof data.duration === 'string' ? data.duration : '';
-  const status =
-    typeof data.status === 'string' && isInArray(TESTING_STATUSES, data.status)
-      ? data.status
-      : TESTING_STATUSES[0];
-  const notes = typeof data.notes === 'string' ? data.notes : '';
-  const createdAt = typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString();
-
-  return {
-    id: typeof data.id === 'string' ? data.id : uuid(),
-    name,
-    hypothesis,
-    audience,
-    metric,
-    duration,
-    status,
-    notes,
-    createdAt,
   };
 };
 
