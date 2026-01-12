@@ -9,9 +9,17 @@ import {
   Input,
   Label,
   Toggle,
+  MultiSelect,
 } from '../../components/ui';
 import { PlatformIcon, CalendarIcon, ChevronDownIcon } from '../../components/common';
-import { cx, daysInMonth, monthStartISO, monthEndISO, localMonthKey } from '../../lib/utils';
+import {
+  cx,
+  daysInMonth,
+  monthStartISO,
+  monthEndISO,
+  localMonthKey,
+  isSafeUrl,
+} from '../../lib/utils';
 import { selectBaseClasses } from '../../lib/styles';
 import { ALL_PLATFORMS, KANBAN_STATUSES } from '../../constants';
 import MonthGrid from './MonthGrid';
@@ -37,94 +45,6 @@ function getWeekEnd(date: Date): Date {
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
   return end;
-}
-
-const MULTI_OPTION_BASE =
-  'dropdown-font flex cursor-pointer items-center gap-3 px-4 py-2 text-sm font-normal text-black transition hover:bg-black hover:text-white';
-
-// Validate URL to prevent XSS via javascript:/data: protocols
-function isSafeUrl(url: string): boolean {
-  if (!url || typeof url !== 'string') return false;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-const checklistCheckboxClass =
-  'h-4 w-4 rounded border-black bg-white text-[#00F5FF] focus:ring-0 focus:ring-offset-0';
-
-interface MultiSelectOption {
-  value: string;
-  label: string;
-  icon?: React.ReactNode;
-}
-
-interface MultiSelectProps {
-  placeholder: string;
-  value: string[];
-  onChange: (value: string[]) => void;
-  options: MultiSelectOption[];
-}
-
-function MultiSelect({
-  placeholder,
-  value,
-  onChange,
-  options,
-}: MultiSelectProps): React.ReactElement {
-  const [open, setOpen] = useState(false);
-  const toggle = (val: string) => {
-    const exists = value.includes(val);
-    onChange(exists ? value.filter((x) => x !== val) : [...value, val]);
-  };
-  return (
-    <div className="relative">
-      <Button
-        variant="outline"
-        className="dropdown-font w-full justify-between px-4 py-2"
-        onClick={() => setOpen((prev) => !prev)}
-      >
-        <span className="dropdown-font text-sm">
-          {value.length ? `${value.length} selected` : placeholder}
-        </span>
-        <ChevronDownIcon className="h-4 w-4" />
-      </Button>
-      {open && (
-        <div className="absolute left-0 top-12 z-30 w-full rounded-3xl border border-black bg-white text-black shadow-[0_0_25px_rgba(15,157,222,0.3)]">
-          <div className="max-h-52 overflow-y-auto py-2">
-            {options.map((option) => (
-              <label key={option.value} className={MULTI_OPTION_BASE}>
-                <input
-                  type="checkbox"
-                  className={checklistCheckboxClass}
-                  checked={value.includes(option.value)}
-                  onChange={() => toggle(option.value)}
-                />
-                {option.icon ? <span className="transition-colors">{option.icon}</span> : null}
-                <span className="text-sm font-normal">{option.label}</span>
-              </label>
-            ))}
-          </div>
-          <div className="flex items-center justify-between border-t border-black/10 px-3 py-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onChange([])}
-              className="heading-font text-sm"
-            >
-              Clear
-            </Button>
-            <Button size="sm" onClick={() => setOpen(false)}>
-              Done
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 interface PlatformFilterProps {

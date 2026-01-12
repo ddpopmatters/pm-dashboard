@@ -24,9 +24,6 @@ export const monthEndISO = (d: Date): string =>
 export const isOlderThanDays = (iso: string, days: number): boolean =>
   Date.now() - new Date(iso).getTime() > days * 864e5;
 
-export const monthKeyFromDate = (iso: string | null | undefined): string =>
-  iso ? iso.slice(0, 7) : '';
-
 export const localMonthKey = (d: Date): string =>
   isoFromParts(d.getFullYear(), d.getMonth(), 1).slice(0, 7);
 
