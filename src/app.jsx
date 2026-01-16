@@ -116,7 +116,15 @@ import {
 } from './lib/guidelines';
 import { notificationKey, loadNotifications, saveNotifications } from './lib/notifications';
 import { appendAudit } from './lib/audit';
-import { loadEntries, saveEntries, loadIdeas, saveIdeas } from './lib/storage';
+import {
+  loadEntries,
+  saveEntries,
+  loadIdeas,
+  saveIdeas,
+  loadInfluencers,
+  saveInfluencers,
+} from './lib/storage';
+import { InfluencersView, InfluencerModal } from './features/influencers';
 
 const { useState, useMemo, useEffect, useCallback, useRef } = React;
 const DEFAULT_FEATURES = FEATURE_OPTIONS.map((option) => option.key);
@@ -552,6 +560,9 @@ function ContentDashboard() {
       return DEFAULT_PUBLISH_SETTINGS;
     }
   });
+  const [influencers, setInfluencers] = useState(() => loadInfluencers());
+  const [influencerModalOpen, setInfluencerModalOpen] = useState(false);
+  const [editingInfluencerId, setEditingInfluencerId] = useState(null);
   const [filterEvergreen, setFilterEvergreen] = useState(false);
   const [newUserFirst, setNewUserFirst] = useState('');
   const [newUserLast, setNewUserLast] = useState('');
@@ -619,6 +630,7 @@ function ContentDashboard() {
   const canUseKanban = hasFeature('kanban');
   const canUseApprovals = hasFeature('approvals');
   const canUseIdeas = hasFeature('ideas');
+  const canUseInfluencers = currentUserFeatures.includes('influencers') || currentUserIsAdmin;
   const menuHasContent =
     canUseCalendar || canUseKanban || canUseApprovals || canUseIdeas || currentUserIsAdmin;
   const profileInitials = useMemo(() => {
@@ -1306,6 +1318,10 @@ function ContentDashboard() {
   useEffect(() => {
     saveIdeas(ideas);
   }, [ideas]);
+
+  useEffect(() => {
+    saveInfluencers(influencers);
+  }, [influencers]);
 
   const addNotifications = (items = []) => {
     if (!items || !items.length) return;
@@ -2827,6 +2843,46 @@ function ContentDashboard() {
     }
   };
 
+  const handleAddInfluencer = useCallback(
+    (data) => {
+      const newInfluencer = {
+        ...data,
+        id: uuid(),
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser,
+      };
+      setInfluencers((prev) => [newInfluencer, ...prev]);
+    },
+    [currentUser],
+  );
+
+  const handleUpdateInfluencer = useCallback((updated) => {
+    setInfluencers((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+  }, []);
+
+  const handleDeleteInfluencer = useCallback((id) => {
+    setInfluencers((prev) => prev.filter((i) => i.id !== id));
+    // Also unlink any entries
+    setEntries((prev) =>
+      prev.map((e) => (e.influencerId === id ? { ...e, influencerId: undefined } : e)),
+    );
+  }, []);
+
+  const handleOpenInfluencerDetail = useCallback((id) => {
+    setEditingInfluencerId(id === 'new' ? null : id);
+    setInfluencerModalOpen(true);
+  }, []);
+
+  const handleLinkEntryToInfluencer = useCallback((influencerId, entryId) => {
+    setEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, influencerId } : e)));
+  }, []);
+
+  const handleUnlinkEntryFromInfluencer = useCallback((entryId) => {
+    setEntries((prev) =>
+      prev.map((e) => (e.id === entryId ? { ...e, influencerId: undefined } : e)),
+    );
+  }, []);
+
   // Handle sidebar navigation - must be defined before conditional returns
   const handleSidebarNavigate = useCallback(
     (view) => {
@@ -2971,6 +3027,7 @@ function ContentDashboard() {
         canUseKanban={canUseKanban}
         canUseApprovals={canUseApprovals}
         canUseIdeas={canUseIdeas}
+        canUseInfluencers={canUseInfluencers}
         currentUserIsAdmin={currentUserIsAdmin}
         outstandingCount={outstandingCount}
       />
@@ -3530,6 +3587,18 @@ function ContentDashboard() {
             </div>
           )}
 
+          {currentView === 'influencers' && canUseInfluencers && (
+            <InfluencersView
+              influencers={influencers}
+              entries={entries}
+              currentUser={currentUser}
+              onAdd={handleAddInfluencer}
+              onUpdate={handleUpdateInfluencer}
+              onDelete={handleDeleteInfluencer}
+              onOpenDetail={handleOpenInfluencerDetail}
+            />
+          )}
+
           {currentView === 'admin' && currentUserIsAdmin && (
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -3879,6 +3948,30 @@ function ContentDashboard() {
             open={performanceImportOpen}
             onClose={() => setPerformanceImportOpen(false)}
             onImport={importPerformanceDataset}
+          />
+          <InfluencerModal
+            open={influencerModalOpen}
+            influencer={
+              editingInfluencerId
+                ? influencers.find((i) => i.id === editingInfluencerId) || null
+                : null
+            }
+            entries={entries}
+            currentUser={currentUser}
+            onClose={() => {
+              setInfluencerModalOpen(false);
+              setEditingInfluencerId(null);
+            }}
+            onSave={(inf) => {
+              if (editingInfluencerId) {
+                handleUpdateInfluencer(inf);
+              } else {
+                handleAddInfluencer(inf);
+              }
+            }}
+            onDelete={handleDeleteInfluencer}
+            onLinkEntry={handleLinkEntryToInfluencer}
+            onUnlinkEntry={handleUnlinkEntryFromInfluencer}
           />
         </div>
       </div>
