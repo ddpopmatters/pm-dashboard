@@ -15,6 +15,7 @@ export interface SidebarProps {
   canUseKanban: boolean;
   canUseApprovals: boolean;
   canUseIdeas: boolean;
+  canUseInfluencers: boolean;
   currentUserIsAdmin: boolean;
   outstandingCount: number;
 }
@@ -83,6 +84,16 @@ const iconMap: Record<string, React.ReactNode> = {
       />
     </svg>
   ),
+  megaphone: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        d="M11 5.882V19.24a1.76 1.76 0 0 1-3.417.592l-2.147-6.15M18 13a3 3 0 1 0 0-6M5.436 13.683A4.001 4.001 0 0 1 7 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 0 1-1.564-.317"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
   linkedin: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
@@ -132,6 +143,7 @@ export function Sidebar({
   onSignOut,
   canUseCalendar,
   canUseIdeas,
+  canUseInfluencers,
   currentUserIsAdmin,
   outstandingCount,
 }: SidebarProps): React.ReactElement {
@@ -141,6 +153,7 @@ export function Sidebar({
     if (currentView === 'analytics') return 'analytics';
     if (currentView === 'engagement') return 'engagement';
     if (currentView === 'admin') return 'admin';
+    if (currentView === 'influencers') return 'influencers';
     if (currentView === 'form') return 'content';
     // Plan view tabs: calendar, board, approvals, ideas, trash
     if (currentView === 'plan') {
@@ -164,6 +177,7 @@ export function Sidebar({
       badge: outstandingCount,
     },
     { id: 'ideas', label: 'Ideas', icon: 'lightbulb', enabled: canUseIdeas },
+    { id: 'influencers', label: 'Influencers', icon: 'megaphone', enabled: canUseInfluencers },
     { id: 'admin', label: 'Admin', icon: 'settings', enabled: currentUserIsAdmin },
   ].filter((item) => item.enabled);
 
