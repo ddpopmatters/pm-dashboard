@@ -89,6 +89,14 @@ const DEFAULT_FEATURES = [
   'influencers',
 ];
 
+// Merge user features with defaults to ensure new default features are included
+const mergeWithDefaults = (userFeatures: unknown): string[] => {
+  if (!Array.isArray(userFeatures)) return [...DEFAULT_FEATURES];
+  // Combine user features with any missing defaults
+  const combined = new Set([...userFeatures, ...DEFAULT_FEATURES]);
+  return Array.from(combined);
+};
+
 // ============================================================================
 // Context
 // ============================================================================
@@ -137,7 +145,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               name: profile.name || profile.email?.split('@')[0] || 'User',
               email: profile.email || '',
               avatarUrl: profile.avatarUrl || '',
-              features: Array.isArray(profile.features) ? profile.features : [...DEFAULT_FEATURES],
+              features: mergeWithDefaults(profile.features),
               isAdmin: Boolean(profile.isAdmin),
               hasPassword: Boolean(profile.hasPassword),
             });
@@ -156,7 +164,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             name: payload.name || payload.email?.split('@')[0] || 'User',
             email: payload.email || '',
             avatarUrl: payload.avatarUrl || '',
-            features: Array.isArray(payload.features) ? payload.features : [...DEFAULT_FEATURES],
+            features: mergeWithDefaults(payload.features),
             isAdmin: Boolean(payload.isAdmin),
             hasPassword: Boolean(payload.hasPassword),
           });
