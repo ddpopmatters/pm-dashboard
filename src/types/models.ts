@@ -106,6 +106,8 @@ export interface Entry {
   variantOfId?: string;
   variantIds?: string[];
   relatedEntryIds?: string[];
+  // Influencer attribution
+  influencerId?: string;
   // UI-specific fields (not in database)
   url?: string;
   approvalDeadline?: string;
@@ -260,4 +262,35 @@ export interface EngagementGoals {
   weeklyFollows: number;
   weeklyDms: number;
   weekStartDay: 'monday' | 'sunday';
+}
+
+/**
+ * Influencer pipeline status
+ */
+export type InfluencerStatus = 'Discovery' | 'Outreach' | 'Negotiating' | 'Active' | 'Completed';
+
+/**
+ * Influencer record - tracks partnership opportunities
+ */
+export interface Influencer {
+  id: string;
+  createdAt: string;
+  createdBy: string;
+
+  // Profile info
+  name: string;
+  handle: string;
+  profileUrl: string;
+  platform: string;
+  followerCount: number;
+  engagementRate?: number;
+
+  // Contact & business
+  contactEmail: string;
+  niche: string;
+  estimatedRate?: number;
+  notes: string;
+
+  // Pipeline
+  status: InfluencerStatus;
 }

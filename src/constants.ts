@@ -235,3 +235,34 @@ export const PLATFORM_PREVIEW_META: Record<Platform, PlatformPreviewMeta> = {
       'https://www.wikicorporates.org/mediawiki/images/thumb/d/db/Population-Matters-2020.png/250px-Population-Matters-2020.png',
   },
 };
+
+export const INFLUENCER_STATUSES = [
+  'Discovery',
+  'Outreach',
+  'Negotiating',
+  'Active',
+  'Completed',
+] as const;
+export type InfluencerStatusType = (typeof INFLUENCER_STATUSES)[number];
+
+export const INFLUENCER_NICHES = [
+  'Tech',
+  'Lifestyle',
+  'Fitness',
+  'Fashion',
+  'Food',
+  'Travel',
+  'Finance',
+  'Education',
+  'Entertainment',
+  'Other',
+] as const;
+export type InfluencerNiche = (typeof INFLUENCER_NICHES)[number];
+
+export const INFLUENCER_STATUS_COLORS: Record<InfluencerStatusType, string> = {
+  Discovery: 'bg-graystone-100 text-graystone-700',
+  Outreach: 'bg-blue-100 text-blue-700',
+  Negotiating: 'bg-amber-100 text-amber-700',
+  Active: 'bg-emerald-100 text-emerald-700',
+  Completed: 'bg-purple-100 text-purple-700',
+};
