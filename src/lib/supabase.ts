@@ -214,13 +214,6 @@ declare global {
   }
 }
 
-// Approver entry stored in DB as JSONB
-interface ApproverEntryRow {
-  name: string;
-  approved: boolean;
-  approvedAt?: string;
-}
-
 // Database row types (snake_case as stored in Supabase)
 interface EntryRow {
   id: string;
@@ -232,7 +225,7 @@ interface EntryRow {
   first_comment: string;
   approval_deadline: string;
   status: string;
-  approvers: ApproverEntryRow[];
+  approvers: string[];
   author: string;
   campaign: string;
   content_pillar: string;

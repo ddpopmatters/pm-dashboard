@@ -21,18 +21,14 @@ export function ApprovalQueueWidget({
       .filter((e) => {
         if (e.deletedAt) return false;
         if (e.status !== 'Pending') return false;
-        // Check if current user is an approver who hasn't approved
-        const approverEntry = e.approvers?.find((a) => a.name === currentUser);
-        return approverEntry && !approverEntry.approved;
+        // Check if current user is an approver
+        return e.approvers?.includes(currentUser);
       })
       .slice(0, 5); // Show max 5
   }, [entries, currentUser]);
 
   const totalPending = entries.filter(
-    (e) =>
-      !e.deletedAt &&
-      e.status === 'Pending' &&
-      e.approvers?.some((a) => a.name === currentUser && !a.approved),
+    (e) => !e.deletedAt && e.status === 'Pending' && e.approvers?.includes(currentUser),
   ).length;
 
   return (
