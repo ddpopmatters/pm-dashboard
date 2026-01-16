@@ -2900,6 +2900,7 @@ function ContentDashboard() {
         engagement: { view: 'engagement', tab: 'plan' },
         content: { view: 'plan', tab: 'plan' },
         ideas: { view: 'plan', tab: 'ideas' },
+        influencers: { view: 'influencers', tab: 'plan' },
         admin: { view: 'admin', tab: 'plan' },
         form: { view: 'form', tab: 'plan' },
       };
