@@ -231,7 +231,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ entries }) => {
   // Get max value for bar chart scaling
   const maxPlatformValue = useMemo(() => {
     let max = 0;
-    Object.values(platformMetrics).forEach((m) => {
+    (Object.values(platformMetrics) as ReturnType<typeof calculateMetrics>[]).forEach((m) => {
       const value =
         comparisonMetric === 'engagements'
           ? m.totalEngagements

@@ -73,6 +73,13 @@ export interface PublishSettings {
  * Entry model - represents a content calendar entry
  * Includes both database fields and UI-computed fields
  */
+/** Approver entry with approval status */
+export interface ApproverEntry {
+  name: string;
+  approved: boolean;
+  approvedAt?: string;
+}
+
 export interface Entry {
   id: string;
   date: string;
@@ -82,7 +89,7 @@ export interface Entry {
   platformCaptions: Record<string, string>;
   firstComment: string;
   status: string;
-  approvers: string[];
+  approvers: ApproverEntry[];
   author: string;
   campaign: string;
   contentPillar: string;

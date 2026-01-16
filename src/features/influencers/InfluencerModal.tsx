@@ -104,12 +104,15 @@ export const InfluencerModal: React.FC<InfluencerModalProps> = ({
   if (!open) return null;
 
   return (
-    <Modal open={open} onClose={onClose}>
+    <Modal open={open} onClose={onClose} aria-labelledby="influencer-modal-title">
       <div className="flex h-full max-h-[85vh] flex-col bg-white">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-graystone-200 px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="heading-font text-lg font-semibold text-ocean-900">
+            <div
+              id="influencer-modal-title"
+              className="heading-font text-lg font-semibold text-ocean-900"
+            >
               {isNew ? 'Add Influencer' : draft.name || 'Edit Influencer'}
             </div>
             {!isNew && (
@@ -329,7 +332,9 @@ export const InfluencerModal: React.FC<InfluencerModalProps> = ({
                       <div className="flex items-center gap-3">
                         <div className="flex gap-1">
                           {entry.platforms.map((p) => (
-                            <PlatformIcon key={p} platform={p} className="h-4 w-4" />
+                            <span key={p}>
+                              <PlatformIcon platform={p} size="sm" />
+                            </span>
                           ))}
                         </div>
                         <div>

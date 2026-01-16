@@ -68,12 +68,18 @@ export function entriesToCSV(entries: Entry[]): string {
  * Convert ideas to CSV format
  */
 export function ideasToCSV(ideas: Idea[]): string {
-  const headers = ['ID', 'Type', 'Title', 'Notes', 'Target Month', 'Status', 'Created At'];
+  const headers = ['ID', 'Type', 'Title', 'Notes', 'Target Month', 'Created By', 'Created At'];
 
   const rows = ideas.map((idea) =>
-    [idea.id, idea.type, idea.title, idea.notes, idea.targetMonth, idea.status, idea.createdAt].map(
-      escapeCsv,
-    ),
+    [
+      idea.id,
+      idea.type,
+      idea.title,
+      idea.notes,
+      idea.targetMonth,
+      idea.createdBy,
+      idea.createdAt,
+    ].map(escapeCsv),
   );
 
   return [headers.map(escapeCsv).join(','), ...rows.map((row) => row.join(','))].join('\n');

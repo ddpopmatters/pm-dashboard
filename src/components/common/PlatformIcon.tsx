@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PLATFORM_IMAGES } from '../../constants';
 
-export type PlatformIconSize = 'sm' | 'md' | 'lg';
+export type PlatformIconSize = 'xs' | 'sm' | 'md' | 'lg';
 
 export interface PlatformIconProps {
   /** Platform name (must match key in PLATFORM_IMAGES) */
@@ -11,6 +11,7 @@ export interface PlatformIconProps {
 }
 
 const sizeClasses: Record<PlatformIconSize, string> = {
+  xs: 'h-3 w-3',
   sm: 'h-4 w-4',
   md: 'h-5 w-5',
   lg: 'h-6 w-6',

@@ -173,14 +173,36 @@ const mapTestingFrameworkToDb = (framework: {
   return row;
 };
 
-import type {
-  Attachment,
-  Entry,
-  Idea,
-  LinkedInSubmission,
-  TestingFramework,
-  Guidelines,
-} from '../types/models';
+import type { Attachment, Entry, Idea, Guidelines } from '../types/models';
+
+// Local type aliases for types used only in this file
+type LinkedInSubmission = {
+  id: string;
+  submissionType: string;
+  status: string;
+  title: string;
+  postCopy: string;
+  comments: string;
+  owner: string;
+  submitter: string;
+  links: string[];
+  attachments: Attachment[];
+  targetDate: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type TestingFramework = {
+  id: string;
+  name: string;
+  hypothesis: string;
+  audience: string;
+  metric: string;
+  duration: string;
+  status: string;
+  notes: string;
+  createdAt: string;
+};
 
 // Extend Window interface for custom properties
 declare global {
@@ -190,6 +212,13 @@ declare global {
     __currentUserEmail?: string | null;
     __currentUserName?: string | null;
   }
+}
+
+// Approver entry stored in DB as JSONB
+interface ApproverEntryRow {
+  name: string;
+  approved: boolean;
+  approvedAt?: string;
 }
 
 // Database row types (snake_case as stored in Supabase)
@@ -203,7 +232,7 @@ interface EntryRow {
   first_comment: string;
   approval_deadline: string;
   status: string;
-  approvers: string[];
+  approvers: ApproverEntryRow[];
   author: string;
   campaign: string;
   content_pillar: string;
