@@ -630,9 +630,14 @@ function ContentDashboard() {
   const canUseKanban = hasFeature('kanban');
   const canUseApprovals = hasFeature('approvals');
   const canUseIdeas = hasFeature('ideas');
-  const canUseInfluencers = currentUserFeatures.includes('influencers') || currentUserIsAdmin;
+  const canUseInfluencers = hasFeature('influencers');
   const menuHasContent =
-    canUseCalendar || canUseKanban || canUseApprovals || canUseIdeas || currentUserIsAdmin;
+    canUseCalendar ||
+    canUseKanban ||
+    canUseApprovals ||
+    canUseIdeas ||
+    canUseInfluencers ||
+    currentUserIsAdmin;
   const profileInitials = useMemo(() => {
     const base = (currentUser && currentUser.trim()) || currentUserEmail || 'U';
     const parts = base.split(/\s+/).filter(Boolean);
