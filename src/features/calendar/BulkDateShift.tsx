@@ -163,7 +163,9 @@ export function BulkDateShift({ entries, onShift }: BulkDateShiftProps): React.R
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     {entry.platforms.slice(0, 2).map((p) => (
-                      <PlatformIcon key={p} platform={p} size="xs" />
+                      <span key={p}>
+                        <PlatformIcon platform={p} size="xs" />
+                      </span>
                     ))}
                     <span className="text-xs font-medium text-graystone-700">{entry.date}</span>
                     <Badge variant="outline" className="text-[10px]">

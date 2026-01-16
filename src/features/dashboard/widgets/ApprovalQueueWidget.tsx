@@ -59,7 +59,9 @@ export function ApprovalQueueWidget({
               >
                 <div className="flex items-center gap-2">
                   {entry.platforms?.slice(0, 2).map((platform) => (
-                    <PlatformIcon key={platform} platform={platform} size="xs" />
+                    <span key={platform}>
+                      <PlatformIcon platform={platform} size="xs" />
+                    </span>
                   ))}
                   <span className="flex-1 truncate text-xs text-graystone-700">
                     {entry.caption || entry.assetType || 'Untitled'}

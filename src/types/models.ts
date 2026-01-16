@@ -89,7 +89,7 @@ export interface Entry {
   platformCaptions: Record<string, string>;
   firstComment: string;
   status: string;
-  approvers: ApproverEntry[];
+  approvers: string[];
   author: string;
   campaign: string;
   contentPillar: string;

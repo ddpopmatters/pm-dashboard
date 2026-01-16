@@ -122,7 +122,9 @@ export function UpcomingDeadlines({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         {entry.platforms.slice(0, 2).map((platform) => (
-                          <PlatformIcon key={platform} platform={platform} size="xs" />
+                          <span key={platform}>
+                            <PlatformIcon platform={platform} size="xs" />
+                          </span>
                         ))}
                         {entry.platforms.length > 2 && (
                           <span className="text-[10px] text-graystone-400">

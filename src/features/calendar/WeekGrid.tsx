@@ -168,7 +168,9 @@ export function WeekGrid({
                     {/* Platform icons */}
                     <div className="flex shrink-0 flex-wrap gap-0.5">
                       {(entry.platforms || []).slice(0, 3).map((platform) => (
-                        <PlatformIcon key={platform} platform={platform} size="xs" />
+                        <span key={platform}>
+                          <PlatformIcon platform={platform} size="xs" />
+                        </span>
                       ))}
                       {entry.platforms && entry.platforms.length > 3 && (
                         <span className="text-[10px] text-graystone-500">
