@@ -25,6 +25,7 @@ import {
 import { PlatformIcon, PlusIcon } from '../../components/common';
 import { ApproverMulti } from './ApproverMulti';
 import { CopyCheckSection } from '../copy-check';
+import { InfluencerPicker } from '../influencers';
 
 const { useState, useMemo, useEffect } = React;
 
@@ -36,6 +37,8 @@ export function EntryForm({
   currentUser = '',
   currentUserEmail = '',
   approverOptions = DEFAULT_APPROVERS,
+  influencers = [],
+  onInfluencerChange,
 }) {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [approvers, setApprovers] = useState([]);
@@ -62,6 +65,7 @@ export function EntryForm({
   const [activePreviewPlatform, setActivePreviewPlatform] = useState('Main');
   const [campaign, setCampaign] = useState('');
   const [contentPillar, setContentPillar] = useState('');
+  const [influencerId, setInfluencerId] = useState('');
   const [entryFormErrors, setEntryFormErrors] = useState([]);
 
   useEffect(() => {
@@ -136,6 +140,7 @@ export function EntryForm({
     setActivePreviewPlatform('Main');
     setCampaign('');
     setContentPillar('');
+    setInfluencerId('');
     setEntryFormErrors([]);
     onPreviewAssetType?.(null);
   };
@@ -181,6 +186,7 @@ export function EntryForm({
       platformCaptions: cleanedCaptions,
       campaign: campaign || undefined,
       contentPillar: contentPillar || undefined,
+      influencerId: influencerId || undefined,
       workflowStatus: determineWorkflowStatus({ approvers, assetType, previewUrl }),
     });
     reset();
@@ -333,6 +339,19 @@ export function EntryForm({
                   ))}
                 </select>
               </div>
+
+              {influencers.length > 0 && (
+                <InfluencerPicker
+                  influencers={influencers}
+                  value={influencerId}
+                  onChange={(id) => {
+                    setInfluencerId(id);
+                    onInfluencerChange?.(id);
+                  }}
+                  showOnlyActive={true}
+                  label="Influencer collaboration"
+                />
+              )}
 
               <div className="space-y-2">
                 <Label>Approvers</Label>
