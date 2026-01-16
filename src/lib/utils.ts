@@ -163,6 +163,7 @@ export const STORAGE_KEYS = {
   IDEAS: 'pm-content-dashboard-ideas',
   AUDIT: 'pm-content-audit-log',
   DRAFT_ENTRY: 'pm-content-dashboard-draft-entry',
+  INFLUENCERS: 'pm-content-dashboard-influencers',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

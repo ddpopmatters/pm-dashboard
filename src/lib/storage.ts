@@ -3,10 +3,50 @@
  */
 import { STORAGE_KEYS, storageAvailable, isOlderThanDays } from './utils';
 import { sanitizeEntry, sanitizeIdea, computeStatusDetail } from './sanitizers';
-import type { Entry, Idea } from '../types/models';
+import type { Entry, Idea, Influencer, InfluencerStatus } from '../types/models';
 
 const ENTRIES_STORAGE_KEY = STORAGE_KEYS.ENTRIES;
 const IDEAS_STORAGE_KEY = STORAGE_KEYS.IDEAS;
+const INFLUENCERS_STORAGE_KEY = STORAGE_KEYS.INFLUENCERS;
+
+const VALID_INFLUENCER_STATUSES: InfluencerStatus[] = [
+  'Discovery',
+  'Outreach',
+  'Negotiating',
+  'Active',
+  'Completed',
+];
+
+/**
+ * Sanitizes an influencer record from storage
+ */
+const sanitizeInfluencer = (raw: unknown): Influencer | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj.id !== 'string' || !obj.id) return null;
+  if (typeof obj.name !== 'string' || !obj.name) return null;
+
+  const status = VALID_INFLUENCER_STATUSES.includes(obj.status as InfluencerStatus)
+    ? (obj.status as InfluencerStatus)
+    : 'Discovery';
+
+  return {
+    id: obj.id,
+    createdAt: typeof obj.createdAt === 'string' ? obj.createdAt : new Date().toISOString(),
+    createdBy: typeof obj.createdBy === 'string' ? obj.createdBy : '',
+    name: obj.name,
+    handle: typeof obj.handle === 'string' ? obj.handle : '',
+    profileUrl: typeof obj.profileUrl === 'string' ? obj.profileUrl : '',
+    platform: typeof obj.platform === 'string' ? obj.platform : '',
+    followerCount: typeof obj.followerCount === 'number' ? obj.followerCount : 0,
+    engagementRate: typeof obj.engagementRate === 'number' ? obj.engagementRate : undefined,
+    contactEmail: typeof obj.contactEmail === 'string' ? obj.contactEmail : '',
+    niche: typeof obj.niche === 'string' ? obj.niche : '',
+    estimatedRate: typeof obj.estimatedRate === 'number' ? obj.estimatedRate : undefined,
+    notes: typeof obj.notes === 'string' ? obj.notes : '',
+    status,
+  };
+};
 
 /**
  * Loads entries from localStorage, sanitizes them, and cleans up old deleted entries
@@ -80,5 +120,37 @@ export const saveIdeas = (ideas: Idea[]): void => {
     window.localStorage.setItem(IDEAS_STORAGE_KEY, JSON.stringify(ideas));
   } catch (error) {
     console.warn('Failed to persist ideas', error);
+  }
+};
+
+/**
+ * Loads influencers from localStorage
+ */
+export const loadInfluencers = (): Influencer[] => {
+  if (!storageAvailable) return [];
+  try {
+    const raw = window.localStorage.getItem(INFLUENCERS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? (parsed.map((item) => sanitizeInfluencer(item)).filter(Boolean) as Influencer[]).sort(
+          (a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''),
+        )
+      : [];
+  } catch (error) {
+    console.warn('Failed to load influencers', error);
+    return [];
+  }
+};
+
+/**
+ * Saves influencers to localStorage
+ */
+export const saveInfluencers = (influencers: Influencer[]): void => {
+  if (!storageAvailable) return;
+  try {
+    window.localStorage.setItem(INFLUENCERS_STORAGE_KEY, JSON.stringify(influencers));
+  } catch (error) {
+    console.warn('Failed to persist influencers', error);
   }
 };
