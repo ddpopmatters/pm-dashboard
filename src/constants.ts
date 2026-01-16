@@ -96,6 +96,7 @@ export const FEATURE_OPTIONS: FeatureOption[] = [
   { key: 'kanban', label: 'Production Kanban' },
   { key: 'approvals', label: 'Approvals queue' },
   { key: 'ideas', label: 'Ideas log' },
+  { key: 'influencers', label: 'Influencer tracking' },
   { key: 'admin', label: 'Admin tools' },
 ];
 
