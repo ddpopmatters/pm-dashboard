@@ -630,7 +630,7 @@ function ContentDashboard() {
   const canUseKanban = hasFeature('kanban');
   const canUseApprovals = hasFeature('approvals');
   const canUseIdeas = hasFeature('ideas');
-  const canUseInfluencers = hasFeature('influencers');
+  const canUseInfluencers = true; // Show to everyone
   const menuHasContent =
     canUseCalendar ||
     canUseKanban ||
