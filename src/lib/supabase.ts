@@ -988,6 +988,56 @@ export const SUPABASE_API = {
   },
 
   // ==========================================
+  // CUSTOM NICHES (Influencer feature)
+  // ==========================================
+
+  fetchCustomNiches: async (): Promise<string[]> => {
+    await initSupabase();
+    if (!supabase) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('custom_niches')
+        .select('niches')
+        .eq('id', 'default')
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        // Not found is ok
+        Logger.error(error, 'fetchCustomNiches');
+        return [];
+      }
+
+      return (data?.niches as string[]) || [];
+    } catch (error) {
+      Logger.error(error, 'fetchCustomNiches');
+      return [];
+    }
+  },
+
+  saveCustomNiches: async (niches: string[]): Promise<boolean> => {
+    await initSupabase();
+    if (!supabase) return false;
+
+    try {
+      const { error } = await supabase.from('custom_niches').upsert({
+        id: 'default',
+        niches: niches,
+      });
+
+      if (error) {
+        Logger.error(error, 'saveCustomNiches');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      Logger.error(error, 'saveCustomNiches');
+      return false;
+    }
+  },
+
+  // ==========================================
   // REAL-TIME SUBSCRIPTIONS
   // ==========================================
 

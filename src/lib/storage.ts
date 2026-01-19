@@ -3,7 +3,7 @@
  */
 import { STORAGE_KEYS, storageAvailable, isOlderThanDays } from './utils';
 import { sanitizeEntry, sanitizeIdea, computeStatusDetail } from './sanitizers';
-import type { Entry, Idea, Influencer, InfluencerStatus } from '../types/models';
+import type { Entry, Idea, Influencer, InfluencerStatus, PlatformProfile } from '../types/models';
 
 const ENTRIES_STORAGE_KEY = STORAGE_KEYS.ENTRIES;
 const IDEAS_STORAGE_KEY = STORAGE_KEYS.IDEAS;
@@ -18,6 +18,20 @@ const VALID_INFLUENCER_STATUSES: InfluencerStatus[] = [
 ];
 
 /**
+ * Sanitizes a platform profile from storage
+ */
+const sanitizePlatformProfile = (raw: unknown): PlatformProfile | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+  const platform = typeof obj.platform === 'string' ? obj.platform : '';
+  const handle = typeof obj.handle === 'string' ? obj.handle : '';
+  const profileUrl = typeof obj.profileUrl === 'string' ? obj.profileUrl : '';
+  // At least platform or handle should be present
+  if (!platform && !handle) return null;
+  return { platform, handle, profileUrl };
+};
+
+/**
  * Sanitizes an influencer record from storage
  */
 const sanitizeInfluencer = (raw: unknown): Influencer | null => {
@@ -30,6 +44,15 @@ const sanitizeInfluencer = (raw: unknown): Influencer | null => {
     ? (obj.status as InfluencerStatus)
     : 'Discovery';
 
+  // Sanitize platform profiles array
+  let platformProfiles: PlatformProfile[] | undefined;
+  if (Array.isArray(obj.platformProfiles)) {
+    const sanitized = obj.platformProfiles
+      .map((p) => sanitizePlatformProfile(p))
+      .filter((p): p is PlatformProfile => p !== null);
+    platformProfiles = sanitized.length > 0 ? sanitized : undefined;
+  }
+
   return {
     id: obj.id,
     createdAt: typeof obj.createdAt === 'string' ? obj.createdAt : new Date().toISOString(),
@@ -38,6 +61,7 @@ const sanitizeInfluencer = (raw: unknown): Influencer | null => {
     handle: typeof obj.handle === 'string' ? obj.handle : '',
     profileUrl: typeof obj.profileUrl === 'string' ? obj.profileUrl : '',
     platform: typeof obj.platform === 'string' ? obj.platform : '',
+    platformProfiles,
     followerCount: typeof obj.followerCount === 'number' ? obj.followerCount : 0,
     engagementRate: typeof obj.engagementRate === 'number' ? obj.engagementRate : undefined,
     contactEmail: typeof obj.contactEmail === 'string' ? obj.contactEmail : '',

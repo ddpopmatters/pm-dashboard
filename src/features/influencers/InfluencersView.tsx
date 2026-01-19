@@ -35,8 +35,18 @@ export const InfluencersView: React.FC<InfluencersViewProps> = ({
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterPlatform, setFilterPlatform] = useState<string>('All');
-  const [sortBy, setSortBy] = useState<'name' | 'followers' | 'status' | 'createdAt'>('createdAt');
+  const [sortBy, setSortBy] = useState<'name' | 'followers' | 'status' | 'niche' | 'createdAt'>(
+    'createdAt',
+  );
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  // Helper to get all platforms for an influencer (from platformProfiles or legacy field)
+  const getInfluencerPlatforms = (influencer: Influencer): string[] => {
+    if (influencer.platformProfiles && influencer.platformProfiles.length > 0) {
+      return influencer.platformProfiles.map((p) => p.platform);
+    }
+    return influencer.platform ? [influencer.platform] : [];
+  };
 
   const filtered = useMemo(() => {
     let result = [...influencers];
@@ -45,7 +55,11 @@ export const InfluencersView: React.FC<InfluencersViewProps> = ({
       result = result.filter((i) => i.status === filterStatus);
     }
     if (filterPlatform !== 'All') {
-      result = result.filter((i) => i.platform === filterPlatform);
+      // Filter by any platform in platformProfiles or legacy field
+      result = result.filter((i) => {
+        const platforms = getInfluencerPlatforms(i);
+        return platforms.includes(filterPlatform);
+      });
     }
 
     result.sort((a, b) => {
@@ -61,6 +75,9 @@ export const InfluencersView: React.FC<InfluencersViewProps> = ({
           cmp =
             INFLUENCER_STATUSES.indexOf(a.status as any) -
             INFLUENCER_STATUSES.indexOf(b.status as any);
+          break;
+        case 'niche':
+          cmp = (a.niche || '').localeCompare(b.niche || '');
           break;
         case 'createdAt':
         default:
@@ -152,8 +169,7 @@ export const InfluencersView: React.FC<InfluencersViewProps> = ({
                 >
                   Name {sortBy === 'name' && (sortDir === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="px-4 py-3">Platform</th>
-                <th className="px-4 py-3">Handle</th>
+                <th className="px-4 py-3">Platforms</th>
                 <th
                   className="cursor-pointer px-4 py-3 hover:bg-graystone-100"
                   onClick={() => handleSort('followers')}
@@ -166,7 +182,12 @@ export const InfluencersView: React.FC<InfluencersViewProps> = ({
                 >
                   Status {sortBy === 'status' && (sortDir === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="px-4 py-3">Niche</th>
+                <th
+                  className="cursor-pointer px-4 py-3 hover:bg-graystone-100"
+                  onClick={() => handleSort('niche')}
+                >
+                  Niche {sortBy === 'niche' && (sortDir === 'asc' ? '↑' : '↓')}
+                </th>
                 <th className="px-4 py-3">Linked Posts</th>
                 <th className="px-4 py-3">Est. Rate</th>
               </tr>
@@ -174,33 +195,55 @@ export const InfluencersView: React.FC<InfluencersViewProps> = ({
             <tbody className="divide-y divide-graystone-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-graystone-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-graystone-500">
                     No influencers found. Add your first one to get started.
                   </td>
                 </tr>
               ) : (
-                filtered.map((influencer) => (
-                  <tr
-                    key={influencer.id}
-                    className="cursor-pointer hover:bg-graystone-50"
-                    onClick={() => onOpenDetail(influencer.id)}
-                  >
-                    <td className="px-4 py-3 font-medium text-ocean-900">{influencer.name}</td>
-                    <td className="px-4 py-3">{influencer.platform}</td>
-                    <td className="px-4 py-3 text-graystone-600">{influencer.handle}</td>
-                    <td className="px-4 py-3">{formatFollowers(influencer.followerCount)}</td>
-                    <td className="px-4 py-3">
-                      <Badge className={INFLUENCER_STATUS_COLORS[influencer.status]}>
-                        {influencer.status}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-graystone-600">{influencer.niche || '—'}</td>
-                    <td className="px-4 py-3">{getLinkedEntryCount(influencer.id)}</td>
-                    <td className="px-4 py-3">
-                      {influencer.estimatedRate ? `$${influencer.estimatedRate}` : '—'}
-                    </td>
-                  </tr>
-                ))
+                filtered.map((influencer) => {
+                  const profiles =
+                    influencer.platformProfiles && influencer.platformProfiles.length > 0
+                      ? influencer.platformProfiles
+                      : [
+                          {
+                            platform: influencer.platform,
+                            handle: influencer.handle,
+                            profileUrl: influencer.profileUrl,
+                          },
+                        ];
+                  return (
+                    <tr
+                      key={influencer.id}
+                      className="cursor-pointer hover:bg-graystone-50"
+                      onClick={() => onOpenDetail(influencer.id)}
+                    >
+                      <td className="px-4 py-3 font-medium text-ocean-900">{influencer.name}</td>
+                      <td className="px-4 py-3">
+                        <div className="space-y-1">
+                          {profiles.map((p, i) => (
+                            <div key={i} className="text-xs">
+                              <span className="font-medium">{p.platform}</span>
+                              {p.handle && (
+                                <span className="ml-1 text-graystone-500">{p.handle}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">{formatFollowers(influencer.followerCount)}</td>
+                      <td className="px-4 py-3">
+                        <Badge className={INFLUENCER_STATUS_COLORS[influencer.status]}>
+                          {influencer.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-graystone-600">{influencer.niche || '—'}</td>
+                      <td className="px-4 py-3">{getLinkedEntryCount(influencer.id)}</td>
+                      <td className="px-4 py-3">
+                        {influencer.estimatedRate ? `£${influencer.estimatedRate}` : '—'}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

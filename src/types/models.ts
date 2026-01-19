@@ -277,6 +277,15 @@ export interface EngagementGoals {
 export type InfluencerStatus = 'Discovery' | 'Outreach' | 'Negotiating' | 'Active' | 'Completed';
 
 /**
+ * Platform profile - a single platform presence for an influencer
+ */
+export interface PlatformProfile {
+  platform: string;
+  handle: string;
+  profileUrl: string;
+}
+
+/**
  * Influencer record - tracks partnership opportunities
  */
 export interface Influencer {
@@ -286,9 +295,14 @@ export interface Influencer {
 
   // Profile info
   name: string;
+  /** @deprecated Use platformProfiles instead. Kept for backwards compatibility. */
   handle: string;
+  /** @deprecated Use platformProfiles instead. Kept for backwards compatibility. */
   profileUrl: string;
+  /** @deprecated Use platformProfiles instead. Kept for backwards compatibility. */
   platform: string;
+  /** Multiple platform profiles */
+  platformProfiles?: PlatformProfile[];
   followerCount: number;
   engagementRate?: number;
 

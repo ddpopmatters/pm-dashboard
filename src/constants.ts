@@ -246,19 +246,8 @@ export const INFLUENCER_STATUSES = [
 ] as const;
 export type InfluencerStatusType = (typeof INFLUENCER_STATUSES)[number];
 
-export const INFLUENCER_NICHES = [
-  'Tech',
-  'Lifestyle',
-  'Fitness',
-  'Fashion',
-  'Food',
-  'Travel',
-  'Finance',
-  'Education',
-  'Entertainment',
-  'Other',
-] as const;
-export type InfluencerNiche = (typeof INFLUENCER_NICHES)[number];
+export const INFLUENCER_NICHES: string[] = [];
+export type InfluencerNiche = string;
 
 export const INFLUENCER_STATUS_COLORS: Record<InfluencerStatusType, string> = {
   Discovery: 'bg-graystone-100 text-graystone-700',

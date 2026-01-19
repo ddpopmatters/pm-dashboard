@@ -123,9 +123,8 @@ import {
   saveIdeas,
   loadInfluencers,
   saveInfluencers,
-  loadCustomNiches,
-  saveCustomNiches,
 } from './lib/storage';
+import { SUPABASE_API } from './lib/supabase';
 import { InfluencersView, InfluencerModal } from './features/influencers';
 
 const { useState, useMemo, useEffect, useCallback, useRef } = React;
@@ -565,7 +564,7 @@ function ContentDashboard() {
   const [influencers, setInfluencers] = useState(() => loadInfluencers());
   const [influencerModalOpen, setInfluencerModalOpen] = useState(false);
   const [editingInfluencerId, setEditingInfluencerId] = useState(null);
-  const [customNiches, setCustomNiches] = useState(() => loadCustomNiches());
+  const [customNiches, setCustomNiches] = useState([]);
   const [filterEvergreen, setFilterEvergreen] = useState(false);
   const [newUserFirst, setNewUserFirst] = useState('');
   const [newUserLast, setNewUserLast] = useState('');
@@ -1331,14 +1330,22 @@ function ContentDashboard() {
     saveInfluencers(influencers);
   }, [influencers]);
 
+  // Load custom niches from Supabase on mount
   useEffect(() => {
-    saveCustomNiches(customNiches);
-  }, [customNiches]);
+    SUPABASE_API.fetchCustomNiches().then((niches) => {
+      if (niches.length > 0) {
+        setCustomNiches(niches);
+      }
+    });
+  }, []);
 
   const handleAddCustomNiche = useCallback((niche) => {
     setCustomNiches((prev) => {
       if (prev.includes(niche)) return prev;
-      return [...prev, niche].sort();
+      const updated = [...prev, niche].sort();
+      // Save to Supabase
+      SUPABASE_API.saveCustomNiches(updated);
+      return updated;
     });
   }, []);
 

@@ -9,7 +9,7 @@ import {
   INFLUENCER_NICHES,
   INFLUENCER_STATUS_COLORS,
 } from '../../constants';
-import type { Influencer, Entry, InfluencerStatus } from '../../types/models';
+import type { Influencer, Entry, InfluencerStatus, PlatformProfile } from '../../types/models';
 
 export interface InfluencerModalProps {
   open: boolean;
@@ -25,11 +25,18 @@ export interface InfluencerModalProps {
   onAddNiche?: (niche: string) => void;
 }
 
+const emptyPlatformProfile = (): PlatformProfile => ({
+  platform: 'Instagram',
+  handle: '',
+  profileUrl: '',
+});
+
 const emptyInfluencer = (): Omit<Influencer, 'id' | 'createdAt' | 'createdBy'> => ({
   name: '',
   handle: '',
   profileUrl: '',
   platform: 'Instagram',
+  platformProfiles: [emptyPlatformProfile()],
   followerCount: 0,
   engagementRate: undefined,
   contactEmail: '',
@@ -92,6 +99,16 @@ export const InfluencerModal: React.FC<InfluencerModalProps> = ({
     if (open) {
       if (influencer) {
         const { id, createdAt, createdBy, ...rest } = influencer;
+        // Migrate old single platform fields to platformProfiles if needed
+        if (!rest.platformProfiles || rest.platformProfiles.length === 0) {
+          rest.platformProfiles = [
+            {
+              platform: rest.platform || 'Instagram',
+              handle: rest.handle || '',
+              profileUrl: rest.profileUrl || '',
+            },
+          ];
+        }
         setDraft(rest);
       } else {
         setDraft(emptyInfluencer());
@@ -116,16 +133,52 @@ export const InfluencerModal: React.FC<InfluencerModalProps> = ({
     setDraft((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handlePlatformProfileChange = (
+    index: number,
+    field: keyof PlatformProfile,
+    value: string,
+  ) => {
+    setDraft((prev) => {
+      const profiles = [...(prev.platformProfiles || [])];
+      profiles[index] = { ...profiles[index], [field]: value };
+      return { ...prev, platformProfiles: profiles };
+    });
+  };
+
+  const handleAddPlatformProfile = () => {
+    setDraft((prev) => ({
+      ...prev,
+      platformProfiles: [...(prev.platformProfiles || []), emptyPlatformProfile()],
+    }));
+  };
+
+  const handleRemovePlatformProfile = (index: number) => {
+    setDraft((prev) => {
+      const profiles = [...(prev.platformProfiles || [])];
+      profiles.splice(index, 1);
+      return { ...prev, platformProfiles: profiles };
+    });
+  };
+
   const handleSave = () => {
     if (!draft.name.trim()) return;
 
+    // Sync first platform profile to legacy fields for backwards compatibility
+    const firstProfile = draft.platformProfiles?.[0];
+    const finalDraft = {
+      ...draft,
+      platform: firstProfile?.platform || draft.platform,
+      handle: firstProfile?.handle || draft.handle,
+      profileUrl: firstProfile?.profileUrl || draft.profileUrl,
+    };
+
     const saved: Influencer = influencer
-      ? { ...influencer, ...draft }
+      ? { ...influencer, ...finalDraft }
       : {
           id: uuid(),
           createdAt: new Date().toISOString(),
           createdBy: currentUser,
-          ...draft,
+          ...finalDraft,
         };
     onSave(saved);
     onClose();
@@ -187,38 +240,72 @@ export const InfluencerModal: React.FC<InfluencerModalProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Platform</Label>
-                  <select
-                    value={draft.platform}
-                    onChange={(e) => handleFieldChange('platform', e.target.value)}
-                    className={cx(selectBaseClasses, 'w-full px-3 py-2')}
+              {/* Platform Profiles */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Platform Profiles</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleAddPlatformProfile}
+                    className="text-ocean-600"
                   >
-                    {ALL_PLATFORMS.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
+                    + Add Platform
+                  </Button>
                 </div>
-                <div>
-                  <Label>Handle</Label>
-                  <Input
-                    value={draft.handle}
-                    onChange={(e) => handleFieldChange('handle', e.target.value)}
-                    placeholder="@username"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label>Profile URL</Label>
-                <Input
-                  value={draft.profileUrl}
-                  onChange={(e) => handleFieldChange('profileUrl', e.target.value)}
-                  placeholder="https://..."
-                />
+                {(draft.platformProfiles || []).map((profile, index) => (
+                  <div
+                    key={index}
+                    className="rounded-lg border border-graystone-200 bg-graystone-50 p-3"
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-medium text-graystone-500">
+                        Platform {index + 1}
+                      </span>
+                      {(draft.platformProfiles?.length || 0) > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePlatformProfile(index)}
+                          className="text-xs text-red-500 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={profile.platform}
+                        onChange={(e) =>
+                          handlePlatformProfileChange(index, 'platform', e.target.value)
+                        }
+                        className={cx(selectBaseClasses, 'w-full px-2 py-1.5 text-sm')}
+                      >
+                        {ALL_PLATFORMS.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                      <Input
+                        value={profile.handle}
+                        onChange={(e) =>
+                          handlePlatformProfileChange(index, 'handle', e.target.value)
+                        }
+                        placeholder="@username"
+                        className="text-sm"
+                      />
+                    </div>
+                    <Input
+                      value={profile.profileUrl}
+                      onChange={(e) =>
+                        handlePlatformProfileChange(index, 'profileUrl', e.target.value)
+                      }
+                      placeholder="https://..."
+                      className="mt-2 text-sm"
+                    />
+                  </div>
+                ))}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -312,7 +399,7 @@ export const InfluencerModal: React.FC<InfluencerModalProps> = ({
                   </div>
                 </div>
                 <div>
-                  <Label>Est. Rate ($)</Label>
+                  <Label>Est. Rate (£)</Label>
                   <Input
                     type="number"
                     value={draft.estimatedRate ?? ''}
