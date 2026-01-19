@@ -154,3 +154,34 @@ export const saveInfluencers = (influencers: Influencer[]): void => {
     console.warn('Failed to persist influencers', error);
   }
 };
+
+// Custom niches storage
+const CUSTOM_NICHES_STORAGE_KEY = STORAGE_KEYS.CUSTOM_NICHES;
+
+/**
+ * Loads custom niches from localStorage
+ */
+export const loadCustomNiches = (): string[] => {
+  if (!storageAvailable) return [];
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_NICHES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((n) => typeof n === 'string') : [];
+  } catch (error) {
+    console.warn('Failed to load custom niches', error);
+    return [];
+  }
+};
+
+/**
+ * Saves custom niches to localStorage
+ */
+export const saveCustomNiches = (niches: string[]): void => {
+  if (!storageAvailable) return;
+  try {
+    window.localStorage.setItem(CUSTOM_NICHES_STORAGE_KEY, JSON.stringify(niches));
+  } catch (error) {
+    console.warn('Failed to persist custom niches', error);
+  }
+};

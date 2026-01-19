@@ -16,11 +16,13 @@ export interface InfluencerModalProps {
   influencer: Influencer | null;
   entries: Entry[];
   currentUser: string;
+  allNiches?: string[];
   onClose: () => void;
   onSave: (influencer: Influencer) => void;
   onDelete: (id: string) => void;
   onLinkEntry: (influencerId: string, entryId: string) => void;
   onUnlinkEntry: (entryId: string) => void;
+  onAddNiche?: (niche: string) => void;
 }
 
 const emptyInfluencer = (): Omit<Influencer, 'id' | 'createdAt' | 'createdBy'> => ({
@@ -42,12 +44,45 @@ export const InfluencerModal: React.FC<InfluencerModalProps> = ({
   influencer,
   entries,
   currentUser,
+  allNiches,
   onClose,
   onSave,
   onDelete,
   onLinkEntry,
   onUnlinkEntry,
+  onAddNiche,
 }) => {
+  const [nicheInput, setNicheInput] = useState('');
+  const [showNicheDropdown, setShowNicheDropdown] = useState(false);
+
+  // Combine default niches with custom ones
+  const niches = useMemo(() => {
+    const combined = new Set([...INFLUENCER_NICHES, ...(allNiches || [])]);
+    return Array.from(combined).sort();
+  }, [allNiches]);
+
+  // Filter niches based on input
+  const filteredNiches = useMemo(() => {
+    if (!nicheInput) return niches;
+    const lower = nicheInput.toLowerCase();
+    return niches.filter((n) => n.toLowerCase().includes(lower));
+  }, [niches, nicheInput]);
+
+  const handleNicheSelect = (niche: string) => {
+    handleFieldChange('niche', niche);
+    setNicheInput('');
+    setShowNicheDropdown(false);
+  };
+
+  const handleCreateNiche = () => {
+    const trimmed = nicheInput.trim();
+    if (trimmed && !niches.includes(trimmed)) {
+      onAddNiche?.(trimmed);
+    }
+    handleFieldChange('niche', trimmed);
+    setNicheInput('');
+    setShowNicheDropdown(false);
+  };
   const isNew = !influencer;
   const [draft, setDraft] =
     useState<Omit<Influencer, 'id' | 'createdAt' | 'createdBy'>>(emptyInfluencer());
@@ -62,6 +97,8 @@ export const InfluencerModal: React.FC<InfluencerModalProps> = ({
         setDraft(emptyInfluencer());
       }
       setShowLinkPicker(false);
+      setNicheInput('');
+      setShowNicheDropdown(false);
     }
   }, [open, influencer]);
 
@@ -227,20 +264,52 @@ export const InfluencerModal: React.FC<InfluencerModalProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className="relative">
                   <Label>Niche</Label>
-                  <select
-                    value={draft.niche}
-                    onChange={(e) => handleFieldChange('niche', e.target.value)}
-                    className={cx(selectBaseClasses, 'w-full px-3 py-2')}
-                  >
-                    <option value="">Select niche</option>
-                    {INFLUENCER_NICHES.map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <Input
+                      value={nicheInput || draft.niche}
+                      onChange={(e) => {
+                        setNicheInput(e.target.value);
+                        setShowNicheDropdown(true);
+                      }}
+                      onFocus={() => setShowNicheDropdown(true)}
+                      onBlur={() => {
+                        // Delay to allow click on dropdown item
+                        setTimeout(() => setShowNicheDropdown(false), 150);
+                      }}
+                      placeholder="Type or select niche"
+                    />
+                    {showNicheDropdown && (
+                      <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-xl border border-graystone-200 bg-white py-1 shadow-lg">
+                        {filteredNiches.map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => handleNicheSelect(n)}
+                            className={cx(
+                              'w-full px-3 py-2 text-left text-sm hover:bg-ocean-50',
+                              draft.niche === n && 'bg-ocean-100 font-medium',
+                            )}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                        {nicheInput &&
+                          !niches.some((n) => n.toLowerCase() === nicheInput.toLowerCase()) && (
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={handleCreateNiche}
+                              className="w-full border-t border-graystone-100 px-3 py-2 text-left text-sm text-ocean-600 hover:bg-ocean-50"
+                            >
+                              + Create "{nicheInput}"
+                            </button>
+                          )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label>Est. Rate ($)</Label>

@@ -123,6 +123,8 @@ import {
   saveIdeas,
   loadInfluencers,
   saveInfluencers,
+  loadCustomNiches,
+  saveCustomNiches,
 } from './lib/storage';
 import { InfluencersView, InfluencerModal } from './features/influencers';
 
@@ -563,6 +565,7 @@ function ContentDashboard() {
   const [influencers, setInfluencers] = useState(() => loadInfluencers());
   const [influencerModalOpen, setInfluencerModalOpen] = useState(false);
   const [editingInfluencerId, setEditingInfluencerId] = useState(null);
+  const [customNiches, setCustomNiches] = useState(() => loadCustomNiches());
   const [filterEvergreen, setFilterEvergreen] = useState(false);
   const [newUserFirst, setNewUserFirst] = useState('');
   const [newUserLast, setNewUserLast] = useState('');
@@ -1327,6 +1330,17 @@ function ContentDashboard() {
   useEffect(() => {
     saveInfluencers(influencers);
   }, [influencers]);
+
+  useEffect(() => {
+    saveCustomNiches(customNiches);
+  }, [customNiches]);
+
+  const handleAddCustomNiche = useCallback((niche) => {
+    setCustomNiches((prev) => {
+      if (prev.includes(niche)) return prev;
+      return [...prev, niche].sort();
+    });
+  }, []);
 
   const addNotifications = (items = []) => {
     if (!items || !items.length) return;
@@ -3964,6 +3978,7 @@ function ContentDashboard() {
             }
             entries={entries}
             currentUser={currentUser}
+            allNiches={customNiches}
             onClose={() => {
               setInfluencerModalOpen(false);
               setEditingInfluencerId(null);
@@ -3978,6 +3993,7 @@ function ContentDashboard() {
             onDelete={handleDeleteInfluencer}
             onLinkEntry={handleLinkEntryToInfluencer}
             onUnlinkEntry={handleUnlinkEntryFromInfluencer}
+            onAddNiche={handleAddCustomNiche}
           />
         </div>
       </div>
