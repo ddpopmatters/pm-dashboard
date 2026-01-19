@@ -116,14 +116,7 @@ import {
 } from './lib/guidelines';
 import { notificationKey, loadNotifications, saveNotifications } from './lib/notifications';
 import { appendAudit } from './lib/audit';
-import {
-  loadEntries,
-  saveEntries,
-  loadIdeas,
-  saveIdeas,
-  loadInfluencers,
-  saveInfluencers,
-} from './lib/storage';
+import { loadEntries, saveEntries, loadIdeas, saveIdeas } from './lib/storage';
 import { SUPABASE_API } from './lib/supabase';
 import { InfluencersView, InfluencerModal } from './features/influencers';
 
@@ -561,7 +554,7 @@ function ContentDashboard() {
       return DEFAULT_PUBLISH_SETTINGS;
     }
   });
-  const [influencers, setInfluencers] = useState(() => loadInfluencers());
+  const [influencers, setInfluencers] = useState([]);
   const [influencerModalOpen, setInfluencerModalOpen] = useState(false);
   const [editingInfluencerId, setEditingInfluencerId] = useState(null);
   const [customNiches, setCustomNiches] = useState([]);
@@ -1326,9 +1319,14 @@ function ContentDashboard() {
     saveIdeas(ideas);
   }, [ideas]);
 
+  // Load influencers from Supabase on mount
   useEffect(() => {
-    saveInfluencers(influencers);
-  }, [influencers]);
+    SUPABASE_API.fetchInfluencers().then((data) => {
+      if (data.length > 0) {
+        setInfluencers(data);
+      }
+    });
+  }, []);
 
   // Load custom niches from Supabase on mount
   useEffect(() => {
@@ -2877,17 +2875,38 @@ function ContentDashboard() {
         createdAt: new Date().toISOString(),
         createdBy: currentUser,
       };
-      setInfluencers((prev) => [newInfluencer, ...prev]);
+      // Save to Supabase and update local state
+      SUPABASE_API.saveInfluencer(newInfluencer).then((saved) => {
+        if (saved) {
+          setInfluencers((prev) => [saved, ...prev]);
+        } else {
+          // Fallback to local state if save fails
+          setInfluencers((prev) => [newInfluencer, ...prev]);
+        }
+      });
     },
     [currentUser],
   );
 
   const handleUpdateInfluencer = useCallback((updated) => {
-    setInfluencers((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+    // Save to Supabase and update local state
+    SUPABASE_API.saveInfluencer(updated).then((saved) => {
+      if (saved) {
+        setInfluencers((prev) => prev.map((i) => (i.id === saved.id ? saved : i)));
+      } else {
+        // Fallback to local state if save fails
+        setInfluencers((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+      }
+    });
   }, []);
 
   const handleDeleteInfluencer = useCallback((id) => {
-    setInfluencers((prev) => prev.filter((i) => i.id !== id));
+    // Delete from Supabase and update local state
+    SUPABASE_API.deleteInfluencer(id).then((success) => {
+      if (success) {
+        setInfluencers((prev) => prev.filter((i) => i.id !== id));
+      }
+    });
     // Also unlink any entries
     setEntries((prev) =>
       prev.map((e) => (e.influencerId === id ? { ...e, influencerId: undefined } : e)),

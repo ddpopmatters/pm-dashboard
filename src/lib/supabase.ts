@@ -173,7 +173,14 @@ const mapTestingFrameworkToDb = (framework: {
   return row;
 };
 
-import type { Attachment, Entry, Idea, Guidelines } from '../types/models';
+import type {
+  Attachment,
+  Entry,
+  Idea,
+  Guidelines,
+  Influencer,
+  PlatformProfile,
+} from '../types/models';
 
 // Local type aliases for types used only in this file
 type LinkedInSubmission = {
@@ -329,6 +336,30 @@ interface TestingFrameworkRow {
   status: string;
   notes: string;
   created_at: string;
+}
+
+interface PlatformProfileRow {
+  platform: string;
+  handle: string;
+  profile_url: string;
+}
+
+interface InfluencerRow {
+  id: string;
+  created_at: string;
+  created_by: string;
+  name: string;
+  handle: string;
+  profile_url: string;
+  platform: string;
+  platform_profiles: PlatformProfileRow[] | null;
+  follower_count: number;
+  engagement_rate: number | null;
+  contact_email: string;
+  niche: string;
+  estimated_rate: number | null;
+  notes: string;
+  status: string;
 }
 
 // Activity log input
@@ -738,6 +769,76 @@ export const SUPABASE_API = {
       return true;
     } catch (error) {
       Logger.error(error, 'deleteTestingFramework');
+      return false;
+    }
+  },
+
+  // ==========================================
+  // INFLUENCERS
+  // ==========================================
+
+  fetchInfluencers: async (): Promise<Influencer[]> => {
+    await initSupabase();
+    if (!supabase) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('influencers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        Logger.error(error, 'fetchInfluencers');
+        return [];
+      }
+
+      return ((data as InfluencerRow[]) || []).map(SUPABASE_API.mapInfluencerToApp);
+    } catch (error) {
+      Logger.error(error, 'fetchInfluencers');
+      return [];
+    }
+  },
+
+  saveInfluencer: async (influencer: Influencer): Promise<Influencer | null> => {
+    await initSupabase();
+    if (!supabase) return null;
+
+    try {
+      const dbInfluencer = SUPABASE_API.mapInfluencerToDb(influencer);
+
+      const { data, error } = await supabase
+        .from('influencers')
+        .upsert(dbInfluencer)
+        .select()
+        .single();
+
+      if (error) {
+        Logger.error(error, 'saveInfluencer');
+        return null;
+      }
+
+      return data ? SUPABASE_API.mapInfluencerToApp(data as InfluencerRow) : null;
+    } catch (error) {
+      Logger.error(error, 'saveInfluencer');
+      return null;
+    }
+  },
+
+  deleteInfluencer: async (id: string): Promise<boolean> => {
+    await initSupabase();
+    if (!supabase) return false;
+
+    try {
+      const { error } = await supabase.from('influencers').delete().eq('id', id);
+
+      if (error) {
+        Logger.error(error, 'deleteInfluencer');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      Logger.error(error, 'deleteInfluencer');
       return false;
     }
   },
@@ -1188,6 +1289,64 @@ export const SUPABASE_API = {
     hashtag_tips: guidelines.hashtagTips,
     teams_webhook_url: guidelines.teamsWebhookUrl,
   }),
+
+  mapInfluencerToApp: (row: InfluencerRow): Influencer => {
+    // Map platform profiles from DB format
+    const platformProfiles: PlatformProfile[] | undefined = row.platform_profiles
+      ? row.platform_profiles.map((p) => ({
+          platform: p.platform || '',
+          handle: p.handle || '',
+          profileUrl: p.profile_url || '',
+        }))
+      : undefined;
+
+    return {
+      id: row.id,
+      createdAt: row.created_at,
+      createdBy: row.created_by,
+      name: row.name,
+      handle: row.handle || '',
+      profileUrl: row.profile_url || '',
+      platform: row.platform || '',
+      platformProfiles,
+      followerCount: row.follower_count || 0,
+      engagementRate: row.engagement_rate ?? undefined,
+      contactEmail: row.contact_email || '',
+      niche: row.niche || '',
+      estimatedRate: row.estimated_rate ?? undefined,
+      notes: row.notes || '',
+      status: row.status as Influencer['status'],
+    };
+  },
+
+  mapInfluencerToDb: (influencer: Influencer) => {
+    // Map platform profiles to DB format
+    const platformProfiles = influencer.platformProfiles
+      ? influencer.platformProfiles.map((p) => ({
+          platform: p.platform || '',
+          handle: p.handle || '',
+          profile_url: p.profileUrl || '',
+        }))
+      : null;
+
+    return {
+      id: influencer.id,
+      created_at: influencer.createdAt,
+      created_by: influencer.createdBy,
+      name: influencer.name,
+      handle: influencer.handle || '',
+      profile_url: influencer.profileUrl || '',
+      platform: influencer.platform || '',
+      platform_profiles: platformProfiles,
+      follower_count: influencer.followerCount || 0,
+      engagement_rate: influencer.engagementRate ?? null,
+      contact_email: influencer.contactEmail || '',
+      niche: influencer.niche || '',
+      estimated_rate: influencer.estimatedRate ?? null,
+      notes: influencer.notes || '',
+      status: influencer.status,
+    };
+  },
 };
 
 // ============================================
