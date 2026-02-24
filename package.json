@@ -1,0 +1,25 @@
+{
+  "name": "pm-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint \"{api,public,src,tools}/**/*.{js,jsx,ts,tsx,mjs}\" --max-warnings=0",
+    "format": "prettier -w \"{api,public,src,tools}/**/*.{js,jsx,ts,tsx,mjs,css,html,json,md}\"",
+    "typecheck": "tsc --noEmit",
+    "test:copy-check": "node tools/test-copy-check.mjs",
+    "build:dashboard": "esbuild src/content-dashboard.jsx --bundle --jsx-factory=React.createElement --jsx-fragment=React.Fragment --sourcemap --outfile=public/js/content-dashboard.bundle.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "@vercel/node": "^3.2.20",
+    "eslint": "^9.11.0",
+    "@typescript-eslint/eslint-plugin": "^8.2.0",
+    "@typescript-eslint/parser": "^8.2.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.34.0",
+    "esbuild": "^0.25.4",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.0"
+  }
+}

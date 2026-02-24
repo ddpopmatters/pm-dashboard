@@ -5,6 +5,10 @@ Respect HARD CONSTRAINTS: do not exceed character limits; do not change URLs; in
 Preserve meaning and factual content. Return ONLY strict JSON with keys: score, flags, suggestion, variants, explanations. No extra text or markdown.
 If constraints are impossible, produce the closest valid text and list violations in flags.`;
 
+// Allow model and API base to be configured via environment variables
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const OPENAI_API_BASE = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1';
+
 type Platform =
   | 'Instagram'
   | 'LinkedIn'
@@ -259,14 +263,14 @@ function buildSchemaDescription() {
 
 async function callLLM(prompt: string, temperature: number): Promise<string> {
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`${OPENAI_API_BASE}/chat/completions`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-codex-high',
+        model: OPENAI_MODEL,
         temperature,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -501,4 +505,3 @@ function ruleBasedFallback(input: CopyCheckInput): CopyCheckOutput {
     explanations: ['Rule-based fallback applied due to JSON issues.'],
   };
 }
-*** End Patch
