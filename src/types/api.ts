@@ -144,7 +144,6 @@ export interface UpdateGuidelinesRequest {
   requiredPhrases?: string[];
   languageGuide?: string;
   hashtagTips?: string;
-  teamsWebhookUrl?: string;
 }
 
 // GET /api/guidelines returns Guidelines directly

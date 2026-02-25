@@ -14,7 +14,6 @@ export const FALLBACK_GUIDELINES: Guidelines = {
   languageGuide: '',
   hashtagTips: '',
   charLimits: { ...PLATFORM_DEFAULT_LIMITS },
-  teamsWebhookUrl: '',
 };
 
 /**
@@ -48,8 +47,7 @@ export const normalizeGuidelines = (raw: unknown): Guidelines => {
         ? value
         : (PLATFORM_DEFAULT_LIMITS as Record<string, number>)[platform] || 500;
   });
-  const teamsWebhookUrl = typeof data.teamsWebhookUrl === 'string' ? data.teamsWebhookUrl : '';
-  return { bannedWords, requiredPhrases, languageGuide, hashtagTips, charLimits, teamsWebhookUrl };
+  return { bannedWords, requiredPhrases, languageGuide, hashtagTips, charLimits };
 };
 
 /**
