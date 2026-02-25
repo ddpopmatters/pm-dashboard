@@ -1,7 +1,6 @@
 "use strict";
 (() => {
-  // src/content-dashboard.jsx
-  var { useState, useMemo, useEffect } = React;
+  // src/constants.js
   var ASSET_TYPES = ["Video", "Design", "Carousel"];
   var IDEA_TYPES = ["Topic", "Theme", "Series", "Campaign", "Other"];
   var KANBAN_STATUSES = [
@@ -50,7 +49,6 @@
     Threads: 500,
     Pinterest: 500
   };
-  var GUIDELINES_STORAGE_KEY = "content-guidelines-settings-v1";
   var DEFAULT_GUIDELINES = {
     bannedWords: ["shocking", "apocalypse"],
     requiredPhrases: ["Population Matters"],
@@ -135,46 +133,14 @@
     ]
   };
   var PLATFORM_PREVIEW_META = {
-    Instagram: {
-      name: "Your Brand",
-      handle: "@yourbrand",
-      accent: "#F56040"
-    },
-    Facebook: {
-      name: "Your Brand",
-      handle: "facebook.com/yourbrand",
-      accent: "#1877F2"
-    },
-    LinkedIn: {
-      name: "Your Brand",
-      handle: "Your Role \u2022 Company",
-      accent: "#0A66C2"
-    },
-    "X/Twitter": {
-      name: "Your Brand",
-      handle: "@yourbrand",
-      accent: "#1D9BF0"
-    },
-    TikTok: {
-      name: "yourbrand",
-      handle: "Your Brand",
-      accent: "#EE1D52"
-    },
-    YouTube: {
-      name: "Your Brand",
-      handle: "1.2K subscribers",
-      accent: "#FF0000"
-    },
-    Threads: {
-      name: "Your Brand",
-      handle: "@yourbrand",
-      accent: "#101010"
-    },
-    Pinterest: {
-      name: "Your Brand",
-      handle: "1.5M followers",
-      accent: "#E60023"
-    }
+    Instagram: { name: "Your Brand", handle: "@yourbrand", accent: "#F56040" },
+    Facebook: { name: "Your Brand", handle: "facebook.com/yourbrand", accent: "#1877F2" },
+    LinkedIn: { name: "Your Brand", handle: "Your Role \u2022 Company", accent: "#0A66C2" },
+    "X/Twitter": { name: "Your Brand", handle: "@yourbrand", accent: "#1D9BF0" },
+    TikTok: { name: "yourbrand", handle: "Your Brand", accent: "#EE1D52" },
+    YouTube: { name: "Your Brand", handle: "1.2K subscribers", accent: "#FF0000" },
+    Threads: { name: "Your Brand", handle: "@yourbrand", accent: "#101010" },
+    Pinterest: { name: "Your Brand", handle: "1.5M followers", accent: "#E60023" }
   };
   var STORAGE_KEY = "pm-content-dashboard-v1";
   var USER_STORAGE_KEY = "pm-content-dashboard-user";
@@ -182,8 +148,28 @@
   var IDEAS_STORAGE_KEY = "pm-content-dashboard-ideas";
   var LINKEDIN_STORAGE_KEY = "pm-content-dashboard-linkedin";
   var TESTING_STORAGE_KEY = "pm-content-dashboard-testing";
-  var storageAvailable = typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  var GUIDELINES_STORAGE_KEY = "content-guidelines-settings-v1";
+  var AUDIT_STORAGE_KEY = "pm-content-audit-log";
   var MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+  var storageAvailable = typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  var PERFORMANCE_HEADER_KEYS = {
+    entryId: ["entry_id", "content_id", "dashboard_id", "id"],
+    date: ["date", "post_date", "published_date", "scheduled_date"],
+    platform: ["platform", "channel", "network"],
+    caption: ["caption", "copy", "post_text", "text"],
+    url: ["url", "link", "permalink"]
+  };
+  var PERFORMANCE_IGNORED_METRIC_KEYS = /* @__PURE__ */ new Set([
+    ...PERFORMANCE_HEADER_KEYS.entryId,
+    ...PERFORMANCE_HEADER_KEYS.date,
+    ...PERFORMANCE_HEADER_KEYS.platform,
+    ...PERFORMANCE_HEADER_KEYS.caption,
+    ...PERFORMANCE_HEADER_KEYS.url,
+    "notes",
+    "comments"
+  ]);
+
+  // src/utils.js
   var cx = (...xs) => xs.filter(Boolean).join(" ");
   var daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
   var monthStartISO = (d) => new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
@@ -319,22 +305,6 @@
     if (Number.isNaN(parsed.getTime())) return "";
     return parsed.toISOString().slice(0, 10);
   };
-  var PERFORMANCE_HEADER_KEYS = {
-    entryId: ["entry_id", "content_id", "dashboard_id", "id"],
-    date: ["date", "post_date", "published_date", "scheduled_date"],
-    platform: ["platform", "channel", "network"],
-    caption: ["caption", "copy", "post_text", "text"],
-    url: ["url", "link", "permalink"]
-  };
-  var PERFORMANCE_IGNORED_METRIC_KEYS = /* @__PURE__ */ new Set([
-    ...PERFORMANCE_HEADER_KEYS.entryId,
-    ...PERFORMANCE_HEADER_KEYS.date,
-    ...PERFORMANCE_HEADER_KEYS.platform,
-    ...PERFORMANCE_HEADER_KEYS.caption,
-    ...PERFORMANCE_HEADER_KEYS.url,
-    "notes",
-    "comments"
-  ]);
   var mergePerformanceData = (entries, dataset) => {
     const headers = Array.isArray(dataset?.headers) ? dataset.headers : [];
     const records = Array.isArray(dataset?.records) ? dataset.records : [];
@@ -354,9 +324,15 @@
     normalizedHeaders.forEach((key, idx) => {
       if (!headerLabels[key]) headerLabels[key] = headers[idx].trim();
     });
-    const hasEntryId = normalizedHeaders.some((key) => PERFORMANCE_HEADER_KEYS.entryId.includes(key));
-    const hasDate = normalizedHeaders.some((key) => PERFORMANCE_HEADER_KEYS.date.includes(key));
-    const hasPlatform = normalizedHeaders.some((key) => PERFORMANCE_HEADER_KEYS.platform.includes(key));
+    const hasEntryId = normalizedHeaders.some(
+      (key) => PERFORMANCE_HEADER_KEYS.entryId.includes(key)
+    );
+    const hasDate = normalizedHeaders.some(
+      (key) => PERFORMANCE_HEADER_KEYS.date.includes(key)
+    );
+    const hasPlatform = normalizedHeaders.some(
+      (key) => PERFORMANCE_HEADER_KEYS.platform.includes(key)
+    );
     if (!hasEntryId && (!hasDate || !hasPlatform)) {
       summary.errors.push({
         rowNumber: 1,
@@ -364,7 +340,9 @@
       });
       return { nextEntries: entries, summary };
     }
-    const metricKeys = normalizedHeaders.filter((key) => !PERFORMANCE_IGNORED_METRIC_KEYS.has(key));
+    const metricKeys = normalizedHeaders.filter(
+      (key) => !PERFORMANCE_IGNORED_METRIC_KEYS.has(key)
+    );
     if (!metricKeys.length) {
       summary.errors.push({
         rowNumber: 1,
@@ -469,8 +447,14 @@
           matchedEntry = candidates[0];
           entryIndex = entryIndexById.get(matchedEntry.id);
         } else {
-          const snippet = getFirstValue(normalizedRow, PERFORMANCE_HEADER_KEYS.caption).toLowerCase();
-          const link = getFirstValue(normalizedRow, PERFORMANCE_HEADER_KEYS.url).toLowerCase();
+          const snippet = getFirstValue(
+            normalizedRow,
+            PERFORMANCE_HEADER_KEYS.caption
+          ).toLowerCase();
+          const link = getFirstValue(
+            normalizedRow,
+            PERFORMANCE_HEADER_KEYS.url
+          ).toLowerCase();
           let filtered = candidates;
           if (snippet) {
             filtered = filtered.filter(
@@ -590,13 +574,7 @@
       const type = typeof attachment.type === "string" ? attachment.type : "";
       const size = typeof attachment.size === "number" ? attachment.size : 0;
       if (!dataUrl) return null;
-      return {
-        id: attachment.id || uuid(),
-        name,
-        dataUrl,
-        type,
-        size
-      };
+      return { id: attachment.id || uuid(), name, dataUrl, type, size };
     }).filter(Boolean);
   };
   var normalizeGuidelines = (raw) => {
@@ -616,29 +594,14 @@
       charLimits[platform] = Number.isFinite(value) && value > 0 ? value : PLATFORM_DEFAULT_LIMITS[platform] || 500;
     });
     const teamsWebhookUrl = typeof raw.teamsWebhookUrl === "string" ? raw.teamsWebhookUrl : "";
-    return { bannedWords, requiredPhrases, languageGuide, hashtagTips, charLimits, teamsWebhookUrl };
-  };
-  var loadGuidelines = () => {
-    if (!storageAvailable) {
-      return normalizeGuidelines(DEFAULT_GUIDELINES);
-    }
-    try {
-      const raw = window.localStorage.getItem(GUIDELINES_STORAGE_KEY);
-      if (!raw) return normalizeGuidelines(DEFAULT_GUIDELINES);
-      return normalizeGuidelines(JSON.parse(raw));
-    } catch {
-      return normalizeGuidelines(DEFAULT_GUIDELINES);
-    }
-  };
-  var saveGuidelines = (guidelines) => {
-    if (!storageAvailable) return;
-    try {
-      window.localStorage.setItem(
-        GUIDELINES_STORAGE_KEY,
-        JSON.stringify(normalizeGuidelines(guidelines))
-      );
-    } catch {
-    }
+    return {
+      bannedWords,
+      requiredPhrases,
+      languageGuide,
+      hashtagTips,
+      charLimits,
+      teamsWebhookUrl
+    };
   };
   var resolveMentionCandidate = (candidate, names) => {
     if (!candidate) return null;
@@ -691,116 +654,6 @@
   var notificationKey = (type, entryId, user, meta = {}) => {
     const commentId = meta.commentId || "";
     return [type, entryId || "none", user || "", commentId].join(":");
-  };
-  var loadNotifications = () => {
-    if (!storageAvailable) return [];
-    try {
-      const raw = window.localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map((item) => ({
-        id: item.id || uuid(),
-        entryId: item.entryId,
-        user: item.user,
-        type: item.type,
-        message: item.message,
-        createdAt: item.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
-        read: Boolean(item.read),
-        key: item.key || notificationKey(item.type, item.entryId, item.user, item.meta),
-        meta: item.meta && typeof item.meta === "object" ? item.meta : {}
-      })).filter((item) => item.entryId && item.user && item.type && item.message) : [];
-    } catch (error) {
-      console.warn("Failed to load notifications", error);
-      return [];
-    }
-  };
-  var saveNotifications = (items) => {
-    if (!storageAvailable) return;
-    try {
-      window.localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(items));
-    } catch (error) {
-      console.warn("Failed to persist notifications", error);
-    }
-  };
-  var AUDIT_STORAGE_KEY = "pm-content-audit-log";
-  var appendAudit = (event) => {
-    if (!storageAvailable) return;
-    try {
-      const raw = window.localStorage.getItem(AUDIT_STORAGE_KEY);
-      const list = raw ? JSON.parse(raw) : [];
-      const entry = {
-        id: uuid(),
-        ts: (/* @__PURE__ */ new Date()).toISOString(),
-        user: event?.user || "Unknown",
-        entryId: event?.entryId || "",
-        action: event?.action || "",
-        meta: event?.meta || {}
-      };
-      list.unshift(entry);
-      window.localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(list.slice(0, 500)));
-    } catch (e) {
-      console.warn("Failed to append audit", e);
-    }
-  };
-  var loadIdeas = () => {
-    if (!storageAvailable) return [];
-    try {
-      const raw = window.localStorage.getItem(IDEAS_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map((item) => sanitizeIdea(item)).filter(Boolean).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")) : [];
-    } catch (error) {
-      console.warn("Failed to load ideas", error);
-      return [];
-    }
-  };
-  var saveIdeas = (ideas) => {
-    if (!storageAvailable) return;
-    try {
-      window.localStorage.setItem(IDEAS_STORAGE_KEY, JSON.stringify(ideas));
-    } catch (error) {
-      console.warn("Failed to persist ideas", error);
-    }
-  };
-  var loadLinkedInSubmissions = () => {
-    if (!storageAvailable) return [];
-    try {
-      const raw = window.localStorage.getItem(LINKEDIN_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map((item) => sanitizeLinkedInSubmission(item)).filter(Boolean).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")) : [];
-    } catch (error) {
-      console.warn("Failed to load LinkedIn submissions", error);
-      return [];
-    }
-  };
-  var saveLinkedInSubmissions = (items) => {
-    if (!storageAvailable) return;
-    try {
-      window.localStorage.setItem(LINKEDIN_STORAGE_KEY, JSON.stringify(items));
-    } catch (error) {
-      console.warn("Failed to persist LinkedIn submissions", error);
-    }
-  };
-  var loadTestingFrameworks = () => {
-    if (!storageAvailable) return [];
-    try {
-      const raw = window.localStorage.getItem(TESTING_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map((item) => sanitizeTestingFramework(item)).filter(Boolean).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")) : [];
-    } catch (error) {
-      console.warn("Failed to load testing frameworks", error);
-      return [];
-    }
-  };
-  var saveTestingFrameworks = (items) => {
-    if (!storageAvailable) return;
-    try {
-      window.localStorage.setItem(TESTING_STORAGE_KEY, JSON.stringify(items));
-    } catch (error) {
-      console.warn("Failed to persist testing frameworks", error);
-    }
   };
   var sanitizeEntry = (entry) => {
     if (!entry || typeof entry !== "object") return null;
@@ -947,6 +800,94 @@
     const cleaned = url.split("?")[0].toLowerCase();
     return /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(cleaned);
   };
+
+  // src/storage.js
+  function readStorage(key, fallback) {
+    if (!storageAvailable) return fallback;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return fallback;
+      return JSON.parse(raw);
+    } catch (error) {
+      console.warn(`Failed to read ${key}`, error);
+      return fallback;
+    }
+  }
+  function writeStorage(key, value) {
+    if (!storageAvailable) return;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.warn(`Failed to write ${key}`, error);
+    }
+  }
+  var loadGuidelines = () => {
+    const raw = readStorage(GUIDELINES_STORAGE_KEY, null);
+    return normalizeGuidelines(raw || void 0);
+  };
+  var saveGuidelines = (guidelines) => {
+    writeStorage(GUIDELINES_STORAGE_KEY, normalizeGuidelines(guidelines));
+  };
+  var loadNotifications = () => {
+    const parsed = readStorage(NOTIFICATIONS_STORAGE_KEY, []);
+    return Array.isArray(parsed) ? parsed.map((item) => ({
+      id: item.id || uuid(),
+      entryId: item.entryId,
+      user: item.user,
+      type: item.type,
+      message: item.message,
+      createdAt: item.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+      read: Boolean(item.read),
+      key: item.key || notificationKey(item.type, item.entryId, item.user, item.meta),
+      meta: item.meta && typeof item.meta === "object" ? item.meta : {}
+    })).filter((item) => item.entryId && item.user && item.type && item.message) : [];
+  };
+  var saveNotifications = (items) => {
+    writeStorage(NOTIFICATIONS_STORAGE_KEY, items);
+  };
+  var appendAudit = (event) => {
+    if (!storageAvailable) return;
+    try {
+      const raw = window.localStorage.getItem(AUDIT_STORAGE_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      const entry = {
+        id: uuid(),
+        ts: (/* @__PURE__ */ new Date()).toISOString(),
+        user: event?.user || "Unknown",
+        entryId: event?.entryId || "",
+        action: event?.action || "",
+        meta: event?.meta || {}
+      };
+      list.unshift(entry);
+      window.localStorage.setItem(
+        AUDIT_STORAGE_KEY,
+        JSON.stringify(list.slice(0, 500))
+      );
+    } catch (e) {
+      console.warn("Failed to append audit", e);
+    }
+  };
+  var loadIdeas = () => {
+    const parsed = readStorage(IDEAS_STORAGE_KEY, []);
+    return Array.isArray(parsed) ? parsed.map((item) => sanitizeIdea(item)).filter(Boolean).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")) : [];
+  };
+  var saveIdeas = (ideas) => {
+    writeStorage(IDEAS_STORAGE_KEY, ideas);
+  };
+  var loadLinkedInSubmissions = () => {
+    const parsed = readStorage(LINKEDIN_STORAGE_KEY, []);
+    return Array.isArray(parsed) ? parsed.map((item) => sanitizeLinkedInSubmission(item)).filter(Boolean).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")) : [];
+  };
+  var saveLinkedInSubmissions = (items) => {
+    writeStorage(LINKEDIN_STORAGE_KEY, items);
+  };
+  var loadTestingFrameworks = () => {
+    const parsed = readStorage(TESTING_STORAGE_KEY, []);
+    return Array.isArray(parsed) ? parsed.map((item) => sanitizeTestingFramework(item)).filter(Boolean).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")) : [];
+  };
+  var saveTestingFrameworks = (items) => {
+    writeStorage(TESTING_STORAGE_KEY, items);
+  };
   function loadEntries() {
     if (!storageAvailable) return [];
     try {
@@ -957,7 +898,9 @@
         ...sanitized,
         statusDetail: computeStatusDetail(sanitized)
       }));
-      const kept = migrated.filter((entry) => !(entry.deletedAt && isOlderThanDays(entry.deletedAt, 30)));
+      const kept = migrated.filter(
+        (entry) => !(entry.deletedAt && isOlderThanDays(entry.deletedAt, 30))
+      );
       if (kept.length !== migrated.length && storageAvailable) {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(kept));
       }
@@ -968,32 +911,11 @@
     }
   }
   function saveEntries(entries) {
-    if (!storageAvailable) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    } catch (error) {
-      console.warn("Failed to persist entries", error);
-    }
+    writeStorage(STORAGE_KEY, entries);
   }
-  (() => {
-    console.assert(daysInMonth(2024, 1) === 29, "Feb 2024 = 29 days");
-    console.assert(isOlderThanDays(new Date(Date.now() - 31 * 864e5).toISOString(), 30), "trash cutoff");
-    const idA = uuid();
-    const idB = uuid();
-    console.assert(idA !== idB, "uuid should be unique-ish");
-    const ms = monthStartISO(/* @__PURE__ */ new Date());
-    const me = monthEndISO(/* @__PURE__ */ new Date());
-    console.assert(ms <= me, "month start should be <= end");
-    const hasAnyPlatform = (selected, platforms) => selected.length === 0 || selected.some((p) => platforms.includes(p));
-    console.assert(hasAnyPlatform(["LinkedIn"], ["Instagram", "LinkedIn"]) === true, "platform filter OR logic");
-    const unapproveOnEdit = (status) => status === "Approved" ? "Pending" : status;
-    console.assert(unapproveOnEdit("Approved") === "Pending", "editing approved should un-approve");
-    const checklist = ensureChecklist({ assetCreated: 1 });
-    console.assert(Object.keys(checklist).length === CHECKLIST_ITEMS.length, "checklist length");
-    console.assert(checklist.assetCreated === true && checklist.altTextWritten === false, "checklist migration");
-    const mentions = extractMentions("@Dan Davis please sync with @Comms Lead");
-    console.assert(mentions.length === 2, "extract mentions");
-  })();
+
+  // src/components/ui.jsx
+  var { useState } = React;
   var iconBase = "h-4 w-4 shrink-0 text-ocean-500";
   var SvgIcon = ({ children, className }) => /* @__PURE__ */ React.createElement(
     "svg",
@@ -1228,6 +1150,9 @@
     );
   };
   var FieldRow = ({ label, children }) => /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-3 gap-4" }, /* @__PURE__ */ React.createElement("div", { className: "col-span-1 pt-2 text-sm font-medium text-graystone-700" }, label), /* @__PURE__ */ React.createElement("div", { className: "col-span-2 space-y-2 text-sm text-graystone-800" }, children));
+
+  // src/content-dashboard.jsx
+  var { useState: useState2, useMemo, useEffect } = React;
   function EntryForm({
     monthCursor,
     onSubmit,
@@ -1237,29 +1162,29 @@
     guidelines = DEFAULT_GUIDELINES,
     currentUser = ""
   }) {
-    const [date, setDate] = useState(() => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
-    const [approvers, setApprovers] = useState([]);
-    const [author, setAuthor] = useState("");
-    const [platforms, setPlatforms] = useState([]);
-    const [allPlatforms, setAllPlatforms] = useState(false);
-    const [caption, setCaption] = useState("");
-    const [url, setUrl] = useState("");
-    const [assetType, setAssetType] = useState("Design");
-    const [script, setScript] = useState("");
-    const [designCopy, setDesignCopy] = useState("");
-    const [slidesCount, setSlidesCount] = useState(3);
-    const [carouselSlides, setCarouselSlides] = useState(["", "", ""]);
-    const [firstComment, setFirstComment] = useState("");
-    const [previewUrl, setPreviewUrl] = useState("");
-    const [previewUploadError, setPreviewUploadError] = useState("");
-    const [overrideConflict, setOverrideConflict] = useState(false);
-    const [platformCaptions, setPlatformCaptions] = useState({});
-    const [activeCaptionTab, setActiveCaptionTab] = useState("Main");
-    const [activePreviewPlatform, setActivePreviewPlatform] = useState("Main");
-    const [workflowStatus, setWorkflowStatus] = useState(KANBAN_STATUSES[0]);
-    const [campaign, setCampaign] = useState("");
-    const [contentPillar, setContentPillar] = useState("");
-    const [testingFrameworkId, setTestingFrameworkId] = useState("");
+    const [date, setDate] = useState2(() => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
+    const [approvers, setApprovers] = useState2([]);
+    const [author, setAuthor] = useState2("");
+    const [platforms, setPlatforms] = useState2([]);
+    const [allPlatforms, setAllPlatforms] = useState2(false);
+    const [caption, setCaption] = useState2("");
+    const [url, setUrl] = useState2("");
+    const [assetType, setAssetType] = useState2("Design");
+    const [script, setScript] = useState2("");
+    const [designCopy, setDesignCopy] = useState2("");
+    const [slidesCount, setSlidesCount] = useState2(3);
+    const [carouselSlides, setCarouselSlides] = useState2(["", "", ""]);
+    const [firstComment, setFirstComment] = useState2("");
+    const [previewUrl, setPreviewUrl] = useState2("");
+    const [previewUploadError, setPreviewUploadError] = useState2("");
+    const [overrideConflict, setOverrideConflict] = useState2(false);
+    const [platformCaptions, setPlatformCaptions] = useState2({});
+    const [activeCaptionTab, setActiveCaptionTab] = useState2("Main");
+    const [activePreviewPlatform, setActivePreviewPlatform] = useState2("Main");
+    const [workflowStatus, setWorkflowStatus] = useState2(KANBAN_STATUSES[0]);
+    const [campaign, setCampaign] = useState2("");
+    const [contentPillar, setContentPillar] = useState2("");
+    const [testingFrameworkId, setTestingFrameworkId] = useState2("");
     const dayOptions = useMemo(() => {
       const total = daysInMonth(monthCursor.getFullYear(), monthCursor.getMonth());
       return Array.from(
@@ -1683,15 +1608,15 @@
     ));
   }
   function IdeaForm({ onSubmit, currentUser }) {
-    const [type, setType] = useState(IDEA_TYPES[0]);
-    const [title, setTitle] = useState("");
-    const [notes, setNotes] = useState("");
-    const [inspiration, setInspiration] = useState("");
-    const [targetDate, setTargetDate] = useState("");
-    const [targetMonth, setTargetMonth] = useState("");
-    const [links, setLinks] = useState([""]);
-    const [attachments, setAttachments] = useState([]);
-    const [uploadError, setUploadError] = useState("");
+    const [type, setType] = useState2(IDEA_TYPES[0]);
+    const [title, setTitle] = useState2("");
+    const [notes, setNotes] = useState2("");
+    const [inspiration, setInspiration] = useState2("");
+    const [targetDate, setTargetDate] = useState2("");
+    const [targetMonth, setTargetMonth] = useState2("");
+    const [links, setLinks] = useState2([""]);
+    const [attachments, setAttachments] = useState2([]);
+    const [uploadError, setUploadError] = useState2("");
     const reset = () => {
       setType(IDEA_TYPES[0]);
       setTitle("");
@@ -1828,20 +1753,20 @@
     ), uploadError && /* @__PURE__ */ React.createElement("p", { className: "text-xs text-red-600" }, uploadError), attachments.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, attachments.map((attachment) => /* @__PURE__ */ React.createElement("div", { key: attachment.id, className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement(IdeaAttachment, { attachment }), /* @__PURE__ */ React.createElement(Button, { type: "button", variant: "ghost", size: "sm", onClick: () => removeAttachment(attachment.id) }, "Remove"))))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement(Button, { type: "submit", className: "gap-2" }, /* @__PURE__ */ React.createElement(PlusIcon, { className: "h-4 w-4 text-white" }), "Log idea"), /* @__PURE__ */ React.createElement(Button, { type: "button", variant: "outline", onClick: reset }, "Reset")))));
   }
   function LinkedInSubmissionForm({ onSubmit, currentUser }) {
-    const [submissionType, setSubmissionType] = useState(LINKEDIN_TYPES[0]);
+    const [submissionType, setSubmissionType] = useState2(LINKEDIN_TYPES[0]);
     const initialOwner = DEFAULT_APPROVERS.includes(currentUser) ? currentUser : DEFAULT_APPROVERS[0];
-    const [owner, setOwner] = useState(initialOwner);
-    const [submitter, setSubmitter] = useState(
+    const [owner, setOwner] = useState2(initialOwner);
+    const [submitter, setSubmitter] = useState2(
       DEFAULT_APPROVERS.includes(currentUser) ? currentUser : DEFAULT_APPROVERS[0]
     );
-    const [postCopy, setPostCopy] = useState("");
-    const [comments, setComments] = useState("");
-    const [status, setStatus] = useState(LINKEDIN_STATUSES[0]);
-    const [targetDate, setTargetDate] = useState("");
-    const [links, setLinks] = useState([""]);
-    const [attachments, setAttachments] = useState([]);
-    const [uploadError, setUploadError] = useState("");
-    const [title, setTitle] = useState("LinkedIn draft");
+    const [postCopy, setPostCopy] = useState2("");
+    const [comments, setComments] = useState2("");
+    const [status, setStatus] = useState2(LINKEDIN_STATUSES[0]);
+    const [targetDate, setTargetDate] = useState2("");
+    const [links, setLinks] = useState2([""]);
+    const [attachments, setAttachments] = useState2([]);
+    const [uploadError, setUploadError] = useState2("");
+    const [title, setTitle] = useState2("LinkedIn draft");
     useEffect(() => {
       if (DEFAULT_APPROVERS.includes(currentUser)) {
         setOwner(currentUser);
@@ -1996,7 +1921,7 @@
     ), uploadError && /* @__PURE__ */ React.createElement("p", { className: "text-xs text-red-600" }, uploadError), attachments.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, attachments.map((attachment) => /* @__PURE__ */ React.createElement("div", { key: attachment.id, className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement(IdeaAttachment, { attachment }), /* @__PURE__ */ React.createElement(Button, { type: "button", variant: "ghost", size: "sm", onClick: () => removeAttachment(attachment.id) }, "Remove"))))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement(Button, { type: "submit", className: "gap-2" }, /* @__PURE__ */ React.createElement(PlusIcon, { className: "h-4 w-4" }), "Submit for review"), /* @__PURE__ */ React.createElement(Button, { type: "button", variant: "outline", onClick: reset }, "Reset")))));
   }
   function LinkedInSubmissionList({ submissions, onStatusChange }) {
-    const [filter, setFilter] = useState("All");
+    const [filter, setFilter] = useState2("All");
     const filtered = useMemo(() => {
       if (filter === "All") return submissions;
       return submissions.filter((item) => item.status === filter);
@@ -2021,13 +1946,13 @@
     )), /* @__PURE__ */ React.createElement("div", { className: "text-lg font-semibold text-ocean-900" }, submission.title), /* @__PURE__ */ React.createElement("div", { className: "whitespace-pre-wrap text-sm text-graystone-700" }, submission.postCopy), submission.comments && /* @__PURE__ */ React.createElement("div", { className: "rounded-xl bg-aqua-50 px-3 py-2 text-xs text-ocean-700" }, /* @__PURE__ */ React.createElement("span", { className: "font-semibold" }, "Comments:"), " ", submission.comments), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap items-center gap-3 text-xs text-graystone-500" }, submission.targetDate ? /* @__PURE__ */ React.createElement("span", null, "Target date ", new Date(submission.targetDate).toLocaleDateString()) : null, /* @__PURE__ */ React.createElement("span", null, "Created ", new Date(submission.createdAt).toLocaleString())), submission.links && submission.links.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "space-y-1" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs font-semibold uppercase tracking-wide text-graystone-500" }, "Links"), /* @__PURE__ */ React.createElement("ul", { className: "space-y-1 text-sm text-ocean-600" }, submission.links.map((link, idx) => /* @__PURE__ */ React.createElement("li", { key: idx }, /* @__PURE__ */ React.createElement("a", { href: link, target: "_blank", rel: "noopener noreferrer", className: "hover:underline" }, link))))), submission.attachments && submission.attachments.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, /* @__PURE__ */ React.createElement("div", { className: "text-xs font-semibold uppercase tracking-wide text-graystone-500" }, "Attachments"), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-1 gap-2 md:grid-cols-2" }, submission.attachments.map((attachment) => /* @__PURE__ */ React.createElement(IdeaAttachment, { key: attachment.id, attachment })))))))));
   }
   function TestingFrameworkForm({ onSubmit }) {
-    const [name, setName] = useState("");
-    const [hypothesis, setHypothesis] = useState("");
-    const [audience, setAudience] = useState("");
-    const [metric, setMetric] = useState("");
-    const [duration, setDuration] = useState("");
-    const [notes, setNotes] = useState("");
-    const [status, setStatus] = useState(TESTING_STATUSES[0]);
+    const [name, setName] = useState2("");
+    const [hypothesis, setHypothesis] = useState2("");
+    const [audience, setAudience] = useState2("");
+    const [metric, setMetric] = useState2("");
+    const [duration, setDuration] = useState2("");
+    const [notes, setNotes] = useState2("");
+    const [status, setStatus] = useState2(TESTING_STATUSES[0]);
     const reset = () => {
       setName("");
       setHypothesis("");
@@ -2158,10 +2083,10 @@
     )))));
   }
   function PerformanceImportModal({ open, onClose, onImport }) {
-    const [summary, setSummary] = useState(null);
-    const [error, setError] = useState("");
-    const [importing, setImporting] = useState(false);
-    const [fileName, setFileName] = useState("");
+    const [summary, setSummary] = useState2(null);
+    const [error, setError] = useState2("");
+    const [importing, setImporting] = useState2(false);
+    const [fileName, setFileName] = useState2("");
     useEffect(() => {
       if (!open) {
         setSummary(null);
@@ -2382,7 +2307,7 @@
     ), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-graystone-500" }, "If set, approvals/AI applies can post a brief activity summary to Teams."))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between border-t border-graystone-200 bg-graystone-50 px-6 py-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-xs text-graystone-500" }, "Changes are saved locally and can be referenced by your team anytime."), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement(Button, { variant: "ghost", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement(Button, { onClick: handleSave }, "Save guidelines")))));
   }
   function IdeasBoard({ ideas, onDelete }) {
-    const [filter, setFilter] = useState("All");
+    const [filter, setFilter] = useState2("All");
     const filteredIdeas = useMemo(() => {
       if (filter === "All") return ideas;
       return ideas.filter((idea) => idea.type === filter);
@@ -2685,14 +2610,14 @@
     testingFrameworks = []
   }) {
     const sanitizedEntry = useMemo(() => sanitizeEntry(entry), [entry]);
-    const [draft, setDraft] = useState(sanitizedEntry);
-    const [allPlatforms, setAllPlatforms] = useState(
+    const [draft, setDraft] = useState2(sanitizedEntry);
+    const [allPlatforms, setAllPlatforms] = useState2(
       sanitizedEntry ? sanitizedEntry.platforms.length === ALL_PLATFORMS.length : false
     );
-    const [commentDraft, setCommentDraft] = useState("");
-    const [previewUploadError, setPreviewUploadError] = useState("");
-    const [activeCaptionTab, setActiveCaptionTab] = useState("Main");
-    const [activePreviewPlatform, setActivePreviewPlatform] = useState("Main");
+    const [commentDraft, setCommentDraft] = useState2("");
+    const [previewUploadError, setPreviewUploadError] = useState2("");
+    const [activeCaptionTab, setActiveCaptionTab] = useState2("Main");
+    const [activePreviewPlatform, setActivePreviewPlatform] = useState2("Main");
     const frameworkOptions = Array.isArray(testingFrameworks) ? testingFrameworks : [];
     const frameworkMap = useMemo(() => {
       const map = /* @__PURE__ */ new Map();
@@ -3234,42 +3159,42 @@
     )), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement(Button, { variant: "ghost", onClick: onClose }, "Cancel"), /* @__PURE__ */ React.createElement(Button, { onClick: handleSave }, "Save changes")))));
   }
   function ContentDashboard() {
-    const [entries, setEntries] = useState([]);
-    const [monthCursor, setMonthCursor] = useState(() => /* @__PURE__ */ new Date());
-    const [viewingId, setViewingId] = useState(null);
-    const [viewingSnapshot, setViewingSnapshot] = useState(null);
-    const [notifications, setNotifications] = useState(() => loadNotifications());
-    const [ideas, setIdeas] = useState(() => loadIdeas());
-    const [linkedinSubmissions, setLinkedinSubmissions] = useState(() => loadLinkedInSubmissions());
-    const [testingFrameworks, setTestingFrameworks] = useState(() => loadTestingFrameworks());
-    const [selectedFrameworkId, setSelectedFrameworkId] = useState("");
-    const [currentUser, setCurrentUser] = useState(
+    const [entries, setEntries] = useState2([]);
+    const [monthCursor, setMonthCursor] = useState2(() => /* @__PURE__ */ new Date());
+    const [viewingId, setViewingId] = useState2(null);
+    const [viewingSnapshot, setViewingSnapshot] = useState2(null);
+    const [notifications, setNotifications] = useState2(() => loadNotifications());
+    const [ideas, setIdeas] = useState2(() => loadIdeas());
+    const [linkedinSubmissions, setLinkedinSubmissions] = useState2(() => loadLinkedInSubmissions());
+    const [testingFrameworks, setTestingFrameworks] = useState2(() => loadTestingFrameworks());
+    const [selectedFrameworkId, setSelectedFrameworkId] = useState2("");
+    const [currentUser, setCurrentUser] = useState2(
       () => storageAvailable ? window.localStorage.getItem(USER_STORAGE_KEY) : null
     );
-    const [userSelection, setUserSelection] = useState(
+    const [userSelection, setUserSelection] = useState2(
       () => storageAvailable ? window.localStorage.getItem(USER_STORAGE_KEY) || "" : ""
     );
-    const [currentView, setCurrentView] = useState(() => {
+    const [currentView, setCurrentView] = useState2(() => {
       if (storageAvailable) {
         return window.localStorage.getItem(USER_STORAGE_KEY) ? "menu" : "login";
       }
       return "login";
     });
-    const [planTab, setPlanTab] = useState("plan");
-    const [filterType, setFilterType] = useState("All");
-    const [filterStatus, setFilterStatus] = useState("All");
-    const [filterPlatforms, setFilterPlatforms] = useState([]);
-    const [performanceImportOpen, setPerformanceImportOpen] = useState(false);
-    const [approvalsModalOpen, setApprovalsModalOpen] = useState(false);
-    const [menuMotionActive, setMenuMotionActive] = useState(false);
-    const [pendingAssetType, setPendingAssetType] = useState(null);
-    const [assetGoals, setAssetGoals] = useState(() => ({
+    const [planTab, setPlanTab] = useState2("plan");
+    const [filterType, setFilterType] = useState2("All");
+    const [filterStatus, setFilterStatus] = useState2("All");
+    const [filterPlatforms, setFilterPlatforms] = useState2([]);
+    const [performanceImportOpen, setPerformanceImportOpen] = useState2(false);
+    const [approvalsModalOpen, setApprovalsModalOpen] = useState2(false);
+    const [menuMotionActive, setMenuMotionActive] = useState2(false);
+    const [pendingAssetType, setPendingAssetType] = useState2(null);
+    const [assetGoals, setAssetGoals] = useState2(() => ({
       Video: 40,
       Design: 40,
       Carousel: 20
     }));
-    const [guidelines, setGuidelines] = useState(() => loadGuidelines());
-    const [guidelinesOpen, setGuidelinesOpen] = useState(false);
+    const [guidelines, setGuidelines] = useState2(() => loadGuidelines());
+    const [guidelinesOpen, setGuidelinesOpen] = useState2(false);
     useEffect(() => {
       setEntries(loadEntries());
       setIdeas(loadIdeas());
