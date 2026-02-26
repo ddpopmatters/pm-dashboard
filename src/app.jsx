@@ -8,10 +8,9 @@ import { KanbanView } from './features/kanban';
 import { AdminPanel } from './features/admin';
 import { AnalyticsView } from './features/analytics/AnalyticsView';
 import { DashboardView } from './features/dashboard';
-import { EngagementView, DEFAULT_ENGAGEMENT_GOALS } from './features/engagement/EngagementView';
+import { EngagementView } from './features/engagement/EngagementView';
 import {
   PublishSettingsPanel,
-  DEFAULT_PUBLISH_SETTINGS,
   triggerPublish,
   initializePublishStatus,
   getAggregatePublishStatus,
@@ -101,12 +100,7 @@ import { CopyCheckSection } from './features/copy-check';
 import { SocialPreview } from './features/social';
 import { ApproverMulti, EntryForm, EntryModal, EntryPreviewModal } from './features/entry';
 import { parseCSV } from './lib/csv';
-import {
-  FALLBACK_GUIDELINES,
-  normalizeGuidelines,
-  loadGuidelines,
-  saveGuidelines,
-} from './lib/guidelines';
+import { FALLBACK_GUIDELINES, normalizeGuidelines, saveGuidelines } from './lib/guidelines';
 import { notificationKey, loadNotifications, saveNotifications } from './lib/notifications';
 import { appendAudit } from './lib/audit';
 import { loadEntries, saveEntries, loadIdeas, saveIdeas } from './lib/storage';
@@ -119,6 +113,13 @@ import {
   DEFAULT_FEATURES,
 } from './lib/users';
 import { mergePerformanceData } from './lib/performance';
+import {
+  useSyncQueue,
+  useFilters as useDomainFilters,
+  usePublishing,
+  useGuidelines,
+  useEngagement,
+} from './hooks/domain';
 
 const { useState, useMemo, useEffect, useCallback, useRef } = React;
 
@@ -164,14 +165,52 @@ function ContentDashboard() {
   const [invitePasswordConfirm, setInvitePasswordConfirm] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [planTab, setPlanTab] = useState('plan');
-  const [filterType, setFilterType] = useState('All');
-  const [filterStatus, setFilterStatus] = useState('All');
-  const [filterPlatforms, setFilterPlatforms] = useState([]);
-  const [filterWorkflow, setFilterWorkflow] = useState('All');
-  const [filterQuery, setFilterQuery] = useState('');
-  const [filterOverdue, setFilterOverdue] = useState(false);
-  const [syncQueue, setSyncQueue] = useState([]);
-  const [syncToast, setSyncToast] = useState(null);
+
+  // Domain hooks — Layer 0: standalone
+  const sync = useSyncQueue();
+  const { syncQueue, syncToast, pushSyncToast, runSyncTask, retrySyncItem, retryAllSync } = sync;
+  const filters = useDomainFilters();
+  const {
+    filterType,
+    setFilterType,
+    filterStatus,
+    setFilterStatus,
+    filterPlatforms,
+    setFilterPlatforms,
+    filterWorkflow,
+    setFilterWorkflow,
+    filterQuery,
+    setFilterQuery,
+    filterOverdue,
+    setFilterOverdue,
+    filterEvergreen,
+    setFilterEvergreen,
+    resetFilters,
+    activeFilterCount,
+  } = filters;
+  const publishing = usePublishing();
+  const {
+    publishSettings,
+    setPublishSettings,
+    dailyPostTarget,
+    setDailyPostTarget,
+    handleDailyPostTargetChange,
+    assetGoals,
+    setAssetGoals,
+  } = publishing;
+  const guidelinesHook = useGuidelines({ runSyncTask });
+  const { guidelines, setGuidelines, guidelinesOpen, setGuidelinesOpen, handleGuidelinesSave } =
+    guidelinesHook;
+  const engagement = useEngagement();
+  const {
+    engagementActivities,
+    setEngagementActivities,
+    engagementAccounts,
+    setEngagementAccounts,
+    engagementGoals,
+    setEngagementGoals,
+  } = engagement;
+
   const [performanceImportOpen, setPerformanceImportOpen] = useState(false);
   const [approvalsModalOpen, setApprovalsModalOpen] = useState(false);
   const [previewEntryId, setPreviewEntryId] = useState('');
@@ -179,41 +218,12 @@ function ContentDashboard() {
   const [menuMotionActive, setMenuMotionActive] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [pendingAssetType, setPendingAssetType] = useState(null);
-  const [assetGoals, setAssetGoals] = useState(() => ({
-    Video: 40,
-    Design: 40,
-    Carousel: 20,
-  }));
-  const [dailyPostTarget, setDailyPostTarget] = useState(() => {
-    try {
-      const stored = window.localStorage.getItem('pm-daily-post-target');
-      return stored ? parseInt(stored, 10) || 0 : 0;
-    } catch {
-      return 0;
-    }
-  });
-  const [guidelines, setGuidelines] = useState(() => loadGuidelines());
-  const [guidelinesOpen, setGuidelinesOpen] = useState(false);
   const [approverDirectory, setApproverDirectory] = useState(DEFAULT_APPROVERS);
   const [userList, setUserList] = useState(() => []);
-  const [engagementActivities, setEngagementActivities] = useState([]);
-  const [engagementAccounts, setEngagementAccounts] = useState([]);
-  const [engagementGoals, setEngagementGoals] = useState(() => DEFAULT_ENGAGEMENT_GOALS);
-  const [publishSettings, setPublishSettings] = useState(() => {
-    try {
-      const stored = window.localStorage.getItem('pm-publish-settings');
-      return stored
-        ? { ...DEFAULT_PUBLISH_SETTINGS, ...JSON.parse(stored) }
-        : DEFAULT_PUBLISH_SETTINGS;
-    } catch {
-      return DEFAULT_PUBLISH_SETTINGS;
-    }
-  });
   const [influencers, setInfluencers] = useState([]);
   const [influencerModalOpen, setInfluencerModalOpen] = useState(false);
   const [editingInfluencerId, setEditingInfluencerId] = useState(null);
   const [customNiches, setCustomNiches] = useState([]);
-  const [filterEvergreen, setFilterEvergreen] = useState(false);
   const [newUserFirst, setNewUserFirst] = useState('');
   const [newUserLast, setNewUserLast] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -315,90 +325,6 @@ function ContentDashboard() {
     () => (userList.length ? userList : DEFAULT_USER_RECORDS),
     [userList],
   );
-  const pushSyncToast = useCallback((message, tone = 'warning') => {
-    setSyncToast({ id: uuid(), message, tone });
-  }, []);
-  useEffect(() => {
-    if (!syncToast) return;
-    const timeout = setTimeout(() => setSyncToast(null), 4000);
-    return () => clearTimeout(timeout);
-  }, [syncToast]);
-  const enqueueSyncTask = useCallback(
-    (label, action, error, requiresApi = true) => {
-      const entry = {
-        id: uuid(),
-        label,
-        action,
-        attempts: 1,
-        lastError: error?.message || 'Unknown error',
-        lastAttemptAt: new Date().toISOString(),
-        requiresApi,
-      };
-      setSyncQueue((prev) => [...prev, entry].slice(-25));
-      pushSyncToast(`${label} failed. Added to retry queue.`, 'warning');
-    },
-    [pushSyncToast],
-  );
-  const runSyncTask = useCallback(
-    async (label, action, options = {}) => {
-      const requiresApi = options.requiresApi !== false;
-      if (requiresApi && (!window.api || !window.api.enabled)) {
-        enqueueSyncTask(`${label} (offline)`, action, new Error('API offline'), requiresApi);
-        return false;
-      }
-      try {
-        await action();
-        return true;
-      } catch (error) {
-        console.warn(`${label} failed`, error);
-        enqueueSyncTask(label, action, error, requiresApi);
-        return false;
-      }
-    },
-    [enqueueSyncTask],
-  );
-  const retrySyncItem = useCallback(
-    async (item) => {
-      if (item.requiresApi && (!window.api || !window.api.enabled)) {
-        setSyncQueue((prev) =>
-          prev.map((entry) =>
-            entry.id === item.id
-              ? {
-                  ...entry,
-                  lastError: 'API offline',
-                  lastAttemptAt: new Date().toISOString(),
-                }
-              : entry,
-          ),
-        );
-        pushSyncToast('API offline. Retry again when connected.', 'warning');
-        return;
-      }
-      try {
-        await item.action();
-        setSyncQueue((prev) => prev.filter((entry) => entry.id !== item.id));
-        pushSyncToast(`${item.label} synced.`, 'success');
-      } catch (error) {
-        setSyncQueue((prev) =>
-          prev.map((entry) =>
-            entry.id === item.id
-              ? {
-                  ...entry,
-                  attempts: entry.attempts + 1,
-                  lastError: error?.message || 'Unknown error',
-                  lastAttemptAt: new Date().toISOString(),
-                }
-              : entry,
-          ),
-        );
-        pushSyncToast(`${item.label} failed again.`, 'warning');
-      }
-    },
-    [pushSyncToast],
-  );
-  const retryAllSync = useCallback(() => {
-    syncQueue.forEach((item) => retrySyncItem(item));
-  }, [syncQueue, retrySyncItem]);
   const refreshEntries = useCallback(() => {
     if (!window.api || !window.api.enabled || !window.api.listEntries) return;
     window.api
@@ -490,15 +416,6 @@ function ContentDashboard() {
     }
   }, [planTab, hasFeature]);
 
-  // Persist publish settings to localStorage
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('pm-publish-settings', JSON.stringify(publishSettings));
-    } catch {
-      // Ignore storage errors
-    }
-  }, [publishSettings]);
-
   useEffect(() => {
     if (currentView === 'form' && !canUseCalendar) {
       setCurrentView('dashboard');
@@ -525,16 +442,6 @@ function ContentDashboard() {
     };
     runSyncTask(label, action, { requiresApi: false });
   };
-  const resetFilters = useCallback(() => {
-    setFilterType('All');
-    setFilterStatus('All');
-    setFilterWorkflow('All');
-    setFilterPlatforms([]);
-    setFilterQuery('');
-    setFilterOverdue(false);
-    setFilterEvergreen(false);
-  }, []);
-
   const handleChangePassword = useCallback(
     async ({ currentPassword, newPassword }) => {
       const payload = { currentPassword, newPassword };
@@ -928,16 +835,6 @@ function ContentDashboard() {
       setPendingAssetType(null);
     }
   }, [currentView]);
-
-  const handleGuidelinesSave = (next) => {
-    const normalized = normalizeGuidelines(next);
-    setGuidelines(normalized);
-    saveGuidelines(normalized);
-    if (window.api && window.api.saveGuidelines) {
-      runSyncTask('Save guidelines', () => window.api.saveGuidelines(normalized));
-    }
-    setGuidelinesOpen(false);
-  };
 
   useEffect(() => {
     if (!(window.api && window.api.enabled)) {
@@ -1358,26 +1255,6 @@ function ContentDashboard() {
     return haystack.includes(normalizedFilterQuery);
   };
 
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (filterType !== 'All') count += 1;
-    if (filterStatus !== 'All') count += 1;
-    if (filterWorkflow !== 'All') count += 1;
-    if (filterPlatforms.length) count += 1;
-    if (filterQuery.trim()) count += 1;
-    if (filterOverdue) count += 1;
-    if (filterEvergreen) count += 1;
-    return count;
-  }, [
-    filterType,
-    filterStatus,
-    filterWorkflow,
-    filterPlatforms,
-    filterQuery,
-    filterOverdue,
-    filterEvergreen,
-  ]);
-
   const monthEntries = useMemo(() => {
     return entries
       .filter((entry) => !entry.deletedAt && entry.date >= startISO && entry.date <= endISO)
@@ -1782,8 +1659,7 @@ function ContentDashboard() {
     setViewingSnapshot(entryWithStatus);
 
     // Show toast notification
-    setSyncToast({ message: 'Entry cloned - select a date to schedule', tone: 'success' });
-    setTimeout(() => setSyncToast(null), 3000);
+    pushSyncToast('Entry cloned - select a date to schedule', 'success');
 
     appendAudit({
       user: currentUser,
@@ -1875,8 +1751,7 @@ function ContentDashboard() {
     setViewingSnapshot(entryWithStatus);
 
     // Show toast notification
-    setSyncToast({ message: 'Entry created from idea - complete the details', tone: 'success' });
-    setTimeout(() => setSyncToast(null), 3000);
+    pushSyncToast('Entry created from idea - complete the details', 'success');
 
     appendAudit({
       user: currentUser,
@@ -2240,15 +2115,6 @@ function ContentDashboard() {
   };
 
   // Update daily post target for content gap flagging
-  const handleDailyPostTargetChange = (target) => {
-    setDailyPostTarget(target);
-    try {
-      window.localStorage.setItem('pm-daily-post-target', String(target));
-    } catch {
-      // Ignore localStorage errors
-    }
-  };
-
   // Bulk date shift for multiple entries
   const handleBulkDateShift = (entryIds, daysDelta) => {
     const timestamp = new Date().toISOString();
@@ -2425,8 +2291,7 @@ function ContentDashboard() {
       setProfileAvatarDraft('');
       setProfileStatus('');
       setProfileError('');
-      setSyncQueue([]);
-      setSyncToast(null);
+      sync.reset();
     })();
   };
 
@@ -2748,7 +2613,7 @@ function ContentDashboard() {
                   <Button size="sm" variant="outline" onClick={retryAllSync}>
                     Retry all
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSyncQueue([])}>
+                  <Button size="sm" variant="ghost" onClick={sync.reset}>
                     Dismiss
                   </Button>
                 </div>
