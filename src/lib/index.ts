@@ -11,3 +11,6 @@ export * from './guidelines';
 export * from './notifications';
 export * from './audit';
 export * from './storage';
+export * from './users';
+export * from './platforms';
+export * from './performance';
