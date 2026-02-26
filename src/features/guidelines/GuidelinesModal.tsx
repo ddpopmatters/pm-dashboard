@@ -9,7 +9,6 @@ interface GuidelinesDraft {
   languageGuide: string;
   hashtagTips: string;
   charLimits: Record<string, number>;
-  teamsWebhookUrl: string;
 }
 
 export interface GuidelinesModalProps {
@@ -21,6 +20,12 @@ export interface GuidelinesModalProps {
   onClose: () => void;
   /** Callback to save updated guidelines */
   onSave: (guidelines: Guidelines) => void;
+  /** Whether the current user is an admin (controls webhook URL visibility) */
+  isAdmin?: boolean;
+  /** Teams webhook URL (admin-only, stored separately from guidelines) */
+  teamsWebhookUrl?: string;
+  /** Callback to save webhook URL (admin-only) */
+  onSaveWebhookUrl?: (url: string) => void;
 }
 
 const buildDraft = (source: Guidelines | null): GuidelinesDraft => ({
@@ -29,7 +34,6 @@ const buildDraft = (source: Guidelines | null): GuidelinesDraft => ({
   languageGuide: source?.languageGuide || '',
   hashtagTips: source?.hashtagTips || '',
   charLimits: { ...(source?.charLimits || {}) },
-  teamsWebhookUrl: source?.teamsWebhookUrl || '',
 });
 
 const splitList = (value: string): string[] =>
@@ -46,12 +50,20 @@ export const GuidelinesModal: React.FC<GuidelinesModalProps> = ({
   guidelines,
   onClose,
   onSave,
+  isAdmin,
+  teamsWebhookUrl: teamsWebhookUrlProp,
+  onSaveWebhookUrl,
 }) => {
   const [draft, setDraft] = useState<GuidelinesDraft>(buildDraft(guidelines));
+  const [webhookDraft, setWebhookDraft] = useState(teamsWebhookUrlProp || '');
 
   useEffect(() => {
     setDraft(buildDraft(guidelines));
   }, [guidelines]);
+
+  useEffect(() => {
+    setWebhookDraft(teamsWebhookUrlProp || '');
+  }, [teamsWebhookUrlProp]);
 
   if (!open) return null;
 
@@ -62,8 +74,10 @@ export const GuidelinesModal: React.FC<GuidelinesModalProps> = ({
       languageGuide: draft.languageGuide,
       hashtagTips: draft.hashtagTips,
       charLimits: { ...draft.charLimits },
-      teamsWebhookUrl: String(draft.teamsWebhookUrl || ''),
     });
+    if (isAdmin && onSaveWebhookUrl && webhookDraft !== (teamsWebhookUrlProp || '')) {
+      onSaveWebhookUrl(webhookDraft);
+    }
   };
 
   return (
@@ -169,19 +183,21 @@ export const GuidelinesModal: React.FC<GuidelinesModalProps> = ({
               ))}
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Microsoft Teams webhook URL (optional)</Label>
-            <input
-              type="url"
-              placeholder="https://outlook.office.com/webhook/..."
-              className="dropdown-font w-full rounded-full border border-black px-4 py-2 text-sm"
-              value={draft.teamsWebhookUrl}
-              onChange={(e) => setDraft((prev) => ({ ...prev, teamsWebhookUrl: e.target.value }))}
-            />
-            <p className="text-xs text-graystone-500">
-              If set, approvals/AI applies can post a brief activity summary to Teams.
-            </p>
-          </div>
+          {isAdmin && (
+            <div className="space-y-2">
+              <Label>Microsoft Teams webhook URL (optional)</Label>
+              <input
+                type="url"
+                placeholder="https://outlook.office.com/webhook/..."
+                className="dropdown-font w-full rounded-full border border-black px-4 py-2 text-sm"
+                value={webhookDraft}
+                onChange={(e) => setWebhookDraft(e.target.value)}
+              />
+              <p className="text-xs text-graystone-500">
+                If set, approvals/AI applies can post a brief activity summary to Teams.
+              </p>
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-between border-t border-graystone-200 bg-graystone-50 px-6 py-4">
           <p className="text-xs text-graystone-500">

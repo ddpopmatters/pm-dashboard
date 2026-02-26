@@ -539,6 +539,7 @@ function ContentDashboard() {
   });
   const [guidelines, setGuidelines] = useState(() => loadGuidelines());
   const [guidelinesOpen, setGuidelinesOpen] = useState(false);
+  const [teamsWebhookUrl, setTeamsWebhookUrl] = useState('');
   const [approverDirectory, setApproverDirectory] = useState(DEFAULT_APPROVERS);
   const [userList, setUserList] = useState(() => []);
   const [engagementActivities, setEngagementActivities] = useState([]);
@@ -1337,6 +1338,14 @@ function ContentDashboard() {
     });
   }, []);
 
+  // Load Teams webhook URL from admin-only secrets table
+  useEffect(() => {
+    if (!currentUserIsAdmin) return;
+    SUPABASE_API.fetchTeamsWebhookUrl().then((url) => {
+      if (url) setTeamsWebhookUrl(url);
+    });
+  }, [currentUserIsAdmin]);
+
   const handleAddCustomNiche = useCallback((niche) => {
     setCustomNiches((prev) => {
       if (prev.includes(niche)) return prev;
@@ -2004,7 +2013,7 @@ function ContentDashboard() {
           : `${createdEntry.assetType || 'Asset'} on ${new Date(createdEntry.date).toLocaleDateString()}`;
       addNotifications(buildApprovalNotifications(createdEntry));
       const entryApprovers = ensurePeopleArray(createdEntry.approvers);
-      const shouldEmailApprovers = entryApprovers.length || guidelines?.teamsWebhookUrl;
+      const shouldEmailApprovers = entryApprovers.length || teamsWebhookUrl;
       if (shouldEmailApprovers) {
         try {
           const requesterName = currentUser || createdEntry.author || 'A teammate';
@@ -2015,7 +2024,7 @@ function ContentDashboard() {
           ).toLocaleDateString()}.`;
           notifyViaServer(
             {
-              teamsWebhookUrl: guidelines?.teamsWebhookUrl,
+              teamsWebhookUrl: teamsWebhookUrl,
               message: `${requesterName} requested approval for entry ${createdEntry.id}`,
               approvers: entryApprovers,
               subject: emailPayload?.subject || fallbackSubject,
@@ -2385,7 +2394,7 @@ function ContentDashboard() {
         : entryRecord
           ? `${entryRecord.assetType || 'Asset'} on ${new Date(entryRecord.date).toLocaleDateString()}`
           : `Entry ${id}`;
-    const shouldNotify = guidelines?.teamsWebhookUrl || entryApprovers.length;
+    const shouldNotify = teamsWebhookUrl || entryApprovers.length;
     if (shouldNotify) {
       try {
         const statusMsg = nextStatusForServer === 'Approved' ? 'approved' : 'unapproved';
@@ -2406,7 +2415,7 @@ function ContentDashboard() {
         });
         notifyViaServer(
           {
-            teamsWebhookUrl: guidelines?.teamsWebhookUrl,
+            teamsWebhookUrl: teamsWebhookUrl,
             message: `Entry ${id} ${statusMsg} by ${currentUser}`,
             approvers: entryApprovers,
             subject: emailPayload?.subject || subject,
@@ -2794,6 +2803,10 @@ function ContentDashboard() {
       } else {
         response = await apiPost('/api/auth', { email: normalizedEmail, password: loginPassword });
       }
+      if (!response || response.ok === false || response.error) {
+        setLoginError(response?.error || 'Invalid email or password.');
+        return;
+      }
       const name =
         response?.user?.name && response.user.name.trim().length
           ? response.user.name.trim()
@@ -2845,6 +2858,10 @@ function ContentDashboard() {
         response = await window.api.acceptInvite({ token: inviteToken, password: invitePassword });
       } else {
         response = await apiPut('/api/auth', { token: inviteToken, password: invitePassword });
+      }
+      if (!response || response.ok === false || response.error) {
+        setInviteError(response?.error || 'This invite link is invalid or has expired.');
+        return;
       }
       const name =
         response?.user?.name && response.user.name.trim().length
@@ -3294,6 +3311,7 @@ function ContentDashboard() {
                     currentUser={currentUser}
                     currentUserEmail={currentUserEmail}
                     approverOptions={approverOptions}
+                    teamsWebhookUrl={teamsWebhookUrl}
                   />
                 </div>
                 <div className="flex w-full flex-col gap-6">
@@ -3989,6 +4007,12 @@ function ContentDashboard() {
             guidelines={guidelines}
             onClose={() => setGuidelinesOpen(false)}
             onSave={handleGuidelinesSave}
+            isAdmin={currentUserIsAdmin}
+            teamsWebhookUrl={teamsWebhookUrl}
+            onSaveWebhookUrl={(url) => {
+              setTeamsWebhookUrl(url);
+              SUPABASE_API.saveTeamsWebhookUrl(url);
+            }}
           />
           <PerformanceImportModal
             open={performanceImportOpen}

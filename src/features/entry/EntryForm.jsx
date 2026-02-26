@@ -39,6 +39,7 @@ export function EntryForm({
   approverOptions = DEFAULT_APPROVERS,
   influencers = [],
   onInfluencerChange,
+  teamsWebhookUrl = '',
 }) {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [approvers, setApprovers] = useState([]);
@@ -467,10 +468,10 @@ export function EntryForm({
                       action: 'copy-check-apply',
                       meta: { scope: 'form', platform, assetType },
                     });
-                    if (window.api && window.api.enabled && activeGuidelines?.teamsWebhookUrl) {
+                    if (window.api && window.api.enabled && teamsWebhookUrl) {
                       window.api
                         .notify({
-                          teamsWebhookUrl: activeGuidelines.teamsWebhookUrl,
+                          teamsWebhookUrl,
                           message: `Copy check applied (${platform}) by ${currentUser}`,
                         })
                         .catch((error) => console.warn('Copy check notification failed', error));

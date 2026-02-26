@@ -173,7 +173,6 @@ export interface Guidelines {
   requiredPhrases: string[];
   languageGuide: string;
   hashtagTips: string;
-  teamsWebhookUrl: string;
 }
 
 /**
