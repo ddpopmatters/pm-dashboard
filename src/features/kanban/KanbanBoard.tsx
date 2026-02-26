@@ -205,6 +205,7 @@ export function KanbanBoard({
           const cards = cardsByColumn[columnIndex] ?? [];
           const isFocusedColumn = focusedColumnIndex === columnIndex;
           return (
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
             <div
               key={status}
               ref={(el) => {
@@ -237,6 +238,7 @@ export function KanbanBoard({
                         ? entry.workflowStatus
                         : defaultStatus;
                     return (
+                      /* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */
                       <div
                         key={entry.id}
                         ref={(el) => {
@@ -319,6 +321,7 @@ export function KanbanBoard({
                           </span>
                         </div>
                       </div>
+                      /* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */
                     );
                   })
                 )}

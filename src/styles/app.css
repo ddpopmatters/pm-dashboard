@@ -1,0 +1,44 @@
+@import 'tailwindcss';
+
+/* PM Dashboard custom theme tokens */
+@theme {
+  /* Ocean */
+  --color-ocean-50: #e6f7fb;
+  --color-ocean-100: #bfecf6;
+  --color-ocean-200: #87dde9;
+  --color-ocean-300: #4ac9da;
+  --color-ocean-400: #1fb1c7;
+  --color-ocean-500: #11607d;
+  --color-ocean-600: #0e4d63;
+  --color-ocean-700: #0c3d4e;
+  --color-ocean-800: #072833;
+  --color-ocean-900: #03161d;
+
+  /* Aqua */
+  --color-aqua-50: #f2ffff;
+  --color-aqua-100: #ccffff;
+  --color-aqua-200: #99ffff;
+  --color-aqua-300: #66ffff;
+  --color-aqua-400: #33ffff;
+  --color-aqua-500: #00ffff;
+  --color-aqua-600: #00cccc;
+  --color-aqua-700: #009999;
+  --color-aqua-800: #007373;
+  --color-aqua-900: #004d4d;
+
+  /* Graystone */
+  --color-graystone-50: #f7f7f7;
+  --color-graystone-100: #eeeeee;
+  --color-graystone-200: #dcdcdc;
+  --color-graystone-300: #c2c2c2;
+  --color-graystone-400: #b9b9b9;
+  --color-graystone-500: #8f8f8f;
+  --color-graystone-600: #6d6d6d;
+  --color-graystone-700: #4f4f4f;
+  --color-graystone-800: #323232;
+  --color-graystone-900: #1a1a1a;
+}
+
+/* Source detection for Tailwind class scanning */
+@source "../../src/**/*.{js,jsx,ts,tsx}";
+@source "../../public/index.html";

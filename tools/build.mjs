@@ -1,4 +1,5 @@
 import { build, context } from 'esbuild';
+import { execSync } from 'child_process';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { readFileSync } from 'fs';
@@ -45,6 +46,13 @@ const config = {
     'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(env.SUPABASE_ANON_KEY || ''),
   },
 };
+
+// Build Tailwind CSS
+const tailwindInput = resolve(root, 'src/styles/app.css');
+const tailwindOutput = resolve(root, 'public/css/app.css');
+const tailwindCmd = `npx @tailwindcss/cli -i ${tailwindInput} -o ${tailwindOutput}${isWatch ? '' : ' --minify'}`;
+console.log('Building Tailwind CSS...');
+execSync(tailwindCmd, { stdio: 'inherit', cwd: root });
 
 if (isWatch) {
   const ctx = await context(config);

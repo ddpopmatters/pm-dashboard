@@ -147,6 +147,7 @@ export const SocialPreview: React.FC<SocialPreviewProps> = ({
         <div
           className={cx('overflow-hidden bg-black', roundedClass, borderClass, wrapperClassName)}
         >
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- preview player, no captions available */}
           <video src={mediaUrl} controls playsInline className="h-full w-full" preload="metadata" />
         </div>
       );
