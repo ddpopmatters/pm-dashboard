@@ -283,8 +283,14 @@ export function LoginScreen({ onAuthChange }: LoginScreenProps): React.ReactElem
         {mode === 'signin' && (
           <form onSubmit={handlePasswordSignIn} className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-graystone-700">Email</label>
+              <label
+                htmlFor="signin-email"
+                className="mb-1 block text-sm font-medium text-graystone-700"
+              >
+                Email
+              </label>
               <input
+                id="signin-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -294,8 +300,14 @@ export function LoginScreen({ onAuthChange }: LoginScreenProps): React.ReactElem
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-graystone-700">Password</label>
+              <label
+                htmlFor="signin-password"
+                className="mb-1 block text-sm font-medium text-graystone-700"
+              >
+                Password
+              </label>
               <input
+                id="signin-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -328,8 +340,14 @@ export function LoginScreen({ onAuthChange }: LoginScreenProps): React.ReactElem
         {mode === 'signup' && (
           <form onSubmit={handleSignUp} className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-graystone-700">Email</label>
+              <label
+                htmlFor="signup-email"
+                className="mb-1 block text-sm font-medium text-graystone-700"
+              >
+                Email
+              </label>
               <input
+                id="signup-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -339,8 +357,14 @@ export function LoginScreen({ onAuthChange }: LoginScreenProps): React.ReactElem
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-graystone-700">Password</label>
+              <label
+                htmlFor="signup-password"
+                className="mb-1 block text-sm font-medium text-graystone-700"
+              >
+                Password
+              </label>
               <input
+                id="signup-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -351,10 +375,14 @@ export function LoginScreen({ onAuthChange }: LoginScreenProps): React.ReactElem
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-graystone-700">
+              <label
+                htmlFor="signup-confirm-password"
+                className="mb-1 block text-sm font-medium text-graystone-700"
+              >
                 Confirm Password
               </label>
               <input
+                id="signup-confirm-password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
