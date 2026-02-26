@@ -125,6 +125,7 @@ import {
   useApprovals,
   useAdmin,
   useInfluencers,
+  useEntries,
 } from './hooks/domain';
 
 const { useState, useMemo, useEffect, useCallback, useRef } = React;
@@ -137,10 +138,7 @@ const DRAFT_AUTO_SAVE_INTERVAL = 30000;
 function ContentDashboard() {
   // Destructure stable method references to avoid re-renders when loading/error state changes
   const { get: apiGet, post: apiPost, put: apiPut, del: apiDel } = useApi();
-  const [entries, setEntries] = useState([]);
   const [monthCursor, setMonthCursor] = useState(() => new Date());
-  const [viewingId, setViewingId] = useState(null);
-  const [viewingSnapshot, setViewingSnapshot] = useState(null);
   // Domain hooks — Layer 1: needs API
   const auth = useAuth({ apiGet, apiPost, apiPut });
   const {
@@ -221,6 +219,93 @@ function ContentDashboard() {
     unreadMentionsCount,
   } = notifs;
 
+  const { syncQueue, syncToast, pushSyncToast, runSyncTask, retrySyncItem, retryAllSync } = sync;
+  const filters = useDomainFilters();
+  const {
+    filterType,
+    setFilterType,
+    filterStatus,
+    setFilterStatus,
+    filterPlatforms,
+    setFilterPlatforms,
+    filterWorkflow,
+    setFilterWorkflow,
+    filterQuery,
+    setFilterQuery,
+    filterOverdue,
+    setFilterOverdue,
+    filterEvergreen,
+    setFilterEvergreen,
+    resetFilters,
+    activeFilterCount,
+  } = filters;
+  const publishing = usePublishing();
+  const {
+    publishSettings,
+    setPublishSettings,
+    dailyPostTarget,
+    setDailyPostTarget,
+    handleDailyPostTargetChange,
+    assetGoals,
+    setAssetGoals,
+  } = publishing;
+  const guidelinesHook = useGuidelines({ runSyncTask });
+  const { guidelines, setGuidelines, guidelinesOpen, setGuidelinesOpen, handleGuidelinesSave } =
+    guidelinesHook;
+
+  // Domain hooks — Layer 3: needs multiple hooks
+  const entriesHook = useEntries({
+    runSyncTask,
+    pushSyncToast,
+    currentUser,
+    currentUserIsAdmin,
+    viewerIsAuthor,
+    viewerIsApprover,
+    addNotifications,
+    buildApprovalNotifications,
+    notifyApproversAboutChange,
+    notifyViaServer,
+    markNotificationsAsReadForEntry,
+    guidelines,
+    publishSettings,
+    authStatus,
+  });
+  const {
+    entries,
+    setEntries,
+    viewingId,
+    setViewingId,
+    viewingSnapshot,
+    setViewingSnapshot,
+    previewEntryId,
+    setPreviewEntryId,
+    previewEntryContext,
+    setPreviewEntryContext,
+    previewEntry,
+    previewIsReviewMode,
+    previewCanApprove,
+    hydrateFromLocal,
+    refreshEntries,
+    openEntry,
+    closeEntry,
+    closePreview,
+    handlePreviewEdit,
+    addEntry,
+    cloneEntry,
+    upsert,
+    toggleApprove,
+    handlePublishEntry,
+    handlePostAgain,
+    handleToggleEvergreen,
+    handleEntryDateChange,
+    handleBulkDateShift,
+    updateWorkflowStatus,
+    softDelete,
+    restore,
+    hardDelete,
+    trashed,
+  } = entriesHook;
+
   const ideasHook = useIdeas({
     currentUser,
     runSyncTask: sync.runSyncTask,
@@ -280,40 +365,6 @@ function ContentDashboard() {
     handleLinkEntryToInfluencer,
     handleUnlinkEntryFromInfluencer,
   } = influencersHook;
-
-  const { syncQueue, syncToast, pushSyncToast, runSyncTask, retrySyncItem, retryAllSync } = sync;
-  const filters = useDomainFilters();
-  const {
-    filterType,
-    setFilterType,
-    filterStatus,
-    setFilterStatus,
-    filterPlatforms,
-    setFilterPlatforms,
-    filterWorkflow,
-    setFilterWorkflow,
-    filterQuery,
-    setFilterQuery,
-    filterOverdue,
-    setFilterOverdue,
-    filterEvergreen,
-    setFilterEvergreen,
-    resetFilters,
-    activeFilterCount,
-  } = filters;
-  const publishing = usePublishing();
-  const {
-    publishSettings,
-    setPublishSettings,
-    dailyPostTarget,
-    setDailyPostTarget,
-    handleDailyPostTargetChange,
-    assetGoals,
-    setAssetGoals,
-  } = publishing;
-  const guidelinesHook = useGuidelines({ runSyncTask });
-  const { guidelines, setGuidelines, guidelinesOpen, setGuidelinesOpen, handleGuidelinesSave } =
-    guidelinesHook;
   const engagement = useEngagement();
   const {
     engagementActivities,
@@ -326,20 +377,9 @@ function ContentDashboard() {
 
   const [performanceImportOpen, setPerformanceImportOpen] = useState(false);
   const [approvalsModalOpen, setApprovalsModalOpen] = useState(false);
-  const [previewEntryId, setPreviewEntryId] = useState('');
-  const [previewEntryContext, setPreviewEntryContext] = useState('default');
   const [menuMotionActive, setMenuMotionActive] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [pendingAssetType, setPendingAssetType] = useState(null);
-  const [deepLinkEntryId, setDeepLinkEntryId] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    try {
-      const url = new URL(window.location.href);
-      return url.searchParams.get('entry') || '';
-    } catch {
-      return '';
-    }
-  });
   const canUseInfluencers = true; // Show to everyone
   const menuHasContent =
     canUseCalendar ||
@@ -366,13 +406,6 @@ function ContentDashboard() {
     () => (userList.length ? userList : DEFAULT_USER_RECORDS),
     [userList],
   );
-  const refreshEntries = useCallback(() => {
-    if (!window.api || !window.api.enabled || !window.api.listEntries) return;
-    window.api
-      .listEntries()
-      .then((payload) => Array.isArray(payload) && setEntries(payload))
-      .catch(() => pushSyncToast('Unable to refresh entries from the server.', 'warning'));
-  }, [pushSyncToast]);
   useEffect(() => {
     const required = PLAN_TAB_FEATURES[planTab];
     if (required && !hasFeature(required)) {
@@ -403,7 +436,7 @@ function ContentDashboard() {
   }, [currentView, hasFeature, currentUserIsAdmin, canUseCalendar]);
 
   useEffect(() => {
-    setEntries(loadEntries());
+    hydrateFromLocal();
     setIdeas(loadIdeas());
   }, []);
 
@@ -518,12 +551,6 @@ function ContentDashboard() {
       setPendingAssetType(null);
     }
   }, [currentView]);
-
-  useEffect(() => {
-    if (!(window.api && window.api.enabled)) {
-      saveEntries(entries);
-    }
-  }, [entries]);
 
   useEffect(() => {
     if (!currentUserIsAdmin) {
@@ -664,14 +691,6 @@ function ContentDashboard() {
     normalizedFilterQuery,
   ]);
 
-  const previewEntry = useMemo(
-    () => entries.find((entry) => entry.id === previewEntryId) || null,
-    [entries, previewEntryId],
-  );
-  const previewIsReviewMode = Boolean(previewEntry && previewEntryContext === 'calendar');
-  const previewCanApprove =
-    previewIsReviewMode && previewEntry ? viewerIsApprover(previewEntry) : false;
-
   const assetTypeSummary = useMemo(() => {
     const counts = monthEntries.reduce((acc, entry) => {
       acc[entry.assetType] = (acc[entry.assetType] || 0) + 1;
@@ -686,14 +705,6 @@ function ContentDashboard() {
     const items = ideasByMonth.get(key) || [];
     return items.slice().sort((a, b) => (a.targetDate || '').localeCompare(b.targetDate || ''));
   }, [ideasByMonth, monthCursor]);
-
-  const trashed = useMemo(
-    () =>
-      entries
-        .filter((entry) => entry.deletedAt)
-        .sort((a, b) => (b.deletedAt || '').localeCompare(a.deletedAt || '')),
-    [entries],
-  );
 
   const outstandingCount = outstandingApprovals.length;
   const ideaCount = ideas.length;
@@ -758,258 +769,6 @@ function ContentDashboard() {
       },
     },
   ];
-
-  const closeEntry = () => {
-    setViewingId(null);
-    setViewingSnapshot(null);
-    setPreviewEntryId('');
-    setPreviewEntryContext('default');
-  };
-
-  const openEntry = (id) => {
-    if (!id) {
-      closeEntry();
-      return;
-    }
-    const found = entries.find((entry) => entry.id === id);
-    if (!found) {
-      closeEntry();
-      return;
-    }
-    const sanitized = sanitizeEntry(found);
-    const canEdit = currentUserIsAdmin || viewerIsAuthor(sanitized);
-    if (canEdit) {
-      setPreviewEntryId('');
-      setPreviewEntryContext('default');
-      setViewingId(id);
-      setViewingSnapshot(sanitized);
-    } else {
-      setViewingId(null);
-      setViewingSnapshot(null);
-      setPreviewEntryId(id);
-      setPreviewEntryContext('calendar');
-    }
-    markNotificationsAsReadForEntry(found.id, currentUser);
-  };
-
-  const closePreview = () => {
-    setPreviewEntryId('');
-    setPreviewEntryContext('default');
-  };
-  const handlePreviewEdit = (id) => {
-    if (!id) return;
-    closePreview();
-    openEntry(id);
-  };
-
-  useEffect(() => {
-    if (!viewingId) {
-      setViewingSnapshot(null);
-      return;
-    }
-    const latest = entries.find((entry) => entry.id === viewingId);
-    if (!latest) {
-      closeEntry();
-      return;
-    }
-    const sanitized = sanitizeEntry(latest);
-    setViewingSnapshot((prev) => {
-      if (prev && entrySignature(prev) === entrySignature(sanitized)) {
-        return prev;
-      }
-      return sanitized;
-    });
-    markNotificationsAsReadForEntry(latest.id, currentUser);
-  }, [entries, viewingId, currentUser]);
-
-  const clearEntryQueryParam = () => {
-    try {
-      const url = new URL(window.location.href);
-      if (!url.searchParams.has('entry')) return;
-      url.searchParams.delete('entry');
-      window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
-    } catch {}
-  };
-
-  useEffect(() => {
-    if (!deepLinkEntryId) return;
-    if (authStatus !== 'ready') return;
-    const existing = entries.find((entry) => entry.id === deepLinkEntryId);
-    if (existing) {
-      openEntry(deepLinkEntryId);
-      clearEntryQueryParam();
-      setDeepLinkEntryId('');
-    }
-  }, [deepLinkEntryId, entries, authStatus]);
-
-  const addEntry = (data) => {
-    const timestamp = new Date().toISOString();
-    let createdEntry = null;
-    setEntries((prev) => {
-      const rawEntry = {
-        id: uuid(),
-        status: 'Pending',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        checklist: data.checklist,
-        comments: data.comments || [],
-        workflowStatus:
-          data.workflowStatus && KANBAN_STATUSES.includes(data.workflowStatus)
-            ? data.workflowStatus
-            : KANBAN_STATUSES[0],
-        ...data,
-      };
-      const sanitized = sanitizeEntry(rawEntry);
-      const entryWithStatus = {
-        ...sanitized,
-        statusDetail: computeStatusDetail(sanitized),
-      };
-      createdEntry = entryWithStatus;
-      return [entryWithStatus, ...prev];
-    });
-    if (createdEntry) {
-      const descriptor =
-        createdEntry.caption && createdEntry.caption.trim().length
-          ? createdEntry.caption.trim()
-          : `${createdEntry.assetType || 'Asset'} on ${new Date(createdEntry.date).toLocaleDateString()}`;
-      addNotifications(buildApprovalNotifications(createdEntry));
-      const entryApprovers = ensurePeopleArray(createdEntry.approvers);
-      const shouldEmailApprovers = entryApprovers.length || guidelines?.teamsWebhookUrl;
-      if (shouldEmailApprovers) {
-        try {
-          const requesterName = currentUser || createdEntry.author || 'A teammate';
-          const emailPayload = buildEntryEmailPayload(createdEntry);
-          const fallbackSubject = `[PM Dashboard] Approval requested: ${descriptor}`;
-          const fallbackText = `${requesterName} requested your approval for ${descriptor} scheduled ${new Date(
-            createdEntry.date,
-          ).toLocaleDateString()}.`;
-          notifyViaServer(
-            {
-              teamsWebhookUrl: guidelines?.teamsWebhookUrl,
-              message: `${requesterName} requested approval for entry ${createdEntry.id}`,
-              approvers: entryApprovers,
-              subject: emailPayload?.subject || fallbackSubject,
-              text: emailPayload?.text || fallbackText,
-              html: emailPayload?.html,
-            },
-            `Send approval request (${createdEntry.id})`,
-          );
-        } catch {}
-      }
-      try {
-        const payload = {
-          id: createdEntry.id,
-          date: createdEntry.date,
-          platforms: createdEntry.platforms,
-          assetType: createdEntry.assetType,
-          caption: createdEntry.caption,
-          platformCaptions: createdEntry.platformCaptions,
-          firstComment: createdEntry.firstComment,
-          status: createdEntry.status,
-          approvers: createdEntry.approvers,
-          author: createdEntry.author || currentUser || 'Unknown',
-          campaign: createdEntry.campaign,
-          contentPillar: createdEntry.contentPillar,
-          previewUrl: createdEntry.previewUrl,
-          approvalDeadline: createdEntry.approvalDeadline,
-          checklist: createdEntry.checklist,
-          analytics: createdEntry.analytics,
-          workflowStatus: createdEntry.workflowStatus,
-          statusDetail: createdEntry.statusDetail,
-          aiFlags: createdEntry.aiFlags,
-          aiScore: createdEntry.aiScore,
-          testingFrameworkId: createdEntry.testingFrameworkId,
-          testingFrameworkName: createdEntry.testingFrameworkName,
-          user: currentUser,
-        };
-        runSyncTask(`Create entry (${createdEntry.id})`, () =>
-          window.api.createEntry(payload),
-        ).then((ok) => {
-          if (ok) refreshEntries();
-        });
-      } catch {}
-      appendAudit({
-        user: currentUser,
-        entryId: createdEntry.id,
-        action: 'entry-create',
-        meta: {
-          date: createdEntry.date,
-          assetType: createdEntry.assetType,
-          platforms: createdEntry.platforms,
-        },
-      });
-    }
-  };
-
-  const cloneEntry = (sourceEntry) => {
-    if (!sourceEntry) return;
-    const timestamp = new Date().toISOString();
-    const newId = uuid();
-
-    // Clone all content fields but reset metadata
-    const clonedData = {
-      // Content fields - keep these
-      platforms: sourceEntry.platforms || [],
-      assetType: sourceEntry.assetType || '',
-      caption: sourceEntry.caption || '',
-      platformCaptions: sourceEntry.platformCaptions || {},
-      firstComment: sourceEntry.firstComment || '',
-      script: sourceEntry.script || '',
-      designCopy: sourceEntry.designCopy || '',
-      carouselSlides: sourceEntry.carouselSlides || [],
-      previewUrl: sourceEntry.previewUrl || '',
-      campaign: sourceEntry.campaign || '',
-      contentPillar: sourceEntry.contentPillar || '',
-      testingFrameworkId: sourceEntry.testingFrameworkId || '',
-      testingFrameworkName: sourceEntry.testingFrameworkName || '',
-
-      // Reset these for the new entry
-      id: newId,
-      date: '', // User must select a new date
-      status: 'Pending',
-      workflowStatus: KANBAN_STATUSES[0], // Draft
-      author: currentUser || 'Unknown',
-      approvers: sourceEntry.approvers || [], // Keep approvers for convenience
-      approvalDeadline: '', // Clear deadline
-      approvedAt: undefined,
-      checklist: createEmptyChecklist(), // Fresh checklist
-      comments: [], // No comments on clone
-      analytics: {}, // No analytics yet
-      analyticsUpdatedAt: '',
-      aiFlags: [],
-      aiScore: {},
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      deletedAt: null,
-    };
-
-    const sanitized = sanitizeEntry(clonedData);
-    const entryWithStatus = {
-      ...sanitized,
-      statusDetail: computeStatusDetail(sanitized),
-      _isNew: true, // Flag to indicate this needs to be created, not updated
-    };
-
-    setEntries((prev) => [entryWithStatus, ...prev]);
-
-    // Open the cloned entry for editing
-    setViewingId(newId);
-    setViewingSnapshot(entryWithStatus);
-
-    // Show toast notification
-    pushSyncToast('Entry cloned - select a date to schedule', 'success');
-
-    appendAudit({
-      user: currentUser,
-      entryId: newId,
-      action: 'entry-clone',
-      meta: {
-        sourceEntryId: sourceEntry.id,
-        assetType: clonedData.assetType,
-        platforms: clonedData.platforms,
-      },
-    });
-  };
 
   const createEntryFromIdea = (idea) => {
     if (!idea) return;
@@ -1102,495 +861,6 @@ function ContentDashboard() {
     });
   };
 
-  const upsert = (updated) => {
-    const timestamp = new Date().toISOString();
-    let approvalNotifications = [];
-    const pendingApproverAlerts = [];
-    const normalizedActor = (currentUser || '').trim().toLowerCase();
-    setEntries((prev) =>
-      prev.map((entry) =>
-        entry.id === updated.id
-          ? (() => {
-              const merged = {
-                ...entry,
-                ...updated,
-                updatedAt: timestamp,
-              };
-              const sanitized = sanitizeEntry(merged);
-              const previousApprovers = ensurePeopleArray(entry.approvers);
-              const nextApprovers = ensurePeopleArray(sanitized.approvers);
-              const newApprovers = nextApprovers.filter(
-                (name) => name && !previousApprovers.includes(name),
-              );
-              if (newApprovers.length) {
-                approvalNotifications = approvalNotifications.concat(
-                  buildApprovalNotifications(sanitized, newApprovers),
-                );
-              }
-              const actorIsApprover = normalizedActor
-                ? nextApprovers.some(
-                    (name) => (name || '').trim().toLowerCase() === normalizedActor,
-                  )
-                : false;
-              if (
-                hasApproverRelevantChanges(entry, sanitized) &&
-                nextApprovers.length &&
-                !actorIsApprover
-              ) {
-                pendingApproverAlerts.push(sanitized);
-              }
-              return {
-                ...sanitized,
-                statusDetail: computeStatusDetail(sanitized),
-              };
-            })()
-          : entry,
-      ),
-    );
-    if (approvalNotifications.length) {
-      addNotifications(approvalNotifications);
-    }
-    if (pendingApproverAlerts.length) {
-      pendingApproverAlerts.forEach((entry) => notifyApproversAboutChange(entry));
-    }
-    if (updated?.id) {
-      // Check if this is a new entry that needs to be created
-      const existingEntry = entries.find((e) => e.id === updated.id);
-      const isNewEntry = existingEntry?._isNew;
-
-      try {
-        const payload = { ...updated };
-        delete payload.id;
-        delete payload._isNew;
-        delete payload._sourceIdeaId;
-
-        if (isNewEntry) {
-          // Create new entry on server
-          const createPayload = {
-            ...payload,
-            id: updated.id,
-            user: currentUser,
-          };
-          runSyncTask(`Create entry (${updated.id})`, () =>
-            window.api.createEntry(createPayload),
-          ).then((ok) => {
-            if (ok) {
-              // Clear the _isNew flag after successful creation
-              setEntries((prev) =>
-                prev.map((e) => (e.id === updated.id ? { ...e, _isNew: undefined } : e)),
-              );
-              refreshEntries();
-            }
-          });
-        } else {
-          // Update existing entry
-          runSyncTask(`Update entry (${updated.id})`, () =>
-            window.api.updateEntry(updated.id, payload),
-          ).then((ok) => {
-            if (ok) refreshEntries();
-          });
-        }
-      } catch {}
-    }
-    appendAudit({
-      user: currentUser,
-      entryId: updated?.id,
-      action: updated?._isNew ? 'entry-create' : 'entry-update',
-    });
-  };
-
-  const toggleApprove = (id) => {
-    const entryRecord = entries.find((entry) => entry.id === id) || null;
-    const timestamp = new Date().toISOString();
-    let nextStatusForServer = null;
-    let nextWorkflowStatusForServer = null;
-    setEntries((prev) =>
-      prev.map((entry) => {
-        if (entry.id !== id) return entry;
-        const toggled = entry.status === 'Approved' ? 'Pending' : 'Approved';
-        nextStatusForServer = toggled;
-        const updatedEntry = sanitizeEntry({
-          ...entry,
-          status: toggled,
-          approvedAt: toggled === 'Approved' ? timestamp : undefined,
-          updatedAt: timestamp,
-        });
-        // Streamlined workflow: Approved → 'Approved', Unapproved → 'Ready for Review'
-        const workflowStatus = toggled === 'Approved' ? 'Approved' : 'Ready for Review';
-        nextWorkflowStatusForServer = workflowStatus;
-        const normalized = {
-          ...updatedEntry,
-          workflowStatus,
-        };
-        return {
-          ...normalized,
-          statusDetail: computeStatusDetail(normalized),
-        };
-      }),
-    );
-    if (nextStatusForServer) {
-      try {
-        runSyncTask(`Update approval (${id})`, () =>
-          window.api.updateEntry(id, {
-            status: nextStatusForServer,
-            workflowStatus: nextWorkflowStatusForServer,
-            approvedAt: nextStatusForServer === 'Approved' ? timestamp : null,
-          }),
-        ).then((ok) => {
-          if (ok) refreshEntries();
-        });
-      } catch {}
-    }
-    appendAudit({
-      user: currentUser,
-      entryId: id,
-      action: nextStatusForServer === 'Approved' ? 'entry-approve' : 'entry-unapprove',
-    });
-    const entryApprovers = ensurePeopleArray(entryRecord?.approvers);
-    const descriptor =
-      entryRecord && entryRecord.caption && entryRecord.caption.trim().length
-        ? entryRecord.caption.trim()
-        : entryRecord
-          ? `${entryRecord.assetType || 'Asset'} on ${new Date(entryRecord.date).toLocaleDateString()}`
-          : `Entry ${id}`;
-    const shouldNotify = guidelines?.teamsWebhookUrl || entryApprovers.length;
-    if (shouldNotify) {
-      try {
-        const statusMsg = nextStatusForServer === 'Approved' ? 'approved' : 'unapproved';
-        const subjectLabel =
-          entryRecord?.campaign ||
-          entryRecord?.contentPillar ||
-          entryRecord?.assetType ||
-          `Entry ${id}`;
-        const subject = `[PM Dashboard] ${subjectLabel} ${statusMsg}`;
-        const summaryParts = [
-          `${currentUser} ${statusMsg} entry ${entryRecord?.id || id}`,
-          entryRecord?.date
-            ? `scheduled for ${new Date(entryRecord.date).toLocaleDateString()}`
-            : '',
-        ].filter(Boolean);
-        const emailPayload = buildEntryEmailPayload(entryRecord, {
-          subjectOverride: `${subjectLabel} ${statusMsg}`,
-        });
-        notifyViaServer(
-          {
-            teamsWebhookUrl: guidelines?.teamsWebhookUrl,
-            message: `Entry ${id} ${statusMsg} by ${currentUser}`,
-            approvers: entryApprovers,
-            subject: emailPayload?.subject || subject,
-            text: emailPayload?.text || summaryParts.join(' - '),
-            html: emailPayload?.html,
-          },
-          `Send approval status (${id})`,
-        );
-      } catch {}
-    }
-    const requestorNames = ensurePeopleArray(entryRecord?.author);
-    if (nextStatusForServer === 'Approved' && requestorNames.length) {
-      try {
-        const subjectApproved = `[PM Dashboard] Approved: ${descriptor}`;
-        const textApproved = `${currentUser} approved ${descriptor}.`;
-        notifyViaServer(
-          {
-            to: requestorNames,
-            subject: subjectApproved,
-            text: textApproved,
-          },
-          `Notify requester (${id})`,
-        );
-      } catch {}
-    }
-  };
-
-  // Publish an entry to Zapier webhook
-  const handlePublishEntry = async (id) => {
-    const entry = entries.find((e) => e.id === id);
-    if (!entry || !canPublish(entry)) return;
-
-    // Initialize publish status for all platforms (set to 'publishing')
-    const newPublishStatus = initializePublishStatus(entry.platforms);
-    setEntries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, publishStatus: newPublishStatus } : e)),
-    );
-
-    // Trigger the webhook
-    const result = await triggerPublish(entry, publishSettings);
-    const timestamp = new Date().toISOString();
-
-    if (result.success) {
-      // Mark all as published (with no-cors, we assume success if no error)
-      const publishedStatus = {};
-      entry.platforms.forEach((platform) => {
-        publishedStatus[platform] = {
-          status: 'published',
-          url: null, // URL would come from callback
-          error: null,
-          timestamp,
-        };
-      });
-
-      const updates = {
-        publishStatus: publishedStatus,
-        workflowStatus: 'Published',
-        publishedAt: timestamp,
-      };
-
-      setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)));
-
-      // Persist to API if available
-      if (window.api?.updateEntry) {
-        try {
-          await window.api.updateEntry(id, updates);
-        } catch (err) {
-          console.error('Failed to persist publish status:', err);
-        }
-      }
-    } else {
-      // Mark all as failed
-      const failedStatus = {};
-      entry.platforms.forEach((platform) => {
-        failedStatus[platform] = {
-          status: 'failed',
-          url: null,
-          error: result.error || 'Failed to publish',
-          timestamp,
-        };
-      });
-
-      setEntries((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, publishStatus: failedStatus } : e)),
-      );
-
-      // Persist failure status to API if available
-      if (window.api?.updateEntry) {
-        try {
-          await window.api.updateEntry(id, { publishStatus: failedStatus });
-        } catch (err) {
-          console.error('Failed to persist publish failure:', err);
-        }
-      }
-    }
-
-    appendAudit({
-      user: currentUser,
-      entryId: id,
-      action: 'entry-publish-trigger',
-    });
-  };
-
-  // Clone an entry for "Post Again"
-  const handlePostAgain = (id) => {
-    const original = entries.find((e) => e.id === id);
-    if (!original) return;
-
-    const newId = uuid();
-    const today = new Date().toISOString().split('T')[0];
-    const cloned = {
-      ...sanitizeEntry(original),
-      id: newId,
-      date: today,
-      status: 'Pending',
-      workflowStatus: 'Draft',
-      approvedAt: null,
-      publishStatus: {},
-      publishedAt: null,
-      variantOfId: original.id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      _isNew: true,
-    };
-    cloned.statusDetail = computeStatusDetail(cloned);
-    setEntries((prev) => [...prev, cloned]);
-    setViewingId(newId);
-    setViewingSnapshot(cloned);
-
-    appendAudit({
-      user: currentUser,
-      entryId: newId,
-      action: 'entry-post-again',
-      meta: { originalEntryId: original.id },
-    });
-  };
-
-  // Toggle evergreen flag on entry
-  const handleToggleEvergreen = (id) => {
-    const timestamp = new Date().toISOString();
-    setEntries((prev) =>
-      prev.map((entry) => {
-        if (entry.id !== id) return entry;
-        return { ...entry, evergreen: !entry.evergreen, updatedAt: timestamp };
-      }),
-    );
-
-    const entry = entries.find((e) => e.id === id);
-    if (entry && window.api?.updateEntry) {
-      runSyncTask(`Toggle evergreen (${id})`, () =>
-        window.api.updateEntry(id, { evergreen: !entry.evergreen }),
-      );
-    }
-  };
-
-  // Change entry date via drag-and-drop
-  const handleEntryDateChange = (id, newDate) => {
-    const timestamp = new Date().toISOString();
-    setEntries((prev) =>
-      prev.map((entry) => {
-        if (entry.id !== id) return entry;
-        return { ...entry, date: newDate, updatedAt: timestamp };
-      }),
-    );
-
-    if (window.api?.updateEntry) {
-      runSyncTask(`Change date (${id})`, () => window.api.updateEntry(id, { date: newDate }));
-    }
-
-    appendAudit({
-      user: currentUser,
-      entryId: id,
-      action: 'entry-date-changed',
-      data: { newDate },
-    });
-  };
-
-  // Update daily post target for content gap flagging
-  // Bulk date shift for multiple entries
-  const handleBulkDateShift = (entryIds, daysDelta) => {
-    const timestamp = new Date().toISOString();
-    // Use local date parsing/formatting to avoid timezone issues
-    const shiftDate = (dateStr) => {
-      const [year, month, day] = dateStr.split('-').map(Number);
-      const d = new Date(year, month - 1, day);
-      d.setDate(d.getDate() + daysDelta);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${dd}`;
-    };
-
-    // Use Set for O(1) lookups instead of O(n) includes()
-    const entryIdSet = new Set(entryIds);
-
-    // Build a map of id→originalDate for API persistence (before state update)
-    const originalDates = new Map();
-    entries.forEach((e) => {
-      if (entryIdSet.has(e.id)) {
-        originalDates.set(e.id, e.date);
-      }
-    });
-
-    setEntries((prev) =>
-      prev.map((entry) => {
-        if (!entryIdSet.has(entry.id)) return entry;
-        return { ...entry, date: shiftDate(entry.date), updatedAt: timestamp };
-      }),
-    );
-
-    // Persist changes to API using precomputed map (O(n) instead of O(n^2))
-    if (window.api?.updateEntry) {
-      originalDates.forEach((originalDate, id) => {
-        runSyncTask(`Shift date (${id})`, () =>
-          window.api.updateEntry(id, { date: shiftDate(originalDate) }),
-        );
-      });
-    }
-
-    appendAudit({
-      user: currentUser,
-      action: 'bulk-date-shift',
-      data: { entryIds, daysDelta },
-    });
-  };
-
-  const updateWorkflowStatus = (id, nextStatus) => {
-    if (!KANBAN_STATUSES.includes(nextStatus)) return;
-    const timestamp = new Date().toISOString();
-    // Sync approval status with workflow status
-    const syncedStatus =
-      nextStatus === 'Approved' || nextStatus === 'Published' ? 'Approved' : 'Pending';
-    setEntries((prev) =>
-      prev.map((entry) => {
-        if (entry.id !== id) return entry;
-        const sanitized = sanitizeEntry({
-          ...entry,
-          workflowStatus: nextStatus,
-          status: syncedStatus,
-          approvedAt:
-            syncedStatus === 'Approved' && !entry.approvedAt ? timestamp : entry.approvedAt,
-          updatedAt: timestamp,
-        });
-        return {
-          ...sanitized,
-          statusDetail: computeStatusDetail(sanitized),
-        };
-      }),
-    );
-    try {
-      runSyncTask(`Update workflow (${id})`, () =>
-        window.api.updateEntry(id, {
-          workflowStatus: nextStatus,
-          status: syncedStatus,
-          approvedAt: syncedStatus === 'Approved' ? timestamp : undefined,
-        }),
-      ).then((ok) => {
-        if (ok) refreshEntries();
-      });
-    } catch {}
-    appendAudit({
-      user: currentUser,
-      entryId: id,
-      action: 'entry-workflow',
-      meta: { to: nextStatus },
-    });
-  };
-
-  const softDelete = (id) => {
-    const timestamp = new Date().toISOString();
-    setEntries((prev) =>
-      prev.map((entry) =>
-        entry.id === id ? { ...entry, deletedAt: timestamp, updatedAt: timestamp } : entry,
-      ),
-    );
-    if (viewingId === id) closeEntry();
-    try {
-      runSyncTask(`Delete entry (${id})`, () => window.api.deleteEntry(id)).then((ok) => {
-        if (ok) refreshEntries();
-      });
-    } catch {}
-    appendAudit({ user: currentUser, entryId: id, action: 'entry-delete-soft' });
-  };
-
-  const restore = (id) => {
-    const timestamp = new Date().toISOString();
-    setEntries((prev) =>
-      prev.map((entry) =>
-        entry.id === id ? { ...entry, deletedAt: undefined, updatedAt: timestamp } : entry,
-      ),
-    );
-    try {
-      runSyncTask(`Restore entry (${id})`, () =>
-        window.api.updateEntry(id, { deletedAt: null }),
-      ).then((ok) => {
-        if (ok) refreshEntries();
-      });
-    } catch {}
-    appendAudit({ user: currentUser, entryId: id, action: 'entry-restore' });
-  };
-
-  const hardDelete = (id) => {
-    const confirmed = window.confirm('Delete this item permanently? This cannot be undone.');
-    if (!confirmed) return;
-    setEntries((prev) => prev.filter((entry) => entry.id !== id));
-    if (viewingId === id) closeEntry();
-    try {
-      runSyncTask(`Delete entry permanently (${id})`, () =>
-        window.api.deleteEntry(id, { hard: true }),
-      ).then((ok) => {
-        if (ok) refreshEntries();
-      });
-    } catch {}
-    appendAudit({ user: currentUser, entryId: id, action: 'entry-delete-hard' });
-  };
-
   const handleSignOut = () => {
     (async () => {
       try {
@@ -1603,11 +873,12 @@ function ContentDashboard() {
       auth.reset();
       notifs.reset();
       sync.reset();
+      entriesHook.reset();
       admin.reset();
       approvals.reset();
       influencersHook.reset();
+      ideasHook.reset();
       setCurrentView('dashboard');
-      closeEntry();
       setChangePasswordOpen(false);
     })();
   };

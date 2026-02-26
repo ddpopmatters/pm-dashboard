@@ -9,3 +9,4 @@ export { useIdeas } from './useIdeas';
 export { useApprovals } from './useApprovals';
 export { useAdmin } from './useAdmin';
 export { useInfluencers } from './useInfluencers';
+export { useEntries } from './useEntries';
