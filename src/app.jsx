@@ -119,12 +119,12 @@ import {
   usePublishing,
   useGuidelines,
   useEngagement,
+  useAuth,
+  useNotifications,
 } from './hooks/domain';
 
 const { useState, useMemo, useEffect, useCallback, useRef } = React;
 
-// Storage key alias for user storage
-const USER_STORAGE_KEY = STORAGE_KEYS.USER;
 // Storage key for draft entry auto-save
 const DRAFT_ENTRY_STORAGE_KEY = STORAGE_KEYS.DRAFT_ENTRY;
 // Auto-save interval in milliseconds (30 seconds)
@@ -137,37 +137,87 @@ function ContentDashboard() {
   const [monthCursor, setMonthCursor] = useState(() => new Date());
   const [viewingId, setViewingId] = useState(null);
   const [viewingSnapshot, setViewingSnapshot] = useState(null);
-  const [notifications, setNotifications] = useState(() => loadNotifications());
   const [ideas, setIdeas] = useState(() => loadIdeas());
   const [adminAudits, setAdminAudits] = useState([]);
-  const [currentUser, setCurrentUser] = useState('');
-  const [currentUserEmail, setCurrentUserEmail] = useState('');
-  const [currentUserAvatar, setCurrentUserAvatar] = useState('');
-  const [currentUserFeatures, setCurrentUserFeatures] = useState(() => []);
-  const [currentUserIsAdmin, setCurrentUserIsAdmin] = useState(false);
-  const [currentUserHasPassword, setCurrentUserHasPassword] = useState(false);
-  const [authStatus, setAuthStatus] = useState('loading');
-  const [authError, setAuthError] = useState('');
+  // Domain hooks — Layer 1: needs API
+  const auth = useAuth({ apiGet, apiPost, apiPut });
+  const {
+    currentUser,
+    setCurrentUser,
+    currentUserEmail,
+    setCurrentUserEmail,
+    currentUserAvatar,
+    currentUserIsAdmin,
+    currentUserHasPassword,
+    currentUserFeatures,
+    authStatus,
+    setAuthStatus,
+    authError,
+    hydrateCurrentUser,
+    loginEmail,
+    setLoginEmail,
+    loginPassword,
+    setLoginPassword,
+    loginError,
+    setLoginError,
+    submitLogin,
+    resetLoginFields,
+    inviteToken,
+    setInviteToken,
+    invitePassword,
+    setInvitePassword,
+    invitePasswordConfirm,
+    setInvitePasswordConfirm,
+    inviteError,
+    submitInvite,
+    clearInviteParam,
+    viewerIsAuthor,
+    viewerIsApprover,
+    hasFeature,
+    canUseCalendar,
+    canUseKanban,
+    canUseApprovals,
+    canUseIdeas,
+    profileMenuRef,
+    profileMenuOpen,
+    setProfileMenuOpen,
+    profileFormName,
+    setProfileFormName,
+    setProfileAvatarDraft,
+    profileStatus,
+    profileError,
+    profileSaving,
+    profileInitials,
+    avatarPreview,
+    handleProfileMenuToggle,
+    handleAvatarFileChange,
+    handleProfileSave,
+    handleAuthChange,
+    handleChangePassword,
+  } = auth;
+
   const [currentView, setCurrentView] = useState('dashboard');
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [inviteToken, setInviteToken] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    try {
-      const url = new URL(window.location.href);
-      return url.searchParams.get('invite') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [invitePassword, setInvitePassword] = useState('');
-  const [invitePasswordConfirm, setInvitePasswordConfirm] = useState('');
-  const [inviteError, setInviteError] = useState('');
   const [planTab, setPlanTab] = useState('plan');
 
   // Domain hooks — Layer 0: standalone
   const sync = useSyncQueue();
+
+  // Domain hooks — Layer 2: needs auth + sync
+  const notifs = useNotifications({ currentUser, runSyncTask: sync.runSyncTask, apiPost });
+  const {
+    notifications,
+    addNotifications,
+    markNotificationsAsReadForEntry,
+    buildApprovalNotifications,
+    buildMentionNotifications,
+    handleMentionNotifications,
+    handleCommentActivity,
+    notifyApproversAboutChange,
+    notifyViaServer,
+    userNotifications,
+    unreadNotifications,
+    unreadMentionsCount,
+  } = notifs;
   const { syncQueue, syncToast, pushSyncToast, runSyncTask, retrySyncItem, retryAllSync } = sync;
   const filters = useDomainFilters();
   const {
@@ -232,13 +282,6 @@ function ContentDashboard() {
   const [accessModalUser, setAccessModalUser] = useState(null);
   const [userAdminError, setUserAdminError] = useState('');
   const [userAdminSuccess, setUserAdminSuccess] = useState('');
-  const profileMenuRef = useRef(null);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [profileFormName, setProfileFormName] = useState('');
-  const [profileAvatarDraft, setProfileAvatarDraft] = useState('');
-  const [profileStatus, setProfileStatus] = useState('');
-  const [profileError, setProfileError] = useState('');
-  const [profileSaving, setProfileSaving] = useState(false);
   const [deepLinkEntryId, setDeepLinkEntryId] = useState(() => {
     if (typeof window === 'undefined') return '';
     try {
@@ -248,48 +291,6 @@ function ContentDashboard() {
       return '';
     }
   });
-  const normalizedViewerName = useMemo(
-    () => (currentUser || '').trim().toLowerCase(),
-    [currentUser],
-  );
-  const normalizedViewerEmail = useMemo(
-    () => (currentUserEmail || '').trim().toLowerCase(),
-    [currentUserEmail],
-  );
-  const viewerMatchesValue = useCallback(
-    (value) => {
-      if (!value || typeof value !== 'string') return false;
-      const normalized = value.trim().toLowerCase();
-      if (!normalized) return false;
-      if (normalizedViewerName && normalizedViewerName === normalized) return true;
-      if (normalizedViewerEmail && normalizedViewerEmail === normalized) return true;
-      return false;
-    },
-    [normalizedViewerName, normalizedViewerEmail],
-  );
-  const viewerIsAuthor = useCallback(
-    (entry) => {
-      if (!entry) return false;
-      return viewerMatchesValue(entry.author);
-    },
-    [viewerMatchesValue],
-  );
-  const viewerIsApprover = useCallback(
-    (entry) => {
-      if (!entry) return false;
-      const names = ensurePeopleArray(entry.approvers);
-      return names.some((name) => viewerMatchesValue(name));
-    },
-    [viewerMatchesValue],
-  );
-  const hasFeature = useCallback(
-    (feature) => currentUserIsAdmin || currentUserFeatures.includes(feature),
-    [currentUserFeatures, currentUserIsAdmin],
-  );
-  const canUseCalendar = hasFeature('calendar');
-  const canUseKanban = hasFeature('kanban');
-  const canUseApprovals = hasFeature('approvals');
-  const canUseIdeas = hasFeature('ideas');
   const canUseInfluencers = true; // Show to everyone
   const menuHasContent =
     canUseCalendar ||
@@ -298,15 +299,6 @@ function ContentDashboard() {
     canUseIdeas ||
     canUseInfluencers ||
     currentUserIsAdmin;
-  const profileInitials = useMemo(() => {
-    const base = (currentUser && currentUser.trim()) || currentUserEmail || 'U';
-    const parts = base.split(/\s+/).filter(Boolean);
-    if (!parts.length) return base.slice(0, 2).toUpperCase();
-    const first = parts[0]?.[0] || '';
-    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] : parts[0]?.[1] || '';
-    return (first + last).toUpperCase();
-  }, [currentUser, currentUserEmail]);
-  const avatarPreview = profileAvatarDraft !== '' ? profileAvatarDraft : currentUserAvatar;
   const approverOptions = useMemo(() => {
     const derived = userList
       .filter((user) => user.isApprover && user.status !== 'disabled')
@@ -346,62 +338,13 @@ function ContentDashboard() {
       .then((payload) => Array.isArray(payload) && setUserList(payload))
       .catch(() => pushSyncToast('Unable to refresh user roster.', 'warning'));
   }, [pushSyncToast]);
-  const hydrateCurrentUser = useCallback(async () => {
-    setAuthStatus('loading');
-    setAuthError('');
-    try {
-      let payload = null;
-      if (window.api && window.api.enabled) {
-        // Check for Supabase session first
-        const session = await window.api.getSession?.();
-        if (session?.user) {
-          // Ensure user profile exists and fetch it
-          await window.api.ensureUserProfile?.(session.user);
-          payload = await window.api.getCurrentUser();
-        }
-        // If Supabase is enabled but no session, user needs to login
-        if (!payload) throw new Error('No authenticated session');
-      } else {
-        // Fallback to legacy API only when Supabase is not available
-        payload = await apiGet('/api/user');
-      }
-      if (!payload) throw new Error('No user payload');
-      const nextName =
-        payload?.name && String(payload.name).trim().length
-          ? String(payload.name).trim()
-          : String(payload?.email || '');
-      setCurrentUser(nextName);
-      setCurrentUserEmail(String(payload?.email || ''));
-      setCurrentUserAvatar(String(payload?.avatarUrl || ''));
-      setCurrentUserFeatures(ensureFeaturesList(payload?.features));
-      setCurrentUserIsAdmin(Boolean(payload?.isAdmin));
-      setCurrentUserHasPassword(Boolean(payload?.hasPassword));
-      setAuthStatus('ready');
-    } catch (error) {
-      console.warn('Failed to fetch authenticated user', error);
-      setCurrentUser('');
-      setCurrentUserEmail('');
-      setCurrentUserAvatar('');
-      setCurrentUserFeatures([]);
-      setCurrentUserIsAdmin(false);
-      setCurrentUserHasPassword(false);
+  // Clear admin state when auth fails (hydrateCurrentUser in useAuth sets authStatus)
+  useEffect(() => {
+    if (authStatus !== 'ready' && authStatus !== 'loading') {
       setUserList([]);
       setAccessModalUser(null);
-      setAuthError('');
-      setAuthStatus(inviteToken ? 'invite' : 'login');
-      setProfileMenuOpen(false);
     }
-  }, [inviteToken, apiGet]);
-
-  useEffect(() => {
-    hydrateCurrentUser();
-  }, [hydrateCurrentUser]);
-
-  useEffect(() => {
-    if (inviteToken && authStatus !== 'ready') {
-      setAuthStatus('invite');
-    }
-  }, [inviteToken, authStatus]);
+  }, [authStatus]);
 
   useEffect(() => {
     const required = PLAN_TAB_FEATURES[planTab];
@@ -432,37 +375,6 @@ function ContentDashboard() {
     }
   }, [currentView, hasFeature, currentUserIsAdmin, canUseCalendar]);
 
-  const notifyViaServer = (payload, label = 'Send notification') => {
-    if (typeof window === 'undefined' || !payload) return;
-    const action = async () => {
-      if (window.api && window.api.enabled && window.api.notify) {
-        return window.api.notify(payload);
-      }
-      return apiPost('/api/notify', payload);
-    };
-    runSyncTask(label, action, { requiresApi: false });
-  };
-  const handleChangePassword = useCallback(
-    async ({ currentPassword, newPassword }) => {
-      const payload = { currentPassword, newPassword };
-      const submit = async () => {
-        if (window.api && window.api.enabled && window.api.changePassword) {
-          return window.api.changePassword(payload);
-        }
-        return apiPut('/api/password', payload);
-      };
-      try {
-        const response = await submit();
-        setCurrentUserHasPassword(true);
-        return response;
-      } catch (error) {
-        console.error('Failed to update password', error);
-        if (error instanceof Error) throw error;
-        throw new Error('Unable to update password.');
-      }
-    },
-    [setCurrentUserHasPassword, apiPut],
-  );
   const refreshApprovers = useCallback(async () => {
     try {
       let payload = null;
@@ -496,92 +408,6 @@ function ContentDashboard() {
     refreshApprovers();
   }, [refreshApprovers]);
 
-  const PROFILE_IMAGE_LIMIT = 200 * 1024;
-
-  const openProfileMenu = () => {
-    setProfileFormName(currentUser || currentUserEmail || '');
-    setProfileAvatarDraft(currentUserAvatar || '');
-    setProfileStatus('');
-    setProfileError('');
-    setProfileMenuOpen(true);
-  };
-
-  const closeProfileMenu = () => {
-    setProfileMenuOpen(false);
-  };
-
-  const handleProfileMenuToggle = () => {
-    if (profileMenuOpen) {
-      closeProfileMenu();
-      return;
-    }
-    openProfileMenu();
-  };
-
-  useEffect(() => {
-    if (!profileMenuOpen) return;
-    const handleClick = (event) => {
-      if (!profileMenuRef.current) return;
-      if (!profileMenuRef.current.contains(event.target)) {
-        closeProfileMenu();
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [profileMenuOpen]);
-
-  const handleAvatarFileChange = (event) => {
-    const file = event.target?.files && event.target.files[0];
-    if (!file) return;
-    if (file.size > PROFILE_IMAGE_LIMIT) {
-      setProfileError('Image must be under 200KB.');
-      event.target.value = '';
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setProfileAvatarDraft(typeof reader.result === 'string' ? reader.result : '');
-      setProfileError('');
-    };
-    reader.onerror = () => {
-      setProfileError('Unable to read the selected image.');
-    };
-    reader.readAsDataURL(file);
-    event.target.value = '';
-  };
-
-  const handleProfileSave = async (event) => {
-    event.preventDefault();
-    const desiredName = profileFormName.trim() || currentUser || currentUserEmail;
-    const payload = { name: desiredName };
-    if ((profileAvatarDraft || '') !== (currentUserAvatar || '')) {
-      payload.avatar = profileAvatarDraft ? profileAvatarDraft : null;
-    }
-    setProfileSaving(true);
-    setProfileStatus('');
-    setProfileError('');
-    try {
-      let response = null;
-      if (window.api && typeof window.api.updateProfile === 'function') {
-        response = await window.api.updateProfile(payload);
-      } else {
-        response = await apiPut('/api/user', payload);
-      }
-      if (response?.user) {
-        setCurrentUser(response.user.name || desiredName);
-        setCurrentUserEmail(response.user.email || currentUserEmail);
-        setCurrentUserAvatar(response.user.avatarUrl || '');
-      } else {
-        setCurrentUser(desiredName);
-      }
-      setProfileStatus('Profile updated.');
-    } catch (error) {
-      console.error('Failed to update profile', error);
-      setProfileError(error instanceof Error ? error.message : 'Unable to update profile.');
-    } finally {
-      setProfileSaving(false);
-    }
-  };
   const addUser = async () => {
     setUserAdminError('');
     setUserAdminSuccess('');
@@ -843,15 +669,6 @@ function ContentDashboard() {
   }, [entries]);
 
   useEffect(() => {
-    if (!storageAvailable) return;
-    if (currentUser) {
-      window.localStorage.setItem(USER_STORAGE_KEY, currentUser);
-    } else {
-      window.localStorage.removeItem(USER_STORAGE_KEY);
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
     if (!currentUserIsAdmin) {
       setAccessModalUser(null);
     }
@@ -862,10 +679,6 @@ function ContentDashboard() {
       setApprovalsModalOpen(false);
     }
   }, [canUseApprovals]);
-
-  useEffect(() => {
-    saveNotifications(notifications);
-  }, [notifications]);
 
   useEffect(() => {
     saveIdeas(ideas);
@@ -898,237 +711,6 @@ function ContentDashboard() {
       return updated;
     });
   }, []);
-
-  const addNotifications = (items = []) => {
-    if (!items || !items.length) return;
-    setNotifications((prev) => {
-      const existing = new Set(
-        prev.map(
-          (item) => item.key || notificationKey(item.type, item.entryId, item.user, item.meta),
-        ),
-      );
-      const additions = items
-        .map((item) => {
-          const key = item.key || notificationKey(item.type, item.entryId, item.user, item.meta);
-          return {
-            id: uuid(),
-            entryId: item.entryId,
-            user: item.user,
-            type: item.type,
-            message: item.message,
-            createdAt: item.createdAt || new Date().toISOString(),
-            read: false,
-            meta: item.meta || {},
-            key,
-          };
-        })
-        .filter(
-          (item) =>
-            item.entryId && item.user && item.type && item.message && !existing.has(item.key),
-        );
-      if (!additions.length) return prev;
-      return [...additions, ...prev];
-    });
-  };
-
-  const markNotificationsAsReadForEntry = (entryId, user = currentUser) => {
-    if (!entryId || !user) return;
-    setNotifications((prev) =>
-      prev.map((item) =>
-        item.entryId === entryId && item.user === user && !item.read
-          ? { ...item, read: true }
-          : item,
-      ),
-    );
-  };
-
-  const buildApprovalNotifications = (entry, names) => {
-    const approvers = names ? names : ensurePeopleArray(entry.approvers);
-    if (!approvers.length) return [];
-    const descriptor =
-      entry.caption && entry.caption.trim().length
-        ? entry.caption.trim()
-        : `${entry.assetType} on ${new Date(entry.date).toLocaleDateString()}`;
-    const timestamp = new Date().toISOString();
-    return approvers.map((user) => ({
-      entryId: entry.id,
-      user,
-      type: 'approval-assigned',
-      message: `${descriptor} is awaiting your approval.`,
-      createdAt: timestamp,
-      meta: { source: 'approval' },
-      key: notificationKey('approval-assigned', entry.id, user),
-    }));
-  };
-
-  const buildMentionNotifications = (entry, comment, mentionNames) => {
-    if (!mentionNames || !mentionNames.length) return [];
-    const descriptor =
-      entry.caption && entry.caption.trim().length
-        ? entry.caption.trim()
-        : `${entry.assetType} on ${new Date(entry.date).toLocaleDateString()}`;
-    const author = comment.author || 'A teammate';
-    const timestamp = comment.createdAt || new Date().toISOString();
-    return mentionNames
-      .filter((user) => user && user.trim() && user.trim() !== (comment.author || '').trim())
-      .map((user) => ({
-        entryId: entry.id,
-        user,
-        type: 'mention',
-        message: `${author} mentioned you on "${descriptor}".`,
-        createdAt: timestamp,
-        meta: { commentId: comment.id },
-        key: notificationKey('mention', entry.id, user, { commentId: comment.id }),
-      }));
-  };
-
-  const handleMentionNotifications = ({ entry, comment, mentionNames }) => {
-    if (!entry || !comment) return;
-    const payload = buildMentionNotifications(entry, comment, mentionNames);
-    if (payload.length) addNotifications(payload);
-  };
-
-  const handleCommentActivity = ({ entry, comment }) => {
-    if (!entry || !comment) return;
-    const approvers = ensurePeopleArray(entry.approvers);
-    const authorNames = ensurePeopleArray(entry.author);
-    const actorName = comment.author || currentUser || 'Unknown';
-    const normalizedActor = actorName ? actorName.trim().toLowerCase() : '';
-    const recipients = new Set();
-    const addRecipientsFrom = (list) => {
-      list.forEach((name) => {
-        const trimmed = (name || '').trim();
-        if (!trimmed) return;
-        if (normalizedActor && trimmed.toLowerCase() === normalizedActor) return;
-        recipients.add(trimmed);
-      });
-    };
-    const actorIsApprover = approvers.some(
-      (name) => (name || '').trim().toLowerCase() === normalizedActor,
-    );
-    const actorIsAuthor = authorNames.some(
-      (name) => (name || '').trim().toLowerCase() === normalizedActor,
-    );
-    if (actorIsApprover) {
-      addRecipientsFrom(authorNames.length ? authorNames : approvers);
-    } else if (actorIsAuthor) {
-      addRecipientsFrom(approvers);
-    } else {
-      addRecipientsFrom([...authorNames, ...approvers]);
-    }
-    if (!recipients.size) return;
-    const descriptor = entryDescriptor(entry);
-    const timestamp = new Date().toISOString();
-    addNotifications(
-      Array.from(recipients).map((user) => ({
-        entryId: entry.id,
-        user,
-        type: 'comment',
-        message: `${actorName} commented on ${descriptor}.`,
-        createdAt: timestamp,
-        meta: { commentId: comment.id, source: 'comment' },
-        key: notificationKey('comment', entry.id, user, { commentId: comment.id }),
-      })),
-    );
-    try {
-      const link = entryReviewLink(entry);
-      const rawSnippet = comment.body || '';
-      const snippet = rawSnippet.length > 600 ? `${rawSnippet.slice(0, 600)}…` : rawSnippet;
-      const textParts = [
-        `${actorName} commented on "${descriptor}".`,
-        snippet ? snippet : '',
-        link ? `Review: ${link}` : '',
-      ].filter(Boolean);
-      const text = textParts.join('\n\n');
-      const htmlSnippet = snippet ? escapeHtml(snippet).replace(/\n/g, '<br />') : '';
-      const html = `
-        <div style="font-family:'Helvetica Neue',Arial,sans-serif; font-size:14px; color:#0f172a;">
-          <p><strong>${escapeHtml(actorName)}</strong> commented on <strong>${escapeHtml(
-            descriptor,
-          )}</strong>.</p>
-          ${
-            htmlSnippet
-              ? `<blockquote style="margin:12px 0; padding:12px; background:#f1f5f9; border-left:3px solid #0A66C2;">${htmlSnippet}</blockquote>`
-              : ''
-          }
-          ${
-            link
-              ? `<p style="margin:0;"><a href="${escapeHtml(
-                  link,
-                )}" style="color:#0A66C2; text-decoration:none;">Review this entry</a></p>`
-              : ''
-          }
-        </div>
-      `.trim();
-      notifyViaServer(
-        {
-          approvers: Array.from(recipients),
-          to: Array.from(recipients),
-          subject: `[PM Dashboard] New comment on ${descriptor}`,
-          text,
-          html,
-        },
-        `Send comment alert (${entry.id})`,
-      );
-    } catch {}
-  };
-
-  const notifyApproversAboutChange = (entry) => {
-    if (!entry) return;
-    const approvers = ensurePeopleArray(entry.approvers);
-    if (!approvers.length) return;
-    const actorName = currentUser || 'A teammate';
-    const normalizedActor = actorName.trim().toLowerCase();
-    const recipients = approvers
-      .map((name) => (name || '').trim())
-      .filter((name) => name && name.toLowerCase() !== normalizedActor);
-    if (!recipients.length) return;
-    const descriptor = entryDescriptor(entry);
-    const timestamp = new Date().toISOString();
-    addNotifications(
-      recipients.map((user) => ({
-        entryId: entry.id,
-        user,
-        type: 'approval-update',
-        message: `${actorName} updated ${descriptor}.`,
-        createdAt: timestamp,
-        meta: { source: 'entry-update' },
-        key: notificationKey('approval-update', entry.id, user),
-      })),
-    );
-    try {
-      const link = entryReviewLink(entry);
-      const textLines = [
-        `${actorName} updated "${descriptor}".`,
-        link ? `Review: ${link}` : '',
-      ].filter(Boolean);
-      const text = textLines.join('\n\n');
-      const html = `
-        <div style="font-family:'Helvetica Neue',Arial,sans-serif; font-size:14px; color:#0f172a;">
-          <p><strong>${escapeHtml(actorName)}</strong> updated <strong>${escapeHtml(
-            descriptor,
-          )}</strong>.</p>
-          ${
-            link
-              ? `<p style="margin:0;"><a href="${escapeHtml(
-                  link,
-                )}" style="color:#0A66C2; text-decoration:none;">Review this entry</a></p>`
-              : ''
-          }
-        </div>
-      `.trim();
-      notifyViaServer(
-        {
-          approvers: recipients,
-          to: recipients,
-          subject: `[PM Dashboard] ${actorName} updated ${descriptor}`,
-          text,
-          html,
-        },
-        `Send approval update (${entry.id})`,
-      );
-    } catch {}
-  };
 
   const addIdea = (idea) => {
     const timestamp = new Date().toISOString();
@@ -1343,13 +925,6 @@ function ContentDashboard() {
   const outstandingCount = outstandingApprovals.length;
   const ideaCount = ideas.length;
 
-  const userNotifications = useMemo(() => {
-    if (!currentUser) return [];
-    return notifications
-      .filter((item) => item.user === currentUser)
-      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  }, [notifications, currentUser]);
-
   const featureTiles = [
     {
       id: 'create',
@@ -1410,16 +985,6 @@ function ContentDashboard() {
       },
     },
   ];
-
-  const unreadNotifications = useMemo(
-    () => userNotifications.filter((item) => !item.read),
-    [userNotifications],
-  );
-
-  const unreadMentionsCount = useMemo(
-    () => unreadNotifications.filter((item) => item.type === 'mention').length,
-    [unreadNotifications],
-  );
 
   const closeEntry = () => {
     setViewingId(null);
@@ -2253,16 +1818,6 @@ function ContentDashboard() {
     appendAudit({ user: currentUser, entryId: id, action: 'entry-delete-hard' });
   };
 
-  const resetLoginFields = () => {
-    setLoginEmail('');
-    setLoginPassword('');
-    setLoginError('');
-  };
-
-  const retryAuth = () => {
-    hydrateCurrentUser();
-  };
-
   const handleSignOut = () => {
     (async () => {
       try {
@@ -2272,119 +1827,16 @@ function ContentDashboard() {
           await apiDel('/api/auth');
         }
       } catch {}
-      setCurrentUser('');
-      setCurrentUserEmail('');
-      setCurrentUserAvatar('');
-      setCurrentUserFeatures([]);
-      setCurrentUserIsAdmin(false);
-      setCurrentUserHasPassword(false);
-      setAuthStatus('login');
-      resetLoginFields();
+      auth.reset();
+      notifs.reset();
+      sync.reset();
       setCurrentView('dashboard');
       closeEntry();
       setUserList([]);
       setAccessModalUser(null);
       setChangePasswordOpen(false);
       setApproverDirectory(DEFAULT_APPROVERS);
-      setProfileMenuOpen(false);
-      setProfileFormName('');
-      setProfileAvatarDraft('');
-      setProfileStatus('');
-      setProfileError('');
-      sync.reset();
     })();
-  };
-
-  const submitLogin = async (event) => {
-    event.preventDefault();
-    setLoginError('');
-    const normalizedEmail = normalizeEmail(loginEmail);
-    if (!normalizedEmail) {
-      setLoginError('Enter the email you were invited with.');
-      return;
-    }
-    if (!loginPassword) {
-      setLoginError('Enter your password.');
-      return;
-    }
-    try {
-      let response = null;
-      if (window.api && typeof window.api.login === 'function') {
-        response = await window.api.login({ email: normalizedEmail, password: loginPassword });
-      } else {
-        response = await apiPost('/api/auth', { email: normalizedEmail, password: loginPassword });
-      }
-      const name =
-        response?.user?.name && response.user.name.trim().length
-          ? response.user.name.trim()
-          : normalizedEmail;
-      setCurrentUser(name);
-      setCurrentUserEmail(response?.user?.email || normalizedEmail);
-      setCurrentUserAvatar(response?.user?.avatarUrl || '');
-      setCurrentUserFeatures(ensureFeaturesList(response?.user?.features));
-      setCurrentUserIsAdmin(Boolean(response?.user?.isAdmin));
-      setCurrentUserHasPassword(Boolean(response?.user?.hasPassword));
-      setAuthStatus('ready');
-      setAuthError('');
-      resetLoginFields();
-    } catch (error) {
-      console.error(error);
-      setLoginError('Invalid email or password.');
-    }
-  };
-
-  const clearInviteParam = () => {
-    if (typeof window === 'undefined') return;
-    try {
-      const url = new URL(window.location.href);
-      if (url.searchParams.has('invite')) {
-        url.searchParams.delete('invite');
-        window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
-      }
-    } catch {}
-  };
-
-  const submitInvite = async (event) => {
-    event.preventDefault();
-    setInviteError('');
-    if (!inviteToken) {
-      setInviteError('This invite link is invalid.');
-      return;
-    }
-    if (!invitePassword || invitePassword.length < 8) {
-      setInviteError('Choose a password with at least 8 characters.');
-      return;
-    }
-    if (invitePassword !== invitePasswordConfirm) {
-      setInviteError('Passwords must match.');
-      return;
-    }
-    try {
-      let response = null;
-      if (window.api && typeof window.api.acceptInvite === 'function') {
-        response = await window.api.acceptInvite({ token: inviteToken, password: invitePassword });
-      } else {
-        response = await apiPut('/api/auth', { token: inviteToken, password: invitePassword });
-      }
-      const name =
-        response?.user?.name && response.user.name.trim().length
-          ? response.user.name.trim()
-          : response?.user?.email || '';
-      setCurrentUser(name);
-      setCurrentUserEmail(response?.user?.email || '');
-      setCurrentUserAvatar(response?.user?.avatarUrl || '');
-      setCurrentUserFeatures(ensureFeaturesList(response?.user?.features));
-      setCurrentUserIsAdmin(Boolean(response?.user?.isAdmin));
-      setCurrentUserHasPassword(Boolean(response?.user?.hasPassword));
-      setInviteToken('');
-      setInvitePassword('');
-      setInvitePasswordConfirm('');
-      setAuthStatus('ready');
-      clearInviteParam();
-    } catch (error) {
-      console.error(error);
-      setInviteError('This invite link is invalid or has expired.');
-    }
   };
 
   const handleAddInfluencer = useCallback(
@@ -2539,24 +1991,6 @@ function ContentDashboard() {
   }
 
   if (authStatus === 'login') {
-    const handleAuthChange = ({ user, profile }) => {
-      if (profile) {
-        const nextName =
-          profile?.name && String(profile.name).trim().length
-            ? String(profile.name).trim()
-            : String(profile?.email || user?.email || '');
-        setCurrentUser(nextName);
-        setCurrentUserEmail(String(profile?.email || user?.email || ''));
-        setCurrentUserAvatar(String(profile?.avatarUrl || profile?.avatar_url || ''));
-        setCurrentUserFeatures(ensureFeaturesList(profile?.features));
-        setCurrentUserIsAdmin(Boolean(profile?.isAdmin || profile?.is_admin));
-        setCurrentUserHasPassword(true);
-        setAuthStatus('ready');
-      } else {
-        // Re-fetch user data
-        hydrateCurrentUser();
-      }
-    };
     return <LoginScreen onAuthChange={handleAuthChange} />;
   }
 
