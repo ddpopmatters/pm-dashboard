@@ -1,11 +1,31 @@
 import { build, context } from 'esbuild';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
 const isWatch = process.argv.includes('--watch');
+
+// Load .env file for build-time constants
+const loadEnv = () => {
+  try {
+    const envFile = readFileSync(resolve(root, '.env'), 'utf-8');
+    const env = {};
+    for (const line of envFile.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx === -1) continue;
+      env[trimmed.slice(0, eqIdx)] = trimmed.slice(eqIdx + 1);
+    }
+    return env;
+  } catch {
+    return {};
+  }
+};
+const env = loadEnv();
 
 const config = {
   entryPoints: [resolve(root, 'src/app.jsx')],
@@ -20,6 +40,10 @@ const config = {
   minify: !isWatch,
   metafile: true,
   logLevel: 'info',
+  define: {
+    'import.meta.env.SUPABASE_URL': JSON.stringify(env.SUPABASE_URL || ''),
+    'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(env.SUPABASE_ANON_KEY || ''),
+  },
 };
 
 if (isWatch) {

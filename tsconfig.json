@@ -1,15 +1,3 @@
 {
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "lib": ["ES2021", "DOM"],
-    "strict": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
-  },
-  "include": ["functions/**/*.ts"],
-  "exclude": ["node_modules", "dist", "build", ".wrangler"]
+  "extends": "./src/tsconfig.json"
 }
