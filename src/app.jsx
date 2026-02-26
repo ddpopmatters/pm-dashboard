@@ -121,6 +121,10 @@ import {
   useEngagement,
   useAuth,
   useNotifications,
+  useIdeas,
+  useApprovals,
+  useAdmin,
+  useInfluencers,
 } from './hooks/domain';
 
 const { useState, useMemo, useEffect, useCallback, useRef } = React;
@@ -137,8 +141,6 @@ function ContentDashboard() {
   const [monthCursor, setMonthCursor] = useState(() => new Date());
   const [viewingId, setViewingId] = useState(null);
   const [viewingSnapshot, setViewingSnapshot] = useState(null);
-  const [ideas, setIdeas] = useState(() => loadIdeas());
-  const [adminAudits, setAdminAudits] = useState([]);
   // Domain hooks — Layer 1: needs API
   const auth = useAuth({ apiGet, apiPost, apiPut });
   const {
@@ -218,6 +220,67 @@ function ContentDashboard() {
     unreadNotifications,
     unreadMentionsCount,
   } = notifs;
+
+  const ideasHook = useIdeas({
+    currentUser,
+    runSyncTask: sync.runSyncTask,
+    pushSyncToast: sync.pushSyncToast,
+  });
+  const { ideas, setIdeas, addIdea, deleteIdea, refreshIdeas, ideasByMonth } = ideasHook;
+
+  const approvals = useApprovals({ apiGet, entries, currentUser });
+  const { approverDirectory, refreshApprovers, outstandingApprovals } = approvals;
+
+  const admin = useAdmin({
+    currentUserIsAdmin,
+    authStatus,
+    pushSyncToast: sync.pushSyncToast,
+    refreshApprovers,
+  });
+  const {
+    userList,
+    setUserList,
+    adminAudits,
+    setAdminAudits,
+    newUserFirst,
+    setNewUserFirst,
+    newUserLast,
+    setNewUserLast,
+    newUserEmail,
+    setNewUserEmail,
+    newUserFeatures,
+    setNewUserFeatures,
+    newUserIsApprover,
+    setNewUserIsApprover,
+    accessModalUser,
+    setAccessModalUser,
+    userAdminError,
+    userAdminSuccess,
+    refreshUsers,
+    addUser,
+    removeUser,
+    toggleNewUserFeature,
+    toggleApproverRole,
+    handleAccessSave,
+  } = admin;
+
+  const influencersHook = useInfluencers({ currentUser, setEntries });
+  const {
+    influencers,
+    influencerModalOpen,
+    setInfluencerModalOpen,
+    editingInfluencerId,
+    setEditingInfluencerId,
+    customNiches,
+    handleAddCustomNiche,
+    handleAddInfluencer,
+    handleUpdateInfluencer,
+    handleDeleteInfluencer,
+    handleOpenInfluencerDetail,
+    handleLinkEntryToInfluencer,
+    handleUnlinkEntryFromInfluencer,
+  } = influencersHook;
+
   const { syncQueue, syncToast, pushSyncToast, runSyncTask, retrySyncItem, retryAllSync } = sync;
   const filters = useDomainFilters();
   const {
@@ -268,20 +331,6 @@ function ContentDashboard() {
   const [menuMotionActive, setMenuMotionActive] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [pendingAssetType, setPendingAssetType] = useState(null);
-  const [approverDirectory, setApproverDirectory] = useState(DEFAULT_APPROVERS);
-  const [userList, setUserList] = useState(() => []);
-  const [influencers, setInfluencers] = useState([]);
-  const [influencerModalOpen, setInfluencerModalOpen] = useState(false);
-  const [editingInfluencerId, setEditingInfluencerId] = useState(null);
-  const [customNiches, setCustomNiches] = useState([]);
-  const [newUserFirst, setNewUserFirst] = useState('');
-  const [newUserLast, setNewUserLast] = useState('');
-  const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserFeatures, setNewUserFeatures] = useState(() => [...DEFAULT_FEATURES]);
-  const [newUserIsApprover, setNewUserIsApprover] = useState(false);
-  const [accessModalUser, setAccessModalUser] = useState(null);
-  const [userAdminError, setUserAdminError] = useState('');
-  const [userAdminSuccess, setUserAdminSuccess] = useState('');
   const [deepLinkEntryId, setDeepLinkEntryId] = useState(() => {
     if (typeof window === 'undefined') return '';
     try {
@@ -324,28 +373,6 @@ function ContentDashboard() {
       .then((payload) => Array.isArray(payload) && setEntries(payload))
       .catch(() => pushSyncToast('Unable to refresh entries from the server.', 'warning'));
   }, [pushSyncToast]);
-  const refreshIdeas = useCallback(() => {
-    if (!window.api || !window.api.enabled || !window.api.listIdeas) return;
-    window.api
-      .listIdeas()
-      .then((payload) => Array.isArray(payload) && setIdeas(payload))
-      .catch(() => pushSyncToast('Unable to refresh ideas from the server.', 'warning'));
-  }, [pushSyncToast]);
-  const refreshUsers = useCallback(() => {
-    if (!window.api || !window.api.enabled || !window.api.listUsers) return;
-    window.api
-      .listUsers()
-      .then((payload) => Array.isArray(payload) && setUserList(payload))
-      .catch(() => pushSyncToast('Unable to refresh user roster.', 'warning'));
-  }, [pushSyncToast]);
-  // Clear admin state when auth fails (hydrateCurrentUser in useAuth sets authStatus)
-  useEffect(() => {
-    if (authStatus !== 'ready' && authStatus !== 'loading') {
-      setUserList([]);
-      setAccessModalUser(null);
-    }
-  }, [authStatus]);
-
   useEffect(() => {
     const required = PLAN_TAB_FEATURES[planTab];
     if (required && !hasFeature(required)) {
@@ -374,176 +401,6 @@ function ContentDashboard() {
       }
     }
   }, [currentView, hasFeature, currentUserIsAdmin, canUseCalendar]);
-
-  const refreshApprovers = useCallback(async () => {
-    try {
-      let payload = null;
-      if (window.api && typeof window.api.listApprovers === 'function') {
-        payload = await window.api.listApprovers();
-      } else {
-        payload = await apiGet('/api/approvers');
-      }
-      if (Array.isArray(payload) && payload.length) {
-        setApproverDirectory(
-          payload
-            .map((entry) => {
-              if (!entry) return '';
-              if (entry.name && String(entry.name).trim().length) return String(entry.name).trim();
-              if (entry.email && String(entry.email).trim().length)
-                return String(entry.email).trim();
-              return '';
-            })
-            .filter(Boolean),
-        );
-      } else {
-        setApproverDirectory(DEFAULT_APPROVERS);
-      }
-    } catch (error) {
-      console.warn('Failed to load approvers', error);
-      setApproverDirectory(DEFAULT_APPROVERS);
-    }
-  }, [apiGet]);
-
-  useEffect(() => {
-    refreshApprovers();
-  }, [refreshApprovers]);
-
-  const addUser = async () => {
-    setUserAdminError('');
-    setUserAdminSuccess('');
-    if (!currentUserIsAdmin) {
-      setUserAdminError('You do not have permission to manage users.');
-      return;
-    }
-    const first = newUserFirst.trim();
-    const last = newUserLast.trim();
-    const email = newUserEmail.trim();
-    if (!first || !last || !email) return;
-    const fullname = `${first} ${last}`;
-    const normalizedEmail = normalizeEmail(email);
-    const selectedFeatures = ensureFeaturesList(newUserFeatures);
-    if (!window.api || typeof window.api.createUser !== 'function') {
-      setUserAdminError('Server is offline. Try again when connected.');
-      return;
-    }
-    try {
-      const created = await window.api
-        .createUser({
-          name: fullname,
-          email,
-          features: selectedFeatures,
-          isApprover: newUserIsApprover,
-        })
-        .catch((error) => {
-          throw error;
-        });
-      if (created) {
-        setUserList((prev) => {
-          const without = prev.filter((user) => user.id !== created.id);
-          return [created, ...without];
-        });
-        setUserAdminSuccess(`Invitation sent to ${email}.`);
-        refreshApprovers();
-        refreshUsers();
-      }
-    } catch (error) {
-      console.error(error);
-      setUserAdminError('Unable to create user. Please try again.');
-    }
-    setNewUserFirst('');
-    setNewUserLast('');
-    setNewUserEmail('');
-    setNewUserFeatures([...DEFAULT_FEATURES]);
-    setNewUserIsApprover(false);
-  };
-  const removeUser = async (user) => {
-    if (!user?.id) return;
-    setUserAdminError('');
-    setUserAdminSuccess('');
-    if (!currentUserIsAdmin) {
-      setUserAdminError('You do not have permission to manage users.');
-      return;
-    }
-    if (!window.api || typeof window.api.deleteUser !== 'function') {
-      setUserAdminError('Server is offline.');
-      return;
-    }
-    try {
-      await window.api.deleteUser(user.id);
-      setUserList((prev) => prev.filter((item) => item.id !== user.id));
-      setUserAdminSuccess(`Removed ${user.name || user.email}.`);
-      refreshApprovers();
-      refreshUsers();
-    } catch (error) {
-      console.error(error);
-      setUserAdminError('Unable to remove user.');
-    }
-  };
-  const toggleNewUserFeature = (feature) => {
-    setNewUserFeatures((prev) =>
-      prev.includes(feature) ? prev.filter((item) => item !== feature) : [...prev, feature],
-    );
-  };
-  const toggleApproverRole = async (user) => {
-    if (!user?.id) return;
-    setUserAdminError('');
-    setUserAdminSuccess('');
-    if (!currentUserIsAdmin) {
-      setUserAdminError('You do not have permission to manage users.');
-      return;
-    }
-    if (!window.api || typeof window.api.updateUser !== 'function') {
-      setUserAdminError('Server is offline.');
-      return;
-    }
-    try {
-      const nextValue = !user.isApprover;
-      const result = await window.api.updateUser(user.id, { isApprover: nextValue });
-      if (result?.user) {
-        setUserList((prev) =>
-          prev.map((entry) => (entry.id === result.user.id ? result.user : entry)),
-        );
-        setUserAdminSuccess(
-          `${nextValue ? 'Added' : 'Removed'} ${user.name || user.email} ${
-            nextValue ? 'to' : 'from'
-          } the approver list.`,
-        );
-        refreshApprovers();
-        refreshUsers();
-      }
-    } catch (error) {
-      console.error(error);
-      setUserAdminError('Unable to update approver status.');
-    }
-  };
-  const handleAccessSave = async (features) => {
-    if (!accessModalUser) return;
-    if (!currentUserIsAdmin) {
-      setUserAdminError('You do not have permission to manage users.');
-      setAccessModalUser(null);
-      return;
-    }
-    const normalized = ensureFeaturesList(features);
-    if (!window.api || typeof window.api.updateUser !== 'function') {
-      setUserAdminError('Server is offline.');
-      return;
-    }
-    try {
-      const result = await window.api.updateUser(accessModalUser.id, { features: normalized });
-      if (result?.user) {
-        setUserList((prev) =>
-          prev.map((user) => (user.id === result.user.id ? result.user : user)),
-        );
-        refreshApprovers();
-        refreshUsers();
-      }
-    } catch (error) {
-      console.error(error);
-      setUserAdminError('Unable to update access.');
-    } finally {
-      setAccessModalUser(null);
-    }
-  };
 
   useEffect(() => {
     setEntries(loadEntries());
@@ -679,66 +536,6 @@ function ContentDashboard() {
       setApprovalsModalOpen(false);
     }
   }, [canUseApprovals]);
-
-  useEffect(() => {
-    saveIdeas(ideas);
-  }, [ideas]);
-
-  // Load influencers from Supabase on mount
-  useEffect(() => {
-    SUPABASE_API.fetchInfluencers().then((data) => {
-      if (data.length > 0) {
-        setInfluencers(data);
-      }
-    });
-  }, []);
-
-  // Load custom niches from Supabase on mount
-  useEffect(() => {
-    SUPABASE_API.fetchCustomNiches().then((niches) => {
-      if (niches.length > 0) {
-        setCustomNiches(niches);
-      }
-    });
-  }, []);
-
-  const handleAddCustomNiche = useCallback((niche) => {
-    setCustomNiches((prev) => {
-      if (prev.includes(niche)) return prev;
-      const updated = [...prev, niche].sort();
-      // Save to Supabase
-      SUPABASE_API.saveCustomNiches(updated);
-      return updated;
-    });
-  }, []);
-
-  const addIdea = (idea) => {
-    const timestamp = new Date().toISOString();
-    const sanitized = sanitizeIdea({
-      ...idea,
-      createdBy: idea.createdBy || currentUser || 'Unknown',
-      createdAt: timestamp,
-    });
-    setIdeas((prev) => [sanitized, ...prev]);
-    runSyncTask(`Create idea (${sanitized.id})`, () => window.api.createIdea(sanitized)).then(
-      (ok) => {
-        if (ok) refreshIdeas();
-      },
-    );
-    appendAudit({
-      user: currentUser,
-      action: 'idea-create',
-      meta: { id: sanitized.id, title: sanitized.title },
-    });
-  };
-
-  const deleteIdea = (id) => {
-    setIdeas((prev) => prev.filter((idea) => idea.id !== id));
-    runSyncTask(`Delete idea (${id})`, () => window.api.deleteIdea(id)).then((ok) => {
-      if (ok) refreshIdeas();
-    });
-    appendAudit({ user: currentUser, action: 'idea-delete', meta: { id } });
-  };
 
   const importPerformanceDataset = (dataset) => {
     let summary = {
@@ -884,17 +681,6 @@ function ContentDashboard() {
     return { counts, total };
   }, [monthEntries]);
 
-  const ideasByMonth = useMemo(() => {
-    const groups = new Map();
-    ideas.forEach((idea) => {
-      const key = idea.targetMonth || '';
-      if (!key) return;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(idea);
-    });
-    return groups;
-  }, [ideas]);
-
   const currentMonthIdeas = useMemo(() => {
     const key = monthCursor.toISOString().slice(0, 7);
     const items = ideasByMonth.get(key) || [];
@@ -908,19 +694,6 @@ function ContentDashboard() {
         .sort((a, b) => (b.deletedAt || '').localeCompare(a.deletedAt || '')),
     [entries],
   );
-
-  const outstandingApprovals = useMemo(() => {
-    if (!currentUser) return [];
-    return entries
-      .filter(
-        (entry) =>
-          !entry.deletedAt &&
-          entry.status === 'Pending' &&
-          Array.isArray(entry.approvers) &&
-          entry.approvers.includes(currentUser),
-      )
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [entries, currentUser]);
 
   const outstandingCount = outstandingApprovals.length;
   const ideaCount = ideas.length;
@@ -1830,75 +1603,14 @@ function ContentDashboard() {
       auth.reset();
       notifs.reset();
       sync.reset();
+      admin.reset();
+      approvals.reset();
+      influencersHook.reset();
       setCurrentView('dashboard');
       closeEntry();
-      setUserList([]);
-      setAccessModalUser(null);
       setChangePasswordOpen(false);
-      setApproverDirectory(DEFAULT_APPROVERS);
     })();
   };
-
-  const handleAddInfluencer = useCallback(
-    (data) => {
-      const newInfluencer = {
-        ...data,
-        id: uuid(),
-        createdAt: new Date().toISOString(),
-        createdBy: currentUser,
-      };
-      // Save to Supabase and update local state
-      SUPABASE_API.saveInfluencer(newInfluencer).then((saved) => {
-        if (saved) {
-          setInfluencers((prev) => [saved, ...prev]);
-        } else {
-          // Fallback to local state if save fails
-          setInfluencers((prev) => [newInfluencer, ...prev]);
-        }
-      });
-    },
-    [currentUser],
-  );
-
-  const handleUpdateInfluencer = useCallback((updated) => {
-    // Save to Supabase and update local state
-    SUPABASE_API.saveInfluencer(updated).then((saved) => {
-      if (saved) {
-        setInfluencers((prev) => prev.map((i) => (i.id === saved.id ? saved : i)));
-      } else {
-        // Fallback to local state if save fails
-        setInfluencers((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
-      }
-    });
-  }, []);
-
-  const handleDeleteInfluencer = useCallback((id) => {
-    // Delete from Supabase and update local state
-    SUPABASE_API.deleteInfluencer(id).then((success) => {
-      if (success) {
-        setInfluencers((prev) => prev.filter((i) => i.id !== id));
-      }
-    });
-    // Also unlink any entries
-    setEntries((prev) =>
-      prev.map((e) => (e.influencerId === id ? { ...e, influencerId: undefined } : e)),
-    );
-  }, []);
-
-  const handleOpenInfluencerDetail = useCallback((id) => {
-    setEditingInfluencerId(id === 'new' ? null : id);
-    setInfluencerModalOpen(true);
-  }, []);
-
-  const handleLinkEntryToInfluencer = useCallback((influencerId, entryId) => {
-    setEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, influencerId } : e)));
-  }, []);
-
-  const handleUnlinkEntryFromInfluencer = useCallback((entryId) => {
-    setEntries((prev) =>
-      prev.map((e) => (e.id === entryId ? { ...e, influencerId: undefined } : e)),
-    );
-  }, []);
 
   // Handle sidebar navigation - must be defined before conditional returns
   const handleSidebarNavigate = useCallback(
