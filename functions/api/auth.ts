@@ -7,7 +7,9 @@ import type { Env, UserRow, ApiContext, User } from '../types';
 
 const SESSION_COOKIE = 'pm_session';
 
-// Rate limiting constants for invite token validation
+// Rate limiting constants
+const LOGIN_RL_MAX_ATTEMPTS = 5;
+const LOGIN_RL_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const INVITE_RL_MAX_ATTEMPTS = 5;
 const INVITE_RL_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -117,6 +119,24 @@ export const onRequestPost = async ({ request, env }: ApiContext) => {
     return json({ error: 'CSRF validation failed' }, 403);
   }
 
+  const ip = getIP(request);
+  const rateLimitKey = `login:${ip}`;
+
+  // Probabilistically clean up expired rate limits
+  maybeCleanupExpiredRateLimits(env.DB);
+
+  // Check rate limit before processing
+  const rlCheck = await checkRateLimit(
+    env.DB,
+    rateLimitKey,
+    LOGIN_RL_MAX_ATTEMPTS,
+    LOGIN_RL_WINDOW_MS,
+  );
+  if (!rlCheck.allowed) {
+    log.warn('Login failed: Rate limited', { ip });
+    return json({ error: 'Too many login attempts. Please try again later.' }, 429);
+  }
+
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') {
     log.warn('Login failed: Invalid JSON body');
@@ -143,6 +163,8 @@ export const onRequestPost = async ({ request, env }: ApiContext) => {
     log.warn('Login failed: Invalid password', { email, userId: user.id });
     return json({ error: 'Invalid credentials' }, 401);
   }
+  // Clear rate limit on successful login
+  await resetRateLimit(env.DB, rateLimitKey);
   await env.DB.prepare('UPDATE users SET lastLoginAt=?, status=? WHERE id=?')
     .bind(new Date().toISOString(), user.status === 'pending' ? 'active' : user.status, user.id)
     .run();
