@@ -1,7 +1,5 @@
 /**
  * Domain model types for PM Dashboard frontend
- * Mirrors the backend types in functions/types/models.ts
- * with additional UI-specific fields used by the app
  */
 
 /**

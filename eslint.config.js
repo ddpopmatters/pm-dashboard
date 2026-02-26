@@ -2,13 +2,14 @@ import js from '@eslint/js';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 import react from 'eslint-plugin-react';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import prettier from 'eslint-config-prettier';
 
 export default [
   js.configs.recommended,
   prettier,
   {
-    ignores: ['node_modules/', 'dist/', 'build/', '.wrangler/', 'public/js/', '*.html'],
+    ignores: ['node_modules/', 'dist/', 'build/', 'public/js/', '*.html'],
   },
   {
     files: ['**/*.{js,jsx,mjs}'],
@@ -50,6 +51,7 @@ export default [
     },
     plugins: {
       react,
+      'jsx-a11y': jsxA11y,
     },
     settings: {
       react: {
@@ -61,6 +63,16 @@ export default [
       'no-empty': ['error', { allowEmptyCatch: true }],
       'react/prop-types': 'off',
       'react/react-in-jsx-scope': 'off',
+      ...Object.fromEntries(
+        Object.entries(jsxA11y.configs.recommended.rules).map(([k, v]) => [
+          k,
+          Array.isArray(v) && v[0] === 'error'
+            ? ['warn', ...v.slice(1)]
+            : v === 'error'
+              ? 'warn'
+              : v,
+        ]),
+      ),
     },
   },
   {
@@ -131,6 +143,7 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tseslint,
+      'jsx-a11y': jsxA11y,
     },
     rules: {
       'no-unused-vars': 'off',
@@ -140,6 +153,16 @@ export default [
       ],
       // Disable base rule for TypeScript (doesn't understand function overloads)
       'no-redeclare': 'off',
+      ...Object.fromEntries(
+        Object.entries(jsxA11y.configs.recommended.rules).map(([k, v]) => [
+          k,
+          Array.isArray(v) && v[0] === 'error'
+            ? ['warn', ...v.slice(1)]
+            : v === 'error'
+              ? 'warn'
+              : v,
+        ]),
+      ),
     },
   },
 ];

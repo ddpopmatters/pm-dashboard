@@ -1,6 +1,6 @@
-// Supabase API client - replaces Cloudflare Workers backend
-// Provides the same window.api interface for compatibility
-// Load this INSTEAD of apiClient.js when using Supabase
+// Supabase API client — provides window.api interface
+// TODO: Consolidate with src/lib/supabase.ts and read credentials from build-time env
+// (see .env.example and tools/build.mjs for the bundled config pattern)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
