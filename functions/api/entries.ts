@@ -1,6 +1,6 @@
 import { authorizeRequest } from './_auth';
 import { jsonResponse as ok, uuid, nowIso, str, parseJson } from '../lib/response';
-import { sanitizeMultilineText, sanitizeOptionalText } from '../lib/sanitize';
+import { sanitizeMultilineText, sanitizeOptionalText, sanitizeUrl } from '../lib/sanitize';
 import { createRequestLogger } from '../lib/logger';
 import type { Env, EntryRow, ApiContext, SqlBindValue } from '../types';
 
@@ -115,7 +115,7 @@ export const onRequestPost = async ({ request, env }: ApiContext) => {
         authorName,
         sanitizeOptionalText(b.campaign),
         sanitizeOptionalText(b.contentPillar),
-        b.previewUrl || '',
+        sanitizeUrl(b.previewUrl),
         str(b.checklist),
         str(b.analytics),
         sanitizeOptionalText(b.workflowStatus, 'Draft'),
@@ -207,7 +207,7 @@ export const onRequestPut = async ({ request, env }: ApiContext) => {
           : existing.author || 'Unknown',
         hasField('campaign') ? sanitizeOptionalText(b.campaign) : existing.campaign,
         hasField('contentPillar') ? sanitizeOptionalText(b.contentPillar) : existing.contentPillar,
-        b.previewUrl ?? existing.previewUrl,
+        hasField('previewUrl') ? sanitizeUrl(b.previewUrl) : existing.previewUrl,
         str(b.checklist ?? parseJson(existing.checklist)),
         str(b.analytics ?? parseJson(existing.analytics)),
         hasField('workflowStatus')
