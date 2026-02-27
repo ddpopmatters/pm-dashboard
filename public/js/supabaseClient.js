@@ -489,6 +489,7 @@ async function listUsers() {
       isAdmin: row.is_admin,
       isApprover: row.is_approver,
       avatarUrl: row.avatar_url,
+      managerEmail: row.manager_email || null,
     }));
   } catch (error) {
     Logger.error(error, 'listUsers');

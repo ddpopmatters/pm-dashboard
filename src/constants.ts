@@ -237,6 +237,22 @@ export const PLATFORM_PREVIEW_META: Record<Platform, PlatformPreviewMeta> = {
   },
 };
 
+export interface ManagerEntry {
+  name: string;
+  email: string;
+  team: string;
+  reports: string[];
+}
+
+export const DEFAULT_MANAGERS: ManagerEntry[] = [
+  {
+    name: 'Jameen Kaur',
+    email: 'Jameen.Kaur@PopulationMatters.org',
+    team: 'Advocacy & Influence',
+    reports: ['Daniel Davis', 'Francesca Harrison', 'Madeleine Hewitt', 'Shweta Shirodkar'],
+  },
+];
+
 export const INFLUENCER_STATUSES = [
   'Discovery',
   'Outreach',

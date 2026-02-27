@@ -10,7 +10,15 @@ import { DashboardView } from './features/dashboard';
 import { EngagementView } from './features/engagement/EngagementView';
 import { PublishSettingsPanel } from './features/publishing';
 import { useApi } from './hooks/useApi';
-import { FEATURE_OPTIONS, KANBAN_STATUSES, PLAN_TAB_FEATURES, PLAN_TAB_ORDER } from './constants';
+import {
+  FEATURE_OPTIONS,
+  KANBAN_STATUSES,
+  PLAN_TAB_FEATURES,
+  PLAN_TAB_ORDER,
+  DEFAULT_MANAGERS,
+} from './constants';
+import { SUPABASE_API } from './lib/supabase';
+import { buildManagersFromProfiles } from './lib/managers';
 import { cx, uuid, daysInMonth, monthStartISO, monthEndISO, storageAvailable } from './lib/utils';
 import { createEmptyChecklist, sanitizeEntry, computeStatusDetail } from './lib/sanitizers';
 import {
@@ -268,6 +276,15 @@ function ContentDashboard() {
     setEngagementGoals,
   } = engagement;
 
+  const [managers, setManagers] = useState(() => DEFAULT_MANAGERS);
+  const refreshManagers = useCallback(() => {
+    SUPABASE_API.fetchUserProfiles()
+      .then((profiles) => {
+        const built = buildManagersFromProfiles(profiles);
+        setManagers(built.length ? built : DEFAULT_MANAGERS);
+      })
+      .catch(() => {});
+  }, []);
   const [performanceImportOpen, setPerformanceImportOpen] = useState(false);
   const [approvalsModalOpen, setApprovalsModalOpen] = useState(false);
   const [menuMotionActive, setMenuMotionActive] = useState(false);
@@ -298,6 +315,19 @@ function ContentDashboard() {
   const mentionUsers = useMemo(
     () => (userList.length ? userList : DEFAULT_USER_RECORDS),
     [userList],
+  );
+  const managerCandidates = useMemo(
+    () => userList.filter((u) => u.isAdmin || u.isApprover),
+    [userList],
+  );
+  const handleManagerChange = useCallback(
+    async (user, managerEmail) => {
+      if (managerEmail === user.email) return; // block self-assignment
+      const value = managerEmail || null;
+      const ok = await SUPABASE_API.updateUserManager(user.email, value);
+      if (ok) refreshManagers();
+    },
+    [refreshManagers],
   );
   useEffect(() => {
     const required = PLAN_TAB_FEATURES[planTab];
@@ -376,6 +406,22 @@ function ContentDashboard() {
       cancelled = true;
     };
   }, [authStatus, canUseIdeas, currentUserIsAdmin]);
+
+  // Build managers from DB profiles when authenticated
+  useEffect(() => {
+    if (authStatus !== 'ready') return;
+    let cancelled = false;
+    SUPABASE_API.fetchUserProfiles()
+      .then((profiles) => {
+        if (cancelled) return;
+        const built = buildManagersFromProfiles(profiles);
+        setManagers(built.length ? built : DEFAULT_MANAGERS);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [authStatus]);
 
   // Also hydrate when the api client announces readiness
   useEffect(() => {
@@ -1635,6 +1681,20 @@ function ContentDashboard() {
                               </div>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
+                              <select
+                                className="rounded-lg border border-graystone-300 bg-white px-2 py-1 text-xs text-graystone-700 focus:border-ocean-500 focus:outline-none focus:ring-2 focus:ring-aqua-200"
+                                value={user.managerEmail || ''}
+                                onChange={(e) => handleManagerChange(user, e.target.value)}
+                              >
+                                <option value="">No manager</option>
+                                {managerCandidates
+                                  .filter((c) => c.email !== user.email)
+                                  .map((c) => (
+                                    <option key={c.email} value={c.email}>
+                                      {c.name}
+                                    </option>
+                                  ))}
+                              </select>
                               <Button
                                 variant="outline"
                                 size="sm"
