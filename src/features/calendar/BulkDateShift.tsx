@@ -105,8 +105,14 @@ export function BulkDateShift({ entries, onShift }: BulkDateShiftProps): React.R
         {/* Date range filter */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-graystone-600">From date</label>
+            <label
+              htmlFor="bulk-from-date"
+              className="block text-xs font-medium text-graystone-600"
+            >
+              From date
+            </label>
             <input
+              id="bulk-from-date"
               type="date"
               value={filterStartDate}
               onChange={(e) => setFilterStartDate(e.target.value)}
@@ -114,8 +120,11 @@ export function BulkDateShift({ entries, onShift }: BulkDateShiftProps): React.R
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-graystone-600">To date</label>
+            <label htmlFor="bulk-to-date" className="block text-xs font-medium text-graystone-600">
+              To date
+            </label>
             <input
+              id="bulk-to-date"
               type="date"
               value={filterEndDate}
               onChange={(e) => setFilterEndDate(e.target.value)}
@@ -147,6 +156,7 @@ export function BulkDateShift({ entries, onShift }: BulkDateShiftProps): React.R
             filteredEntries.map((entry) => (
               <label
                 key={entry.id}
+                aria-label={`${entry.caption || 'Untitled'} — ${entry.date}`}
                 className={cx(
                   'flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1.5 transition',
                   selectedIds.has(entry.id)
@@ -183,7 +193,9 @@ export function BulkDateShift({ entries, onShift }: BulkDateShiftProps): React.R
 
         {/* Shift controls */}
         <div className="rounded-lg border border-graystone-200 bg-graystone-50 p-3">
-          <label className="block text-xs font-medium text-graystone-700">Shift by (days)</label>
+          <label htmlFor="bulk-shift-days" className="block text-xs font-medium text-graystone-700">
+            Shift by (days)
+          </label>
           <div className="mt-2 flex items-center gap-2">
             <Button
               variant="outline"
@@ -202,6 +214,7 @@ export function BulkDateShift({ entries, onShift }: BulkDateShiftProps): React.R
               -1
             </Button>
             <input
+              id="bulk-shift-days"
               type="number"
               value={daysDelta}
               onChange={(e) => setDaysDelta(parseInt(e.target.value) || 0)}

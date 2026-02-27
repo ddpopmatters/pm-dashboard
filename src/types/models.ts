@@ -1,7 +1,5 @@
 /**
  * Domain model types for PM Dashboard frontend
- * Mirrors the backend types in functions/types/models.ts
- * with additional UI-specific fields used by the app
  */
 
 /**
@@ -173,7 +171,6 @@ export interface Guidelines {
   requiredPhrases: string[];
   languageGuide: string;
   hashtagTips: string;
-  teamsWebhookUrl: string;
 }
 
 /**

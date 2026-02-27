@@ -288,7 +288,6 @@ interface GuidelinesRow {
   required_phrases: string[];
   language_guide: string;
   hashtag_tips: string;
-  teams_webhook_url: string;
 }
 
 interface UserProfileRow {
@@ -893,6 +892,58 @@ export const SUPABASE_API = {
   },
 
   // ==========================================
+  // SECRETS (admin-only)
+  // ==========================================
+
+  fetchTeamsWebhookUrl: async (): Promise<string | null> => {
+    await initSupabase();
+    if (!supabase) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('app_secrets')
+        .select('value')
+        .eq('key', 'teams_webhook_url')
+        .single();
+
+      if (error) {
+        // RLS will block non-admins with a permission error — that's expected
+        if (error.code === 'PGRST116' || error.code === '42501') return null;
+        Logger.error(error, 'fetchTeamsWebhookUrl');
+        return null;
+      }
+
+      return data?.value || null;
+    } catch (error) {
+      Logger.error(error, 'fetchTeamsWebhookUrl');
+      return null;
+    }
+  },
+
+  saveTeamsWebhookUrl: async (url: string): Promise<boolean> => {
+    await initSupabase();
+    if (!supabase) return false;
+
+    try {
+      const { error } = await supabase.from('app_secrets').upsert({
+        key: 'teams_webhook_url',
+        value: url,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        Logger.error(error, 'saveTeamsWebhookUrl');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      Logger.error(error, 'saveTeamsWebhookUrl');
+      return false;
+    }
+  },
+
+  // ==========================================
   // USER PROFILES
   // ==========================================
 
@@ -1277,7 +1328,6 @@ export const SUPABASE_API = {
     requiredPhrases: row.required_phrases || [],
     languageGuide: row.language_guide,
     hashtagTips: row.hashtag_tips,
-    teamsWebhookUrl: row.teams_webhook_url,
   }),
 
   mapGuidelinesToDb: (guidelines: Partial<Guidelines>) => ({
@@ -1287,7 +1337,6 @@ export const SUPABASE_API = {
     required_phrases: guidelines.requiredPhrases || [],
     language_guide: guidelines.languageGuide,
     hashtag_tips: guidelines.hashtagTips,
-    teams_webhook_url: guidelines.teamsWebhookUrl,
   }),
 
   mapInfluencerToApp: (row: InfluencerRow): Influencer => {

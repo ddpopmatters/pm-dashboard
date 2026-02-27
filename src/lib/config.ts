@@ -1,5 +1,6 @@
-// Application configuration - matching PM-Productivity-Tool pattern
-// Update these values for your Supabase project
+// Application configuration
+// Supabase credentials injected at build time via .env → esbuild define
+// See .env.example for setup
 
 export interface FeatureFlags {
   CALENDAR: boolean;
@@ -35,10 +36,9 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG: AppConfig = {
-  // Supabase configuration
-  SUPABASE_URL: 'https://dvhjvtxtkmtsqlnurhfg.supabase.co',
-  SUPABASE_ANON_KEY:
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2aGp2dHh0a210c3FsbnVyaGZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5OTI0OTYsImV4cCI6MjA4MzU2ODQ5Nn0.c4yIpOZXqU8Doci2IN6uNKA_rWwrrMzbMDkMx9HCjcc',
+  // Supabase configuration — injected by esbuild from .env at build time
+  SUPABASE_URL: import.meta.env.SUPABASE_URL || '',
+  SUPABASE_ANON_KEY: import.meta.env.SUPABASE_ANON_KEY || '',
   SUPABASE_ENABLED: true,
 
   // Authentication
