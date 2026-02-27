@@ -301,6 +301,7 @@ interface UserProfileRow {
   features: string[];
   status: string;
   created_at: string;
+  manager_email: string | null;
 }
 
 interface ActivityLogRow {
@@ -1025,6 +1026,28 @@ export const SUPABASE_API = {
     } catch (error) {
       Logger.error(error, 'updateUserProfile');
       return null;
+    }
+  },
+
+  updateUserManager: async (userEmail: string, managerEmail: string | null): Promise<boolean> => {
+    await initSupabase();
+    if (!supabase) return false;
+
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ manager_email: managerEmail })
+        .eq('email', userEmail);
+
+      if (error) {
+        Logger.error(error, 'updateUserManager');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      Logger.error(error, 'updateUserManager');
+      return false;
     }
   },
 
