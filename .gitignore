@@ -13,6 +13,7 @@ yarn-error.log*
 
 # Local dev artifacts
 .wrangler/
+supabase/.temp/
 PM Productivity Tool.html
 PM Productivity tool/
 kanban-tool-demo.html
