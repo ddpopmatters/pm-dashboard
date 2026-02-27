@@ -5,113 +5,42 @@ import { Sidebar } from './components/layout';
 import { CalendarView } from './features/calendar/CalendarView';
 import { ApprovalsView, ApprovalsModal } from './features/approvals';
 import { KanbanView } from './features/kanban';
-import { AdminPanel } from './features/admin';
 import { AnalyticsView } from './features/analytics/AnalyticsView';
 import { DashboardView } from './features/dashboard';
 import { EngagementView } from './features/engagement/EngagementView';
-import {
-  PublishSettingsPanel,
-  triggerPublish,
-  initializePublishStatus,
-  getAggregatePublishStatus,
-  canPublish,
-  canPostAgain,
-} from './features/publishing';
+import { PublishSettingsPanel } from './features/publishing';
 import { useApi } from './hooks/useApi';
+import { FEATURE_OPTIONS, KANBAN_STATUSES, PLAN_TAB_FEATURES, PLAN_TAB_ORDER } from './constants';
+import { cx, uuid, daysInMonth, monthStartISO, monthEndISO, storageAvailable } from './lib/utils';
+import { createEmptyChecklist, sanitizeEntry, computeStatusDetail } from './lib/sanitizers';
 import {
-  CAMPAIGNS,
-  CONTENT_PILLARS,
-  DEFAULT_APPROVERS,
-  FEATURE_OPTIONS,
-  KANBAN_STATUSES,
-  PLAN_TAB_FEATURES,
-  PLAN_TAB_ORDER,
-  PLATFORM_TIPS,
-  WORKFLOW_STAGES,
-} from './constants';
-import {
-  cx,
-  uuid,
-  daysInMonth,
-  monthStartISO,
-  monthEndISO,
-  ensureArray,
-  normalizeEmail,
-  extractMentions,
-  storageAvailable,
-  STORAGE_KEYS,
-  escapeHtml,
-  ensurePeopleArray,
-} from './lib/utils';
-import {
-  createEmptyChecklist,
-  ensureComments,
-  ensurePlatformCaptions,
-  sanitizeEntry,
-  sanitizeIdea,
-  computeStatusDetail,
-  getPlatformCaption,
-  isImageMedia,
-  entrySignature,
-  determineWorkflowStatus,
-  hasApproverRelevantChanges,
-} from './lib/sanitizers';
-import { resolveMentionCandidate, computeMentionState } from './lib/mentions';
-import { entryDescriptor, entryReviewLink, buildEntryEmailPayload } from './lib/email';
-import { selectBaseClasses, fileInputClasses, checklistCheckboxClass } from './lib/styles';
-import {
-  MultiSelect,
-  FieldRow,
   Button,
   Input,
-  Textarea,
   Label,
   Card,
   CardHeader,
   CardContent,
   CardTitle,
   Badge,
-  Modal,
-  Toggle,
-  Separator,
 } from './components/ui';
 import {
-  MentionSuggestionList,
   NotificationBell,
-  PlatformIcon,
-  SvgIcon,
   CalendarIcon,
-  ChevronDownIcon,
-  CheckCircleIcon,
-  LoaderIcon,
   TrashIcon,
   RotateCcwIcon,
   PlusIcon,
-  CopyIcon,
-  ArrowUpIcon,
-  ArrowPathIcon,
 } from './components/common';
 import { ChangePasswordModal } from './components/auth';
 import { PerformanceImportModal } from './features/performance';
 import { GuidelinesModal } from './features/guidelines';
-import { IdeasBoard, IdeaAttachment, IdeaForm } from './features/ideas';
-import { MiniCalendar, MonthGrid } from './features/calendar';
-import { CopyCheckSection } from './features/copy-check';
-import { SocialPreview } from './features/social';
-import { ApproverMulti, EntryForm, EntryModal, EntryPreviewModal } from './features/entry';
-import { parseCSV } from './lib/csv';
-import { FALLBACK_GUIDELINES, normalizeGuidelines, saveGuidelines } from './lib/guidelines';
-import { notificationKey, loadNotifications, saveNotifications } from './lib/notifications';
+import { IdeasBoard, IdeaForm } from './features/ideas';
+import { MiniCalendar } from './features/calendar';
+import { EntryForm, EntryModal, EntryPreviewModal } from './features/entry';
+import { normalizeGuidelines, saveGuidelines } from './lib/guidelines';
 import { appendAudit } from './lib/audit';
-import { loadEntries, saveEntries, loadIdeas, saveIdeas } from './lib/storage';
-import { SUPABASE_API } from './lib/supabase';
+import { loadIdeas } from './lib/storage';
 import { InfluencersView, InfluencerModal } from './features/influencers';
-import {
-  ensureFeaturesList,
-  normalizeUserValue,
-  DEFAULT_USER_RECORDS,
-  DEFAULT_FEATURES,
-} from './lib/users';
+import { DEFAULT_USER_RECORDS, DEFAULT_FEATURES } from './lib/users';
 import { mergePerformanceData } from './lib/performance';
 import {
   useSyncQueue,
@@ -128,12 +57,7 @@ import {
   useEntries,
 } from './hooks/domain';
 
-const { useState, useMemo, useEffect, useCallback, useRef } = React;
-
-// Storage key for draft entry auto-save
-const DRAFT_ENTRY_STORAGE_KEY = STORAGE_KEYS.DRAFT_ENTRY;
-// Auto-save interval in milliseconds (30 seconds)
-const DRAFT_AUTO_SAVE_INTERVAL = 30000;
+const { useState, useMemo, useEffect, useCallback } = React;
 
 function ContentDashboard() {
   // Destructure stable method references to avoid re-renders when loading/error state changes
@@ -143,26 +67,12 @@ function ContentDashboard() {
   const auth = useAuth({ apiGet, apiPost, apiPut });
   const {
     currentUser,
-    setCurrentUser,
     currentUserEmail,
-    setCurrentUserEmail,
     currentUserAvatar,
     currentUserIsAdmin,
     currentUserHasPassword,
-    currentUserFeatures,
     authStatus,
     setAuthStatus,
-    authError,
-    hydrateCurrentUser,
-    loginEmail,
-    setLoginEmail,
-    loginPassword,
-    setLoginPassword,
-    loginError,
-    setLoginError,
-    submitLogin,
-    resetLoginFields,
-    inviteToken,
     setInviteToken,
     invitePassword,
     setInvitePassword,
@@ -205,11 +115,9 @@ function ContentDashboard() {
   // Domain hooks — Layer 2: needs auth + sync
   const notifs = useNotifications({ currentUser, runSyncTask: sync.runSyncTask, apiPost });
   const {
-    notifications,
     addNotifications,
     markNotificationsAsReadForEntry,
     buildApprovalNotifications,
-    buildMentionNotifications,
     handleMentionNotifications,
     handleCommentActivity,
     notifyApproversAboutChange,
@@ -219,32 +127,22 @@ function ContentDashboard() {
     unreadMentionsCount,
   } = notifs;
 
-  const { syncQueue, syncToast, pushSyncToast, runSyncTask, retrySyncItem, retryAllSync } = sync;
+  const { syncQueue, syncToast, pushSyncToast, runSyncTask, retryAllSync } = sync;
   const filters = useDomainFilters();
   const {
     filterType,
-    setFilterType,
     filterStatus,
-    setFilterStatus,
     filterPlatforms,
-    setFilterPlatforms,
     filterWorkflow,
-    setFilterWorkflow,
     filterQuery,
-    setFilterQuery,
     filterOverdue,
-    setFilterOverdue,
     filterEvergreen,
-    setFilterEvergreen,
-    resetFilters,
-    activeFilterCount,
   } = filters;
   const publishing = usePublishing();
   const {
     publishSettings,
     setPublishSettings,
     dailyPostTarget,
-    setDailyPostTarget,
     handleDailyPostTargetChange,
     assetGoals,
     setAssetGoals,
@@ -273,13 +171,10 @@ function ContentDashboard() {
   const {
     entries,
     setEntries,
-    viewingId,
     setViewingId,
     viewingSnapshot,
     setViewingSnapshot,
-    previewEntryId,
     setPreviewEntryId,
-    previewEntryContext,
     setPreviewEntryContext,
     previewEntry,
     previewIsReviewMode,
@@ -334,14 +229,12 @@ function ContentDashboard() {
     newUserEmail,
     setNewUserEmail,
     newUserFeatures,
-    setNewUserFeatures,
     newUserIsApprover,
     setNewUserIsApprover,
     accessModalUser,
     setAccessModalUser,
     userAdminError,
     userAdminSuccess,
-    refreshUsers,
     addUser,
     removeUser,
     toggleNewUserFeature,

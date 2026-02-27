@@ -59,6 +59,7 @@ export default [
     rules: {
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-empty': ['error', { allowEmptyCatch: true }],
+      'react/jsx-uses-vars': 'error',
       'react/prop-types': 'off',
       'react/react-in-jsx-scope': 'off',
     },
