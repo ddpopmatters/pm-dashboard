@@ -30,8 +30,8 @@ interface EntryLike {
   caption?: string;
   assetType?: string;
   date?: string;
-  approvers?: unknown;
-  author?: unknown;
+  approvers?: string[];
+  author?: string;
   [key: string]: unknown;
 }
 

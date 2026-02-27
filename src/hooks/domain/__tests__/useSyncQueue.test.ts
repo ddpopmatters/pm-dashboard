@@ -11,7 +11,7 @@ describe('useSyncQueue', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    delete (window as Record<string, unknown>).api;
+    delete (window as unknown as Record<string, unknown>).api;
   });
 
   describe('runSyncTask', () => {
@@ -60,7 +60,7 @@ describe('useSyncQueue', () => {
     });
 
     it('enqueues when window.api is undefined', async () => {
-      delete (window as Record<string, unknown>).api;
+      delete (window as unknown as Record<string, unknown>).api;
       const { result } = renderHook(() => useSyncQueue());
       const action = vi.fn();
 
@@ -73,7 +73,7 @@ describe('useSyncQueue', () => {
     });
 
     it('skips API check when requiresApi is false', async () => {
-      delete (window as Record<string, unknown>).api;
+      delete (window as unknown as Record<string, unknown>).api;
       const { result } = renderHook(() => useSyncQueue());
       const action = vi.fn().mockResolvedValue('ok');
 

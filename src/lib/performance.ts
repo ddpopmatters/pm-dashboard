@@ -244,8 +244,8 @@ export const mergePerformanceData = (entries: Entry[], dataset: CsvDataset): Mer
       const numericValue =
         typeof cleanedNumeric === 'string' && cleanedNumeric !== ''
           ? Number(cleanedNumeric)
-          : Number.isFinite(cleanedNumeric as number)
-            ? (cleanedNumeric as number)
+          : Number.isFinite(cleanedNumeric as unknown as number)
+            ? (cleanedNumeric as unknown as number)
             : NaN;
       if (typeof rawValue === 'string' && rawValue.trim().endsWith('%')) {
         metricPayload[label] = rawValue.trim();

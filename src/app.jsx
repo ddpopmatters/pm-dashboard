@@ -276,7 +276,7 @@ function ContentDashboard() {
     setEngagementGoals,
   } = engagement;
 
-  const [managers, setManagers] = useState(() => DEFAULT_MANAGERS);
+  const [_managers, setManagers] = useState(() => DEFAULT_MANAGERS); // consumed when ManagerHub is extracted
   const refreshManagers = useCallback(() => {
     SUPABASE_API.fetchUserProfiles()
       .then((profiles) => {
@@ -287,11 +287,11 @@ function ContentDashboard() {
   }, []);
   const [performanceImportOpen, setPerformanceImportOpen] = useState(false);
   const [approvalsModalOpen, setApprovalsModalOpen] = useState(false);
-  const [menuMotionActive, setMenuMotionActive] = useState(false);
+  const [_menuMotionActive, setMenuMotionActive] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [pendingAssetType, setPendingAssetType] = useState(null);
+  const [_pendingAssetType, setPendingAssetType] = useState(null);
   const canUseInfluencers = true; // Show to everyone
-  const menuHasContent =
+  const _menuHasContent =
     canUseCalendar ||
     canUseKanban ||
     canUseApprovals ||
@@ -551,7 +551,7 @@ function ContentDashboard() {
     year: 'numeric',
   });
 
-  const days = useMemo(
+  const _days = useMemo(
     () =>
       Array.from(
         { length: daysInMonth(monthCursor.getFullYear(), monthCursor.getMonth()) },
@@ -563,7 +563,7 @@ function ContentDashboard() {
   const startISO = monthStartISO(monthCursor);
   const endISO = monthEndISO(monthCursor);
   const normalizedFilterQuery = filterQuery.trim().toLowerCase();
-  const monthEntryTotal = useMemo(
+  const _monthEntryTotal = useMemo(
     () =>
       entries.filter((entry) => !entry.deletedAt && entry.date >= startISO && entry.date <= endISO)
         .length,
@@ -630,7 +630,7 @@ function ContentDashboard() {
     normalizedFilterQuery,
   ]);
 
-  const assetTypeSummary = useMemo(() => {
+  const _assetTypeSummary = useMemo(() => {
     const counts = monthEntries.reduce((acc, entry) => {
       acc[entry.assetType] = (acc[entry.assetType] || 0) + 1;
       return acc;
@@ -639,16 +639,16 @@ function ContentDashboard() {
     return { counts, total };
   }, [monthEntries]);
 
-  const currentMonthIdeas = useMemo(() => {
+  const _currentMonthIdeas = useMemo(() => {
     const key = monthCursor.toISOString().slice(0, 7);
     const items = ideasByMonth.get(key) || [];
     return items.slice().sort((a, b) => (a.targetDate || '').localeCompare(b.targetDate || ''));
   }, [ideasByMonth, monthCursor]);
 
   const outstandingCount = outstandingApprovals.length;
-  const ideaCount = ideas.length;
+  const _ideaCount = ideas.length;
 
-  const featureTiles = [
+  const _featureTiles = [
     {
       id: 'create',
       title: 'Create Content',

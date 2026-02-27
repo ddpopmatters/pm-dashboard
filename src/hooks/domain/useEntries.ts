@@ -68,8 +68,8 @@ export function useEntries({
   useEffect(() => {
     if (
       !(
-        (window as Record<string, unknown>).api &&
-        ((window as Record<string, unknown>).api as Record<string, unknown>).enabled
+        (window as unknown as Record<string, unknown>).api &&
+        ((window as unknown as Record<string, unknown>).api as Record<string, unknown>).enabled
       )
     ) {
       saveEntries(entries);
@@ -82,7 +82,9 @@ export function useEntries({
   }, []);
 
   const refreshEntries = useCallback(() => {
-    const api = (window as Record<string, unknown>).api as Record<string, unknown> | undefined;
+    const api = (window as unknown as Record<string, unknown>).api as
+      | Record<string, unknown>
+      | undefined;
     if (!api || !api.enabled || !api.listEntries) return;
     (api.listEntries as () => Promise<unknown>)()
       .then((payload: unknown) => Array.isArray(payload) && setEntries(payload))
@@ -108,7 +110,8 @@ export function useEntries({
         return;
       }
       const sanitized = sanitizeEntry(found);
-      const canEdit = currentUserIsAdmin || viewerIsAuthor(sanitized);
+      const canEdit =
+        currentUserIsAdmin || viewerIsAuthor(sanitized as unknown as Record<string, unknown>);
       if (canEdit) {
         setPreviewEntryId('');
         setPreviewEntryContext('default');
@@ -203,7 +206,8 @@ export function useEntries({
           checklist: data.checklist,
           comments: data.comments || [],
           workflowStatus:
-            data.workflowStatus && KANBAN_STATUSES.includes(data.workflowStatus as string)
+            data.workflowStatus &&
+            (KANBAN_STATUSES as readonly string[]).includes(data.workflowStatus as string)
               ? data.workflowStatus
               : KANBAN_STATUSES[0],
           ...data,
@@ -239,9 +243,10 @@ export function useEntries({
                 teamsWebhookUrl: (guidelines as Record<string, unknown>)?.teamsWebhookUrl,
                 message: `${requesterName} requested approval for entry ${entry.id}`,
                 approvers: entryApprovers,
-                subject: (emailPayload as Record<string, unknown>)?.subject || fallbackSubject,
-                text: (emailPayload as Record<string, unknown>)?.text || fallbackText,
-                html: (emailPayload as Record<string, unknown>)?.html,
+                subject:
+                  (emailPayload as unknown as Record<string, unknown>)?.subject || fallbackSubject,
+                text: (emailPayload as unknown as Record<string, unknown>)?.text || fallbackText,
+                html: (emailPayload as unknown as Record<string, unknown>)?.html,
               },
               `Send approval request (${entry.id})`,
             );
@@ -277,7 +282,7 @@ export function useEntries({
           };
           runSyncTask(`Create entry (${entry.id})`, () =>
             (
-              (window as Record<string, unknown>).api as Record<
+              (window as unknown as Record<string, unknown>).api as Record<
                 string,
                 (...args: unknown[]) => Promise<unknown>
               >
@@ -399,7 +404,10 @@ export function useEntries({
                 );
                 if (newApprovers.length) {
                   approvalNotifications = approvalNotifications.concat(
-                    buildApprovalNotifications(sanitized, newApprovers),
+                    buildApprovalNotifications(
+                      sanitized as unknown as Record<string, unknown>,
+                      newApprovers,
+                    ),
                   );
                 }
                 const actorIsApprover = normalizedActor
@@ -412,7 +420,7 @@ export function useEntries({
                   nextApprovers.length &&
                   !actorIsApprover
                 ) {
-                  pendingApproverAlerts.push(sanitized);
+                  pendingApproverAlerts.push(sanitized as unknown as Record<string, unknown>);
                 }
                 return {
                   ...sanitized,
@@ -446,7 +454,7 @@ export function useEntries({
             };
             runSyncTask(`Create entry (${updated.id})`, () =>
               (
-                (window as Record<string, unknown>).api as Record<
+                (window as unknown as Record<string, unknown>).api as Record<
                   string,
                   (...args: unknown[]) => Promise<unknown>
                 >
@@ -462,7 +470,7 @@ export function useEntries({
           } else {
             runSyncTask(`Update entry (${updated.id})`, () =>
               (
-                (window as Record<string, unknown>).api as Record<
+                (window as unknown as Record<string, unknown>).api as Record<
                   string,
                   (...args: unknown[]) => Promise<unknown>
                 >
@@ -525,7 +533,7 @@ export function useEntries({
         try {
           runSyncTask(`Update approval (${id})`, () =>
             (
-              (window as Record<string, unknown>).api as Record<
+              (window as unknown as Record<string, unknown>).api as Record<
                 string,
                 (...args: unknown[]) => Promise<unknown>
               >
@@ -578,9 +586,11 @@ export function useEntries({
               teamsWebhookUrl: (guidelines as Record<string, unknown>)?.teamsWebhookUrl,
               message: `Entry ${id} ${statusMsg} by ${currentUser}`,
               approvers: entryApprovers,
-              subject: (emailPayload as Record<string, unknown>)?.subject || subject,
-              text: (emailPayload as Record<string, unknown>)?.text || summaryParts.join(' - '),
-              html: (emailPayload as Record<string, unknown>)?.html,
+              subject: (emailPayload as unknown as Record<string, unknown>)?.subject || subject,
+              text:
+                (emailPayload as unknown as Record<string, unknown>)?.text ||
+                summaryParts.join(' - '),
+              html: (emailPayload as unknown as Record<string, unknown>)?.html,
             },
             `Send approval status (${id})`,
           );
@@ -619,7 +629,10 @@ export function useEntries({
         prev.map((e) => (e.id === id ? { ...e, publishStatus: newPublishStatus } : e)),
       );
 
-      const result = await triggerPublish(entry, publishSettings);
+      const result = await triggerPublish(
+        entry,
+        publishSettings as unknown as Parameters<typeof triggerPublish>[1],
+      );
       const timestamp = new Date().toISOString();
 
       if ((result as Record<string, unknown>).success) {
@@ -641,10 +654,13 @@ export function useEntries({
 
         setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)));
 
-        if (((window as Record<string, unknown>).api as Record<string, unknown>)?.updateEntry) {
+        if (
+          ((window as unknown as Record<string, unknown>).api as Record<string, unknown>)
+            ?.updateEntry
+        ) {
           try {
             await (
-              (window as Record<string, unknown>).api as Record<
+              (window as unknown as Record<string, unknown>).api as Record<
                 string,
                 (...args: unknown[]) => Promise<unknown>
               >
@@ -668,10 +684,13 @@ export function useEntries({
           prev.map((e) => (e.id === id ? { ...e, publishStatus: failedStatus } : e)),
         );
 
-        if (((window as Record<string, unknown>).api as Record<string, unknown>)?.updateEntry) {
+        if (
+          ((window as unknown as Record<string, unknown>).api as Record<string, unknown>)
+            ?.updateEntry
+        ) {
           try {
             await (
-              (window as Record<string, unknown>).api as Record<
+              (window as unknown as Record<string, unknown>).api as Record<
                 string,
                 (...args: unknown[]) => Promise<unknown>
               >
@@ -740,11 +759,11 @@ export function useEntries({
       const entry = entries.find((e) => e.id === id);
       if (
         entry &&
-        ((window as Record<string, unknown>).api as Record<string, unknown>)?.updateEntry
+        ((window as unknown as Record<string, unknown>).api as Record<string, unknown>)?.updateEntry
       ) {
         runSyncTask(`Toggle evergreen (${id})`, () =>
           (
-            (window as Record<string, unknown>).api as Record<
+            (window as unknown as Record<string, unknown>).api as Record<
               string,
               (...args: unknown[]) => Promise<unknown>
             >
@@ -767,10 +786,12 @@ export function useEntries({
         }),
       );
 
-      if (((window as Record<string, unknown>).api as Record<string, unknown>)?.updateEntry) {
+      if (
+        ((window as unknown as Record<string, unknown>).api as Record<string, unknown>)?.updateEntry
+      ) {
         runSyncTask(`Change date (${id})`, () =>
           (
-            (window as Record<string, unknown>).api as Record<
+            (window as unknown as Record<string, unknown>).api as Record<
               string,
               (...args: unknown[]) => Promise<unknown>
             >
@@ -784,7 +805,7 @@ export function useEntries({
         user: currentUser,
         entryId: id,
         action: 'entry-date-changed',
-        data: { newDate },
+        meta: { newDate },
       });
     },
     [currentUser, runSyncTask],
@@ -819,11 +840,13 @@ export function useEntries({
         }),
       );
 
-      if (((window as Record<string, unknown>).api as Record<string, unknown>)?.updateEntry) {
+      if (
+        ((window as unknown as Record<string, unknown>).api as Record<string, unknown>)?.updateEntry
+      ) {
         originalDates.forEach((originalDate, id) => {
           runSyncTask(`Shift date (${id})`, () =>
             (
-              (window as Record<string, unknown>).api as Record<
+              (window as unknown as Record<string, unknown>).api as Record<
                 string,
                 (...args: unknown[]) => Promise<unknown>
               >
@@ -837,7 +860,7 @@ export function useEntries({
       appendAudit({
         user: currentUser,
         action: 'bulk-date-shift',
-        data: { entryIds, daysDelta },
+        meta: { entryIds, daysDelta },
       });
     },
     [entries, currentUser, runSyncTask],
@@ -845,7 +868,7 @@ export function useEntries({
 
   const updateWorkflowStatus = useCallback(
     (id: string, nextStatus: string) => {
-      if (!KANBAN_STATUSES.includes(nextStatus)) return;
+      if (!(KANBAN_STATUSES as readonly string[]).includes(nextStatus)) return;
       const timestamp = new Date().toISOString();
       const syncedStatus =
         nextStatus === 'Approved' || nextStatus === 'Published' ? 'Approved' : 'Pending';
@@ -869,7 +892,7 @@ export function useEntries({
       try {
         runSyncTask(`Update workflow (${id})`, () =>
           (
-            (window as Record<string, unknown>).api as Record<
+            (window as unknown as Record<string, unknown>).api as Record<
               string,
               (...args: unknown[]) => Promise<unknown>
             >
@@ -906,7 +929,7 @@ export function useEntries({
       try {
         runSyncTask(`Delete entry (${id})`, () =>
           (
-            (window as Record<string, unknown>).api as Record<
+            (window as unknown as Record<string, unknown>).api as Record<
               string,
               (...args: unknown[]) => Promise<unknown>
             >
@@ -933,7 +956,7 @@ export function useEntries({
       try {
         runSyncTask(`Restore entry (${id})`, () =>
           (
-            (window as Record<string, unknown>).api as Record<
+            (window as unknown as Record<string, unknown>).api as Record<
               string,
               (...args: unknown[]) => Promise<unknown>
             >
@@ -960,7 +983,7 @@ export function useEntries({
       try {
         runSyncTask(`Delete entry permanently (${id})`, () =>
           (
-            (window as Record<string, unknown>).api as Record<
+            (window as unknown as Record<string, unknown>).api as Record<
               string,
               (...args: unknown[]) => Promise<unknown>
             >

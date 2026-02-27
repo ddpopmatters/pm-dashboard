@@ -48,9 +48,11 @@ export function useInfluencers({ currentUser, setEntries }: UseInfluencersDeps) 
         createdAt: new Date().toISOString(),
         createdBy: currentUser,
       };
-      SUPABASE_API.saveInfluencer(newInfluencer).then((saved: Record<string, unknown> | null) => {
+      SUPABASE_API.saveInfluencer(
+        newInfluencer as unknown as Parameters<typeof SUPABASE_API.saveInfluencer>[0],
+      ).then((saved) => {
         if (saved) {
-          setInfluencers((prev) => [saved, ...prev]);
+          setInfluencers((prev) => [saved as unknown as Record<string, unknown>, ...prev]);
         } else {
           setInfluencers((prev) => [newInfluencer, ...prev]);
         }
@@ -60,7 +62,9 @@ export function useInfluencers({ currentUser, setEntries }: UseInfluencersDeps) 
   );
 
   const handleUpdateInfluencer = useCallback((updated: Record<string, unknown>) => {
-    SUPABASE_API.saveInfluencer(updated).then((saved: Record<string, unknown> | null) => {
+    SUPABASE_API.saveInfluencer(
+      updated as unknown as Parameters<typeof SUPABASE_API.saveInfluencer>[0],
+    ).then((saved) => {
       if (saved) {
         setInfluencers((prev) => prev.map((i) => (i.id === saved.id ? saved : i)));
       } else {
