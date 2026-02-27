@@ -1,0 +1,80 @@
+import { context } from 'esbuild';
+import { execSync, exec } from 'child_process';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const root = resolve(__dirname, '..');
+
+// Load .env file for build-time constants
+const loadEnv = () => {
+  try {
+    const envFile = readFileSync(resolve(root, '.env'), 'utf-8');
+    const env = {};
+    for (const line of envFile.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx === -1) continue;
+      env[trimmed.slice(0, eqIdx)] = trimmed.slice(eqIdx + 1);
+    }
+    return env;
+  } catch {
+    return {};
+  }
+};
+const env = loadEnv();
+
+// Build Tailwind CSS (initial + watch)
+const tailwindInput = resolve(root, 'src/styles/app.css');
+const tailwindOutput = resolve(root, 'public/css/app.css');
+console.log('Building Tailwind CSS...');
+execSync(`npx @tailwindcss/cli -i "${tailwindInput}" -o "${tailwindOutput}"`, {
+  stdio: 'inherit',
+  cwd: root,
+});
+
+// Start Tailwind watcher in background
+const twWatch = exec(`npx @tailwindcss/cli -i "${tailwindInput}" -o "${tailwindOutput}" --watch`, {
+  cwd: root,
+});
+twWatch.stderr?.on('data', (d) => {
+  const msg = d.toString().trim();
+  if (msg) console.log('[tailwind]', msg);
+});
+
+// esbuild context with serve
+const ctx = await context({
+  entryPoints: [resolve(root, 'src/app.jsx')],
+  outdir: resolve(root, 'public/js'),
+  bundle: true,
+  sourcemap: true,
+  format: 'esm',
+  target: ['es2020'],
+  jsx: 'automatic',
+  splitting: true,
+  chunkNames: 'chunks/[name]-[hash]',
+  minify: false,
+  logLevel: 'info',
+  define: {
+    'import.meta.env.SUPABASE_URL': JSON.stringify(env.SUPABASE_URL || ''),
+    'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(env.SUPABASE_ANON_KEY || ''),
+  },
+});
+
+await ctx.watch();
+
+const { host, port } = await ctx.serve({
+  servedir: resolve(root, 'public'),
+  port: 3000,
+});
+
+console.log(`\n  Dev server running at http://localhost:${port}\n`);
+
+// Cleanup on exit
+process.on('SIGINT', () => {
+  twWatch.kill();
+  ctx.dispose();
+  process.exit(0);
+});
