@@ -244,6 +244,7 @@ export interface ManagerEntry {
   reports: string[];
 }
 
+/** @deprecated Use buildManagersFromProfiles() with DB profiles instead. Kept as fallback. */
 export const DEFAULT_MANAGERS: ManagerEntry[] = [
   {
     name: 'Jameen Kaur',

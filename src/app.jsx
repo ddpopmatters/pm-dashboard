@@ -324,8 +324,18 @@ function ContentDashboard() {
     async (user, managerEmail) => {
       if (managerEmail === user.email) return; // block self-assignment
       const value = managerEmail || null;
+      const previousManager = user.managerEmail || null;
       const ok = await SUPABASE_API.updateUserManager(user.email, value);
-      if (ok) refreshManagers();
+      if (ok) {
+        SUPABASE_API.logActivity({
+          actionType: 'manager_changed',
+          targetType: 'user',
+          targetId: user.email,
+          targetTitle: user.name,
+          details: { from: previousManager, to: value },
+        }).catch(() => {});
+        refreshManagers();
+      }
     },
     [refreshManagers],
   );
