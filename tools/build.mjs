@@ -50,7 +50,7 @@ const config = {
 // Build Tailwind CSS
 const tailwindInput = resolve(root, 'src/styles/app.css');
 const tailwindOutput = resolve(root, 'public/css/app.css');
-const tailwindCmd = `npx @tailwindcss/cli -i ${tailwindInput} -o ${tailwindOutput}${isWatch ? '' : ' --minify'}`;
+const tailwindCmd = `npx @tailwindcss/cli -i "${tailwindInput}" -o "${tailwindOutput}"${isWatch ? '' : ' --minify'}`;
 console.log('Building Tailwind CSS...');
 execSync(tailwindCmd, { stdio: 'inherit', cwd: root });
 
