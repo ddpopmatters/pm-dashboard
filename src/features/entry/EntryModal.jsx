@@ -44,6 +44,10 @@ import {
 import { SocialPreview } from '../social';
 import { ApproverMulti } from './ApproverMulti';
 import { canPublish, canPostAgain } from '../publishing';
+import { QuickAssessment, FullAssessment, GoldenThreadCheck } from '../assessment';
+import { TerminologyAlert } from './TerminologyAlert';
+import { PlatformGuidancePanel } from './PlatformGuidancePanel';
+import { checkTerminology } from '../../lib/terminology';
 
 const { useState, useMemo, useEffect, useCallback, useRef } = React;
 
@@ -119,6 +123,10 @@ export function EntryModal({
     setMentionState(null);
   }, [sanitizedEntry]);
 
+  const terminologyMatches = useMemo(
+    () => (draft?.caption ? checkTerminology(draft.caption) : []),
+    [draft?.caption],
+  );
   const draftPlatforms = Array.isArray(draft?.platforms) ? draft.platforms : [];
   const draftPlatformsKey = draftPlatforms.join('|');
   const sanitizedSignature = entrySignature(sanitizedEntry);
@@ -972,6 +980,8 @@ export function EntryModal({
                   </div>
                 </FieldRow>
 
+                {terminologyMatches.length > 0 && <TerminologyAlert matches={terminologyMatches} />}
+
                 <FieldRow label="URL">
                   <Input
                     type="url"
@@ -1180,6 +1190,63 @@ export function EntryModal({
                       </label>
                     ))}
                   </div>
+                </FieldRow>
+
+                {draftPlatforms.length > 0 && (
+                  <FieldRow label="Platform guidance">
+                    <PlatformGuidancePanel
+                      platforms={draftPlatforms}
+                      contentPillar={draft.contentPillar || ''}
+                    />
+                  </FieldRow>
+                )}
+
+                <FieldRow label="Quick assessment">
+                  <QuickAssessment
+                    values={draft.assessmentScores?.quick || {}}
+                    onChange={(quick) =>
+                      update('assessmentScores', {
+                        ...(draft.assessmentScores || {}),
+                        quick,
+                      })
+                    }
+                  />
+                </FieldRow>
+
+                <FieldRow label="Golden Thread">
+                  <GoldenThreadCheck
+                    values={draft.assessmentScores?.goldenThread || {}}
+                    onChange={(gtValues) => {
+                      const allPassed = Object.values(gtValues).every((v) => v === false);
+                      const allAnswered = Object.values(gtValues).every((v) => v !== undefined);
+                      setDraft((prev) => {
+                        if (!prev) return prev;
+                        const next = {
+                          ...prev,
+                          assessmentScores: {
+                            ...(prev.assessmentScores || {}),
+                            goldenThread: gtValues,
+                          },
+                        };
+                        if (allAnswered) {
+                          next.goldenThreadPass = allPassed;
+                        }
+                        return normalizeEntry(next);
+                      });
+                    }}
+                  />
+                </FieldRow>
+
+                <FieldRow label="Full assessment">
+                  <FullAssessment
+                    scores={draft.assessmentScores?.full || {}}
+                    onChange={(full) =>
+                      update('assessmentScores', {
+                        ...(draft.assessmentScores || {}),
+                        full,
+                      })
+                    }
+                  />
                 </FieldRow>
               </>
             )}

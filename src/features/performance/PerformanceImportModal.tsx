@@ -130,8 +130,8 @@ export const PerformanceImportModal: React.FC<PerformanceImportModalProps> = ({
                 <code>engagement_rate</code>) will be stored exactly as they appear.
               </li>
               <li>
-                Use one of the recognised platform names (Instagram, Facebook, LinkedIn, BlueSky,
-                TikTok, YouTube).
+                Use one of the recognised platform names (Instagram, LinkedIn, YouTube, Facebook,
+                BlueSky).
               </li>
             </ul>
           </div>

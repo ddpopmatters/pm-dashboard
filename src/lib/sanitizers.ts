@@ -1,5 +1,5 @@
 /**
- * Sanitization functions for data normalization
+ * Sanitisation functions for data normalisation
  */
 import {
   ASSET_TYPES,
@@ -193,6 +193,33 @@ export const sanitizeEntry = (entry: unknown): Entry | null => {
   if (assetType !== 'Video') base.script = undefined;
   if (assetType !== 'Design') base.designCopy = undefined;
   if (assetType !== 'Carousel') base.carouselSlides = undefined;
+
+  // Strategy alignment fields
+  base.audienceSegments = Array.isArray(raw.audienceSegments)
+    ? (raw.audienceSegments as string[]).filter((s) => typeof s === 'string')
+    : [];
+  base.goldenThreadPass = typeof raw.goldenThreadPass === 'boolean' ? raw.goldenThreadPass : null;
+  if (raw.assessmentScores && typeof raw.assessmentScores === 'object') {
+    const scores = raw.assessmentScores as Record<string, unknown>;
+    // Migrate legacy flat shape: { mission, platform, ... } → { full: { mission, platform, ... } }
+    if (!scores.full && typeof scores.mission === 'number') {
+      scores.full = {
+        mission: scores.mission,
+        platform: scores.platform,
+        engagement: scores.engagement,
+        voice: scores.voice,
+        pillar: scores.pillar,
+      };
+      delete scores.mission;
+      delete scores.platform;
+      delete scores.engagement;
+      delete scores.voice;
+      delete scores.pillar;
+    }
+    base.assessmentScores = scores as Entry['assessmentScores'];
+  } else {
+    base.assessmentScores = null;
+  }
 
   return base;
 };

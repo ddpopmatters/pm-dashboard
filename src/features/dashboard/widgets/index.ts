@@ -4,3 +4,6 @@ export { ApprovalQueueWidget } from './ApprovalQueueWidget';
 export { AssetMixWidget } from './AssetMixWidget';
 export { EngagementProgressWidget } from './EngagementProgressWidget';
 export { QuickActionsWidget } from './QuickActionsWidget';
+export { PillarBalanceWidget } from './PillarBalanceWidget';
+export { PlatformCoverageWidget } from './PlatformCoverageWidget';
+export { AudienceSegmentWidget } from './AudienceSegmentWidget';
