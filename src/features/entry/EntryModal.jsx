@@ -122,6 +122,10 @@ export function EntryModal({
     setMentionState(null);
   }, [sanitizedEntry]);
 
+  const terminologyMatches = useMemo(
+    () => (draft?.caption ? checkTerminology(draft.caption) : []),
+    [draft?.caption],
+  );
   const draftPlatforms = Array.isArray(draft?.platforms) ? draft.platforms : [];
   const draftPlatformsKey = draftPlatforms.join('|');
   const sanitizedSignature = entrySignature(sanitizedEntry);
@@ -975,9 +979,7 @@ export function EntryModal({
                   </div>
                 </FieldRow>
 
-                {draft.caption && checkTerminology(draft.caption).length > 0 && (
-                  <TerminologyAlert matches={checkTerminology(draft.caption)} />
-                )}
+                {terminologyMatches.length > 0 && <TerminologyAlert matches={terminologyMatches} />}
 
                 <FieldRow label="URL">
                   <Input
@@ -1203,20 +1205,24 @@ export function EntryModal({
 
                 <FieldRow label="Golden Thread">
                   <GoldenThreadCheck
-                    values={{
-                      coercion: draft.goldenThreadPass === false ? false : undefined,
-                      ...(draft.assessmentScores?.goldenThread || {}),
-                    }}
+                    values={draft.assessmentScores?.goldenThread || {}}
                     onChange={(gtValues) => {
                       const allPassed = Object.values(gtValues).every((v) => v === false);
                       const allAnswered = Object.values(gtValues).every((v) => v !== undefined);
-                      update('assessmentScores', {
-                        ...(draft.assessmentScores || {}),
-                        goldenThread: gtValues,
+                      setDraft((prev) => {
+                        if (!prev) return prev;
+                        const next = {
+                          ...prev,
+                          assessmentScores: {
+                            ...(prev.assessmentScores || {}),
+                            goldenThread: gtValues,
+                          },
+                        };
+                        if (allAnswered) {
+                          next.goldenThreadPass = allPassed;
+                        }
+                        return normalizeEntry(next);
                       });
-                      if (allAnswered) {
-                        update('goldenThreadPass', allPassed);
-                      }
                     }}
                   />
                 </FieldRow>
