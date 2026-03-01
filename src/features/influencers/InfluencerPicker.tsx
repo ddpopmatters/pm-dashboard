@@ -22,7 +22,7 @@ export const InfluencerPicker: React.FC<InfluencerPickerProps> = ({
   className,
 }) => {
   const filteredInfluencers = showOnlyActive
-    ? influencers.filter((i) => i.status === 'Active')
+    ? influencers.filter((i) => i.status === 'Direct Outreach' || i.status === 'Collaborate')
     : influencers;
 
   return (

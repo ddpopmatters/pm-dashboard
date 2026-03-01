@@ -1,5 +1,5 @@
 /**
- * Sanitization functions for data normalization
+ * Sanitisation functions for data normalisation
  */
 import {
   ASSET_TYPES,
@@ -193,6 +193,16 @@ export const sanitizeEntry = (entry: unknown): Entry | null => {
   if (assetType !== 'Video') base.script = undefined;
   if (assetType !== 'Design') base.designCopy = undefined;
   if (assetType !== 'Carousel') base.carouselSlides = undefined;
+
+  // Strategy alignment fields
+  base.audienceSegments = Array.isArray(raw.audienceSegments)
+    ? (raw.audienceSegments as string[]).filter((s) => typeof s === 'string')
+    : [];
+  base.goldenThreadPass = typeof raw.goldenThreadPass === 'boolean' ? raw.goldenThreadPass : null;
+  base.assessmentScores =
+    raw.assessmentScores && typeof raw.assessmentScores === 'object'
+      ? (raw.assessmentScores as Entry['assessmentScores'])
+      : null;
 
   return base;
 };

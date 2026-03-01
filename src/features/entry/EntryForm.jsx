@@ -4,13 +4,7 @@ import { selectBaseClasses, fileInputClasses } from '../../lib/styles';
 import { getPlatformCaption, isImageMedia, determineWorkflowStatus } from '../../lib/sanitizers';
 import { appendAudit } from '../../lib/audit';
 import { FALLBACK_GUIDELINES } from '../../lib/guidelines';
-import {
-  ALL_PLATFORMS,
-  CAMPAIGNS,
-  CONTENT_PILLARS,
-  DEFAULT_APPROVERS,
-  PLATFORM_TIPS,
-} from '../../constants';
+import { ALL_PLATFORMS, CAMPAIGNS, CONTENT_PILLARS, DEFAULT_APPROVERS } from '../../constants';
 import {
   Card,
   CardHeader,
@@ -26,6 +20,11 @@ import { PlatformIcon, PlusIcon } from '../../components/common';
 import { ApproverMulti } from './ApproverMulti';
 import { CopyCheckSection } from '../copy-check';
 import { InfluencerPicker } from '../influencers';
+import { QuickAssessment } from '../assessment';
+import { AudienceSelector } from './AudienceSelector';
+import { PlatformGuidancePanel } from './PlatformGuidancePanel';
+import { TerminologyAlert } from './TerminologyAlert';
+import { checkTerminology } from '../../lib/terminology';
 
 const { useState, useMemo, useEffect } = React;
 
@@ -67,6 +66,8 @@ export function EntryForm({
   const [campaign, setCampaign] = useState('');
   const [contentPillar, setContentPillar] = useState('');
   const [influencerId, setInfluencerId] = useState('');
+  const [audienceSegments, setAudienceSegments] = useState([]);
+  const [quickAssessment, setQuickAssessment] = useState({});
   const [entryFormErrors, setEntryFormErrors] = useState([]);
 
   useEffect(() => {
@@ -142,6 +143,8 @@ export function EntryForm({
     setCampaign('');
     setContentPillar('');
     setInfluencerId('');
+    setAudienceSegments([]);
+    setQuickAssessment({});
     setEntryFormErrors([]);
     onPreviewAssetType?.(null);
   };
@@ -188,6 +191,9 @@ export function EntryForm({
       campaign: campaign || undefined,
       contentPillar: contentPillar || undefined,
       influencerId: influencerId || undefined,
+      audienceSegments: audienceSegments.length > 0 ? audienceSegments : undefined,
+      assessmentScores:
+        Object.keys(quickAssessment).length > 0 ? { quick: quickAssessment } : undefined,
       workflowStatus: determineWorkflowStatus({ approvers, assetType, previewUrl }),
     });
     reset();
@@ -218,6 +224,7 @@ export function EntryForm({
     submitEntry();
   };
 
+  const terminologyMatches = useMemo(() => (caption ? checkTerminology(caption) : []), [caption]);
   const captionTabs = useMemo(() => ['Main', ...platforms], [platforms]);
   const currentCaptionValue =
     activeCaptionTab === 'Main' ? caption : (platformCaptions[activeCaptionTab] ?? caption);
@@ -339,6 +346,11 @@ export function EntryForm({
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Audience segments</Label>
+                <AudienceSelector value={audienceSegments} onChange={setAudienceSegments} />
               </div>
 
               {influencers.length > 0 && (
@@ -478,6 +490,8 @@ export function EntryForm({
                     }
                   }}
                 />
+                {terminologyMatches.length > 0 && <TerminologyAlert matches={terminologyMatches} />}
+                <QuickAssessment values={quickAssessment} onChange={setQuickAssessment} />
               </div>
 
               <div className="space-y-2">
@@ -620,30 +634,7 @@ export function EntryForm({
               </div>
             </div>
 
-            {platforms.length > 0 && (
-              <aside className="space-y-4 rounded-2xl border border-aqua-200 bg-aqua-50 p-4 text-sm text-graystone-700">
-                <div>
-                  <h3 className="text-base font-semibold text-ocean-700">Platform tips</h3>
-                  <p className="text-xs text-graystone-600">
-                    Use these prompts to tailor captions per channel.
-                  </p>
-                </div>
-                {platforms.map((platform) => {
-                  const tips = PLATFORM_TIPS[platform];
-                  if (!tips) return null;
-                  return (
-                    <div key={platform} className="space-y-1">
-                      <div className="text-sm font-semibold text-ocean-700">{platform}</div>
-                      <ul className="ml-4 list-disc space-y-1 text-xs text-graystone-600">
-                        {tips.map((tip, idx) => (
-                          <li key={idx}>{tip}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </aside>
-            )}
+            <PlatformGuidancePanel platforms={platforms} contentPillar={contentPillar} />
           </div>
 
           <div className="flex flex-wrap items-center gap-3">

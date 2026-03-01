@@ -10,6 +10,7 @@ import React, {
 import { Badge, Button } from '../../components/ui';
 import { cx } from '../../lib/utils';
 import { selectBaseClasses } from '../../lib/styles';
+import { QuickAssessment } from '../assessment';
 import type { Entry } from '../../types/models';
 
 export interface KanbanBoardProps {
@@ -39,13 +40,13 @@ export function KanbanBoard({
 
   // Build cards by column using single-pass reduce (memoized)
   const cardsByColumn = useMemo(() => {
-    // Initialize empty arrays for each status
+    // Initialise empty arrays for each status
     const grouped = new Map<string, Entry[]>();
     statuses.forEach((status) => grouped.set(status, []));
 
     // Single pass through entries
     entries.forEach((entry) => {
-      // Normalize: use entry's status if valid, otherwise default to first column
+      // Normalise: use entry's status if valid, otherwise default to first column
       const status =
         entry.workflowStatus && statuses.includes(entry.workflowStatus)
           ? entry.workflowStatus
@@ -232,7 +233,7 @@ export function KanbanBoard({
                 ) : (
                   cards.map((entry, cardIndex) => {
                     const isFocusedCard = isFocusedColumn && focusedCardIndex === cardIndex;
-                    // Normalize display value for select
+                    // Normalise display value for select
                     const displayStatus =
                       entry.workflowStatus && statuses.includes(entry.workflowStatus)
                         ? entry.workflowStatus
@@ -316,9 +317,19 @@ export function KanbanBoard({
                           >
                             Open
                           </Button>
-                          <span className="text-[11px] uppercase tracking-wide text-graystone-400">
-                            {entry.status}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {entry.assessmentScores?.quick && (
+                              <QuickAssessment
+                                values={entry.assessmentScores.quick}
+                                onChange={() => {}}
+                                readOnly
+                                compact
+                              />
+                            )}
+                            <span className="text-[11px] uppercase tracking-wide text-graystone-400">
+                              {entry.status}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       /* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */

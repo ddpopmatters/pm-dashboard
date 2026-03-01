@@ -10,15 +10,24 @@ const IDEAS_STORAGE_KEY = STORAGE_KEYS.IDEAS;
 const INFLUENCERS_STORAGE_KEY = STORAGE_KEYS.INFLUENCERS;
 
 const VALID_INFLUENCER_STATUSES: InfluencerStatus[] = [
-  'Discovery',
-  'Outreach',
-  'Negotiating',
-  'Active',
-  'Completed',
+  'Follow & Observe',
+  'Engage Publicly',
+  'Build Relationship',
+  'Direct Outreach',
+  'Collaborate',
 ];
 
+// Map legacy statuses to new values during load
+const LEGACY_INFLUENCER_STATUS_MAP: Record<string, InfluencerStatus> = {
+  Discovery: 'Follow & Observe',
+  Outreach: 'Engage Publicly',
+  Negotiating: 'Build Relationship',
+  Active: 'Direct Outreach',
+  Completed: 'Collaborate',
+};
+
 /**
- * Sanitizes a platform profile from storage
+ * Sanitises a platform profile from storage
  */
 const sanitizePlatformProfile = (raw: unknown): PlatformProfile | null => {
   if (!raw || typeof raw !== 'object') return null;
@@ -32,7 +41,7 @@ const sanitizePlatformProfile = (raw: unknown): PlatformProfile | null => {
 };
 
 /**
- * Sanitizes an influencer record from storage
+ * Sanitises an influencer record from storage
  */
 const sanitizeInfluencer = (raw: unknown): Influencer | null => {
   if (!raw || typeof raw !== 'object') return null;
@@ -40,11 +49,12 @@ const sanitizeInfluencer = (raw: unknown): Influencer | null => {
   if (typeof obj.id !== 'string' || !obj.id) return null;
   if (typeof obj.name !== 'string' || !obj.name) return null;
 
-  const status = VALID_INFLUENCER_STATUSES.includes(obj.status as InfluencerStatus)
-    ? (obj.status as InfluencerStatus)
-    : 'Discovery';
+  const rawStatus = typeof obj.status === 'string' ? obj.status : '';
+  const status = VALID_INFLUENCER_STATUSES.includes(rawStatus as InfluencerStatus)
+    ? (rawStatus as InfluencerStatus)
+    : LEGACY_INFLUENCER_STATUS_MAP[rawStatus] || 'Follow & Observe';
 
-  // Sanitize platform profiles array
+  // Sanitise platform profiles array
   let platformProfiles: PlatformProfile[] | undefined;
   if (Array.isArray(obj.platformProfiles)) {
     const sanitized = obj.platformProfiles
@@ -73,7 +83,7 @@ const sanitizeInfluencer = (raw: unknown): Influencer | null => {
 };
 
 /**
- * Loads entries from localStorage, sanitizes them, and cleans up old deleted entries
+ * Loads entries from localStorage, sanitises them, and cleans up old deleted entries
  */
 export const loadEntries = (): Entry[] => {
   if (!storageAvailable) return [];
