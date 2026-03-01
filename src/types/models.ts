@@ -127,6 +127,12 @@ export interface Entry {
       shareWorthy?: boolean;
       pmVoice?: boolean;
     };
+    goldenThread?: {
+      coercion?: boolean;
+      blame?: boolean;
+      instrumentalisation?: boolean;
+      cooption?: boolean;
+    };
   } | null;
   // Influencer attribution
   influencerId?: string;

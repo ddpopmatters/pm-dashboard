@@ -224,6 +224,7 @@ export function EntryForm({
     submitEntry();
   };
 
+  const terminologyMatches = useMemo(() => (caption ? checkTerminology(caption) : []), [caption]);
   const captionTabs = useMemo(() => ['Main', ...platforms], [platforms]);
   const currentCaptionValue =
     activeCaptionTab === 'Main' ? caption : (platformCaptions[activeCaptionTab] ?? caption);
@@ -489,9 +490,7 @@ export function EntryForm({
                     }
                   }}
                 />
-                {caption && checkTerminology(caption).length > 0 && (
-                  <TerminologyAlert matches={checkTerminology(caption)} />
-                )}
+                {terminologyMatches.length > 0 && <TerminologyAlert matches={terminologyMatches} />}
                 <QuickAssessment values={quickAssessment} onChange={setQuickAssessment} />
               </div>
 
