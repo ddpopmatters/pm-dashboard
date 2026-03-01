@@ -1,5 +1,5 @@
 /**
- * Platform normalization and performance CSV header matching.
+ * Platform normalisation and performance CSV header matching.
  * Extracted from app.jsx.
  */
 import { ALL_PLATFORMS } from '../constants';
@@ -27,7 +27,6 @@ export const PLATFORM_ALIAS_MAP: Record<string, Platform> = (() => {
   add('fb', 'Facebook');
   add('instagram', 'Instagram');
   add('ig', 'Instagram');
-  add('tiktok', 'TikTok');
   add('youtube', 'YouTube');
   add('yt', 'YouTube');
   return map;

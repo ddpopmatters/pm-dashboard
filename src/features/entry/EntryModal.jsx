@@ -44,6 +44,9 @@ import {
 import { SocialPreview } from '../social';
 import { ApproverMulti } from './ApproverMulti';
 import { canPublish, canPostAgain } from '../publishing';
+import { QuickAssessment, FullAssessment, GoldenThreadCheck } from '../assessment';
+import { TerminologyAlert } from './TerminologyAlert';
+import { checkTerminology } from '../../lib/terminology';
 
 const { useState, useMemo, useEffect, useCallback, useRef } = React;
 
@@ -972,6 +975,10 @@ export function EntryModal({
                   </div>
                 </FieldRow>
 
+                {draft.caption && checkTerminology(draft.caption).length > 0 && (
+                  <TerminologyAlert matches={checkTerminology(draft.caption)} />
+                )}
+
                 <FieldRow label="URL">
                   <Input
                     type="url"
@@ -1180,6 +1187,56 @@ export function EntryModal({
                       </label>
                     ))}
                   </div>
+                </FieldRow>
+
+                <FieldRow label="Quick assessment">
+                  <QuickAssessment
+                    values={draft.assessmentScores?.quick || {}}
+                    onChange={(quick) =>
+                      update('assessmentScores', {
+                        ...(draft.assessmentScores || {}),
+                        quick,
+                      })
+                    }
+                  />
+                </FieldRow>
+
+                <FieldRow label="Golden Thread">
+                  <GoldenThreadCheck
+                    values={{
+                      coercion: draft.goldenThreadPass === false ? false : undefined,
+                      ...(draft.assessmentScores?.goldenThread || {}),
+                    }}
+                    onChange={(gtValues) => {
+                      const allPassed = Object.values(gtValues).every((v) => v === false);
+                      const allAnswered = Object.values(gtValues).every((v) => v !== undefined);
+                      update('assessmentScores', {
+                        ...(draft.assessmentScores || {}),
+                        goldenThread: gtValues,
+                      });
+                      if (allAnswered) {
+                        update('goldenThreadPass', allPassed);
+                      }
+                    }}
+                  />
+                </FieldRow>
+
+                <FieldRow label="Full assessment">
+                  <FullAssessment
+                    scores={{
+                      mission: draft.assessmentScores?.mission,
+                      platform: draft.assessmentScores?.platform,
+                      engagement: draft.assessmentScores?.engagement,
+                      voice: draft.assessmentScores?.voice,
+                      pillar: draft.assessmentScores?.pillar,
+                    }}
+                    onChange={(scores) =>
+                      update('assessmentScores', {
+                        ...(draft.assessmentScores || {}),
+                        ...scores,
+                      })
+                    }
+                  />
                 </FieldRow>
               </>
             )}

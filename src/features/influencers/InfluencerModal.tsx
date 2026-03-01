@@ -43,7 +43,7 @@ const emptyInfluencer = (): Omit<Influencer, 'id' | 'createdAt' | 'createdBy'> =
   niche: '',
   estimatedRate: undefined,
   notes: '',
-  status: 'Discovery',
+  status: 'Follow & Observe',
 });
 
 export const InfluencerModal: React.FC<InfluencerModalProps> = ({
