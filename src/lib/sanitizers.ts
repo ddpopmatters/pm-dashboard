@@ -199,10 +199,27 @@ export const sanitizeEntry = (entry: unknown): Entry | null => {
     ? (raw.audienceSegments as string[]).filter((s) => typeof s === 'string')
     : [];
   base.goldenThreadPass = typeof raw.goldenThreadPass === 'boolean' ? raw.goldenThreadPass : null;
-  base.assessmentScores =
-    raw.assessmentScores && typeof raw.assessmentScores === 'object'
-      ? (raw.assessmentScores as Entry['assessmentScores'])
-      : null;
+  if (raw.assessmentScores && typeof raw.assessmentScores === 'object') {
+    const scores = raw.assessmentScores as Record<string, unknown>;
+    // Migrate legacy flat shape: { mission, platform, ... } → { full: { mission, platform, ... } }
+    if (!scores.full && typeof scores.mission === 'number') {
+      scores.full = {
+        mission: scores.mission,
+        platform: scores.platform,
+        engagement: scores.engagement,
+        voice: scores.voice,
+        pillar: scores.pillar,
+      };
+      delete scores.mission;
+      delete scores.platform;
+      delete scores.engagement;
+      delete scores.voice;
+      delete scores.pillar;
+    }
+    base.assessmentScores = scores as Entry['assessmentScores'];
+  } else {
+    base.assessmentScores = null;
+  }
 
   return base;
 };

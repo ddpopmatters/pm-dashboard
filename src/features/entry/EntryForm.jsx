@@ -20,7 +20,7 @@ import { PlatformIcon, PlusIcon } from '../../components/common';
 import { ApproverMulti } from './ApproverMulti';
 import { CopyCheckSection } from '../copy-check';
 import { InfluencerPicker } from '../influencers';
-import { QuickAssessment } from '../assessment';
+import { QuickAssessment, GoldenThreadCheck } from '../assessment';
 import { AudienceSelector } from './AudienceSelector';
 import { PlatformGuidancePanel } from './PlatformGuidancePanel';
 import { TerminologyAlert } from './TerminologyAlert';
@@ -68,6 +68,7 @@ export function EntryForm({
   const [influencerId, setInfluencerId] = useState('');
   const [audienceSegments, setAudienceSegments] = useState([]);
   const [quickAssessment, setQuickAssessment] = useState({});
+  const [goldenThread, setGoldenThread] = useState({});
   const [entryFormErrors, setEntryFormErrors] = useState([]);
 
   useEffect(() => {
@@ -145,6 +146,7 @@ export function EntryForm({
     setInfluencerId('');
     setAudienceSegments([]);
     setQuickAssessment({});
+    setGoldenThread({});
     setEntryFormErrors([]);
     onPreviewAssetType?.(null);
   };
@@ -162,6 +164,8 @@ export function EntryForm({
       !carouselSlides.some((slide) => typeof slide === 'string' && slide.trim())
     )
       errors.push('At least one carousel slide needs copy.');
+    if (Object.values(goldenThread).some((v) => v === true))
+      errors.push('Golden Thread check has failures — revise flagged items before submitting.');
     return errors;
   };
 
@@ -193,7 +197,13 @@ export function EntryForm({
       influencerId: influencerId || undefined,
       audienceSegments: audienceSegments.length > 0 ? audienceSegments : undefined,
       assessmentScores:
-        Object.keys(quickAssessment).length > 0 ? { quick: quickAssessment } : undefined,
+        Object.keys(quickAssessment).length > 0 || Object.keys(goldenThread).length > 0
+          ? { quick: quickAssessment, goldenThread }
+          : undefined,
+      goldenThreadPass:
+        Object.keys(goldenThread).length === 4
+          ? Object.values(goldenThread).every((v) => v === false)
+          : undefined,
       workflowStatus: determineWorkflowStatus({ approvers, assetType, previewUrl }),
     });
     reset();
@@ -492,6 +502,7 @@ export function EntryForm({
                 />
                 {terminologyMatches.length > 0 && <TerminologyAlert matches={terminologyMatches} />}
                 <QuickAssessment values={quickAssessment} onChange={setQuickAssessment} />
+                <GoldenThreadCheck values={goldenThread} onChange={setGoldenThread} />
               </div>
 
               <div className="space-y-2">

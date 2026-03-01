@@ -295,6 +295,16 @@ export function KanbanBoard({
                                 Test: {entry.testingFrameworkName}
                               </span>
                             ) : null}
+                            {(!entry.contentPillar ||
+                              !entry.audienceSegments?.length ||
+                              !entry.assessmentScores?.quick) && (
+                              <span
+                                className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700"
+                                title="Missing strategy fields"
+                              >
+                                Strategy incomplete
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-xs text-graystone-500">
@@ -318,6 +328,22 @@ export function KanbanBoard({
                             Open
                           </Button>
                           <div className="flex items-center gap-2">
+                            {entry.goldenThreadPass !== undefined &&
+                              entry.goldenThreadPass !== null && (
+                                <span
+                                  className={cx(
+                                    'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white',
+                                    entry.goldenThreadPass ? 'bg-emerald-500' : 'bg-red-500',
+                                  )}
+                                  title={
+                                    entry.goldenThreadPass
+                                      ? 'Golden Thread passed'
+                                      : 'Golden Thread failed'
+                                  }
+                                >
+                                  {entry.goldenThreadPass ? '\u2713' : '\u2717'}
+                                </span>
+                              )}
                             {entry.assessmentScores?.quick && (
                               <QuickAssessment
                                 values={entry.assessmentScores.quick}

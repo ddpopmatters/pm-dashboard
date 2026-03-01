@@ -46,6 +46,7 @@ import { ApproverMulti } from './ApproverMulti';
 import { canPublish, canPostAgain } from '../publishing';
 import { QuickAssessment, FullAssessment, GoldenThreadCheck } from '../assessment';
 import { TerminologyAlert } from './TerminologyAlert';
+import { PlatformGuidancePanel } from './PlatformGuidancePanel';
 import { checkTerminology } from '../../lib/terminology';
 
 const { useState, useMemo, useEffect, useCallback, useRef } = React;
@@ -1191,6 +1192,15 @@ export function EntryModal({
                   </div>
                 </FieldRow>
 
+                {draftPlatforms.length > 0 && (
+                  <FieldRow label="Platform guidance">
+                    <PlatformGuidancePanel
+                      platforms={draftPlatforms}
+                      contentPillar={draft.contentPillar || ''}
+                    />
+                  </FieldRow>
+                )}
+
                 <FieldRow label="Quick assessment">
                   <QuickAssessment
                     values={draft.assessmentScores?.quick || {}}
@@ -1229,17 +1239,11 @@ export function EntryModal({
 
                 <FieldRow label="Full assessment">
                   <FullAssessment
-                    scores={{
-                      mission: draft.assessmentScores?.mission,
-                      platform: draft.assessmentScores?.platform,
-                      engagement: draft.assessmentScores?.engagement,
-                      voice: draft.assessmentScores?.voice,
-                      pillar: draft.assessmentScores?.pillar,
-                    }}
-                    onChange={(scores) =>
+                    scores={draft.assessmentScores?.full || {}}
+                    onChange={(full) =>
                       update('assessmentScores', {
                         ...(draft.assessmentScores || {}),
-                        ...scores,
+                        full,
                       })
                     }
                   />

@@ -115,11 +115,13 @@ export interface Entry {
   audienceSegments?: string[];
   goldenThreadPass?: boolean | null;
   assessmentScores?: {
-    mission?: number;
-    platform?: number;
-    engagement?: number;
-    voice?: number;
-    pillar?: number;
+    full?: {
+      mission?: number;
+      platform?: number;
+      engagement?: number;
+      voice?: number;
+      pillar?: number;
+    };
     quick?: {
       goldenThread?: boolean;
       hook?: boolean;
