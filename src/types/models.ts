@@ -35,7 +35,7 @@ export interface User {
 }
 
 /**
- * Entry status - uses capitalized values as per app convention
+ * Entry status - uses capitalised values as per app convention
  */
 export type EntryStatus = 'Pending' | 'Approved' | 'Draft' | 'Published';
 
@@ -111,6 +111,23 @@ export interface Entry {
   variantOfId?: string;
   variantIds?: string[];
   relatedEntryIds?: string[];
+  // Strategy alignment fields
+  audienceSegments?: string[];
+  goldenThreadPass?: boolean | null;
+  assessmentScores?: {
+    mission?: number;
+    platform?: number;
+    engagement?: number;
+    voice?: number;
+    pillar?: number;
+    quick?: {
+      goldenThread?: boolean;
+      hook?: boolean;
+      platformFit?: boolean;
+      shareWorthy?: boolean;
+      pmVoice?: boolean;
+    };
+  } | null;
   // Influencer attribution
   influencerId?: string;
   // UI-specific fields (not in database)
@@ -271,7 +288,12 @@ export interface EngagementGoals {
 /**
  * Influencer pipeline status
  */
-export type InfluencerStatus = 'Discovery' | 'Outreach' | 'Negotiating' | 'Active' | 'Completed';
+export type InfluencerStatus =
+  | 'Follow & Observe'
+  | 'Engage Publicly'
+  | 'Build Relationship'
+  | 'Direct Outreach'
+  | 'Collaborate';
 
 /**
  * Platform profile - a single platform presence for an influencer

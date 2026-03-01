@@ -5,6 +5,8 @@ import { ApprovalQueueWidget } from './widgets/ApprovalQueueWidget';
 import { AssetMixWidget } from './widgets/AssetMixWidget';
 import { EngagementProgressWidget } from './widgets/EngagementProgressWidget';
 import { QuickActionsWidget } from './widgets/QuickActionsWidget';
+import { PillarBalanceWidget } from './widgets/PillarBalanceWidget';
+import { PlatformCoverageWidget } from './widgets/PlatformCoverageWidget';
 import { UpcomingDeadlines } from '../calendar/UpcomingDeadlines';
 import type { Entry, EngagementActivity, EngagementGoals } from '../../types/models';
 
@@ -73,6 +75,8 @@ export function DashboardView({
 
         {/* Right Column */}
         <div className="space-y-6 lg:col-span-2 xl:col-span-1">
+          <PillarBalanceWidget entries={entries} />
+          <PlatformCoverageWidget entries={entries} />
           <AssetMixWidget entries={entries} assetGoals={assetGoals} />
           <EngagementProgressWidget
             activities={engagementActivities}

@@ -321,8 +321,6 @@ export const SocialPreview: React.FC<SocialPreviewProps> = ({
       });
     case 'Facebook':
       return renderFacebook();
-    case 'TikTok':
-      return renderTikTok();
     case 'YouTube':
       return renderYouTube();
     default:
