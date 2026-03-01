@@ -28,7 +28,7 @@ UPDATE entries SET content_pillar = 'Social Justice' WHERE content_pillar = 'Com
 
 -- Log entries losing their pillar before clearing (Conversion has no direct mapping)
 INSERT INTO activity_log (action_type, target_type, target_id, target_title, actor_email, details)
-SELECT 'pillar_migration', 'entry', id, title, 'system@migration',
+SELECT 'pillar_migration', 'entry', id, caption, 'system@migration',
   jsonb_build_object('old_pillar', 'Conversion', 'new_pillar', null, 'migration', '007_strategy_alignment')
 FROM entries WHERE content_pillar = 'Conversion';
 
